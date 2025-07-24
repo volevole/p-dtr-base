@@ -1,0 +1,26 @@
+ClientID  1f7e9d8a022e4e4dab5369f78781116e  Идентификатор приложения. Используйте его в запросах для получения OAuth-токена......
+
+Client secret 55ef073ad73f4591b3861daafa7fd564  Секретный ключ, которым будет подписан jwt-токен с информацией о пользователе....
+
+Redirect URI для веб-сервисов   http://localhost:3000/oauth  На этот адрес направим пользователя после авторизации
+
+Получен временный токен на 1 год
+http://localhost:3000/oauth#access_token=y0__xDV_qryBBi2jDkgrsmE8RPf2AuLXTwO6QIJZ7S7z422bVvX7g&token_type=bearer&expires_in=31536000&cid=thereramblerru
+Сам токен y0__xDV_qryBBi2jDkgrsmE8RPf2AuLXTwO6QIJZ7S7z422bVvX7gYaDisk
+
+Приложение YDU
+ClientID  9b0202fb54b14b2ebbb7a0936976934d
+Токен
+y0__xDV_qryBBjcjDkgl7yT8ROBacTmXLKD_xLM8QfwyC9ySjNvSQ
+Client secret
+74d9866e66c54b208c7c7491b4c8a6be
+===================
+
+Приложение YDU2
+ClientID  317bcf1d97874e1e9da59e4c608cb50f
+Client secret  f8b2415062474535b133a5d4e1024e70
+Токен отладочный
+y0__xDV_qryBBjNjzkg2umy8hORy4qzuSju2RGIdg7DZFg4iigoNQ
+
+
+
