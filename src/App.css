@@ -189,3 +189,21 @@
   flex-grow: 1;
   max-width: 200px;
 }
+
+.media-list {
+  margin-top: 20px;
+}
+
+.media-item {
+  position: relative;
+  transition: transform 0.2s;
+}
+
+.media-item:hover {
+  transform: scale(1.05);
+}
+
+.media-item img, .media-item video {
+  border: 1px solid #ddd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

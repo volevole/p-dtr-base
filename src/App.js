@@ -392,21 +392,6 @@ async function fetchMuscles() {
 
   return (   
 <>
-  Тут Кнопка для ручного теста, а ответ можно посмотреть по F12 на вкладке Console 
-<button onClick={async () => {
-  const { data, error } = await supabase
-    .from('muscles')
-    .select(`
-      *,
-      muscle_functions (note, functions(name))
-    `)
-    .eq('id', '45ec7aff-d097-4ab9-93f2-862968883e3a');
-  
-  console.log('Результат:', data);
-  if (error) console.error('Ошибка:', error);
-}}>
-  Тест Supabase
-</button>
     {/* Остальной ваш код (роуты и т.д.) */}
     <Routes>
       <Route

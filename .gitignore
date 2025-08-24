@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.js
 
@@ -12,7 +12,9 @@
 /build
 
 # misc
-.DS_Store
+.DS_Store    
+.env.development
+.env.pdoduction
 .env.local
 .env.development.local
 .env.test.local
@@ -24,4 +26,5 @@ yarn-error.log*
 # .gitignore
 .env
 Public/          # Если это артефакты сборки
+/node_modules
 *.log           # Логи
