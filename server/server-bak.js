@@ -2,6 +2,8 @@
 // 1. Импорты
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
+
+
 const express = require('express');
 const multer = require('multer');
 const fetch = require('node-fetch').default;
@@ -10,10 +12,25 @@ const cors = require('cors');
 // 2. Инициализация
 const app = express();
 const supabaseUrl = 'https://btqttycwerqqbvfzmqlo.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0cXR0eWN3ZXJxcWJ2ZnptcWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODEwMjgsImV4cCI6MjA2ODE1NzAyOH0.Y5btj0hHvC2fUK2oxjWyQHfAno75KlNAvRytTWVgfX8';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0cXR0eWN3ZXJxcWJ2ZnptcWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODEwMjgsImV4cCI6MjA2ODE1NzAyOH0.Y5btj0hHvC2fUK2oxjWyQHfAno75KlNAvRytTWVgfX8' ; // Полный ключ
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// 3. Middleware
+// Принудительная очистка кэша модулей
+ee = 0;
+Object.keys(require.cache).forEach(function(key) {
+  delete require.cache[key];
+  ee = ee+1;
+});
+
+// Проверка версий
+console.log('Express version:', require('express/package.json').version);
+console.log('Node version:', process.version);
+console.log('File modified:', require('fs').statSync(__filename).mtime);
+console.log('Current time:', new Date());
+console.log('Keys deleted from cache:', ee);
+
+
+// 2 было 4. Middleware
 app.use(express.json());
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
@@ -24,11 +41,105 @@ app.use(cors({
 app.options('/api/proxy-image', cors());
 app.use(express.urlencoded({ extended: true }));
 
-// 4. Multer middleware
+
+
+// 3. Multer middleware - ОБЯЗАТЕЛЬНО перед эндпоинтами!
 const upload = multer({ storage: multer.memoryStorage() });
-
-
  
+ 
+// 6. СТАРЫЙ эндпоинт для мышц (должен быть ПЕРВЫМ)
+// Упрощенная загрузка файла
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) throw new Error('File not received');
+    if (!req.body.muscleId) throw new Error('muscleId is required');
+
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `${req.body.muscleId}_${Date.now()}.${fileExt}`;
+    const remotePath = `app:/muscle-app/${fileName}`;
+
+    // 1. Создаем папку (если не существует)
+    const folderRes = await fetch(
+      `https://cloud-api.yandex.net/v1/disk/resources?path=app:/muscle-app`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+      }
+    );
+    
+    if (!folderRes.ok && folderRes.status !== 409) {
+      const error = await folderRes.json();
+      throw new Error(`Folder creation error: ${error.message || error.description}`);
+    }
+
+    // 2. Получаем URL для загрузки
+    const uploadUrlRes = await fetch(
+      `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(remotePath)}`,
+      {
+        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+      }
+    );
+    
+    if (!uploadUrlRes.ok) {
+      const error = await uploadUrlRes.json();
+      throw new Error(`Error getting URL: ${error.message || error.description}`);
+    }
+
+    // 3. Загружаем файл
+    const { href: uploadUrl } = await uploadUrlRes.json();
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: req.file.buffer,
+      headers: { 'Content-Type': req.file.mimetype },
+    });
+    
+    if (!uploadRes.ok) throw new Error('File upload error');
+
+    // 4. Публикуем файл
+    const publishRes = await fetch(
+      `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(remotePath)}`,
+      {
+        method: 'PUT',
+        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+      }
+    );
+
+    if (!publishRes.ok) {
+      const error = await publishRes.json();
+      throw new Error(`Publishing error: ${error.message || error.description}`);
+    }
+
+    // 5. Получаем метаданные с public_url
+    const metaRes = await fetch(
+      `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(remotePath)}`,
+      {
+        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+      }
+    );
+
+    if (!metaRes.ok) {
+      const error = await metaRes.json();
+      throw new Error(`Metadata retrieval error: ${error.message || error.description}`);
+    }
+
+    const metaData = await metaRes.json();
+    const publicPageUrl = metaData.public_url;
+
+    res.json({
+      success: true,
+      publicUrl: publicPageUrl,
+      fileName: fileName
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
 // Кэш для прямых ссылок (храним public_url -> { direct_url, expires }
 const linkCache = new Map();
 
@@ -57,7 +168,7 @@ app.post('/api/media/upload', upload.fields([
     console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
 
     // Поддерживаемые типы сущностей
-    const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group' , 'receptor_class', 'tool', 'entry' ];
+    const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group'];
     if (!supportedEntities.includes(entityType)) {
       throw new Error(`Unsupported entity type: ${entityType}`);
     }
@@ -287,91 +398,228 @@ app.post('/api/media/upload', upload.fields([
       console.log(`[UNIVERSAL UPLOAD] Using image itself as thumbnail`);
       thumbnailUrl = publicPageUrl;
     }
-
-    // 9. Сохраняем в БД (новая система)
-    console.log(`[UNIVERSAL UPLOAD] Saving for ${entityType} in new system`);
-
-    // Сохраняем в media_files
-    const { data: newFile, error: newError } = await supabase
-      .from('media_files')
-      .insert({
-        file_url: publicPageUrl,
-        file_name: fileName,
-        file_type: fileType,
-        mime_type: file.mimetype,
-        file_size: file.size,
-        width: width,
-        height: height,
-        duration_seconds: durationSeconds,
-        thumbnail_url: thumbnailUrl,
-        public_url: publicPageUrl,
-        description: description,
-        display_order: 0
-      })
-      .select()
-      .single();
-
-    if (newError) throw newError;
-
-    // Создаем связь между файлом и сущностью
-    await supabase
-      .from('entity_media')
-      .insert({
-        media_file_id: newFile.id,
-        entity_type: entityType,
-        entity_id: entityId,
-        relation_type: 'primary',
-        display_order: 0
-      });
-
-    const savedMedia = {
-      id: newFile.id,
-      entity_id: entityId,
-      entity_type: entityType,
-      file_url: newFile.file_url,
-      file_name: newFile.file_name,
-      file_type: newFile.file_type,
-      thumbnail_url: newFile.thumbnail_url,
-      public_url: newFile.public_url,
-      description: newFile.description,
-      display_order: 0,
-      duration_seconds: newFile.duration_seconds,
-      width: newFile.width,
-      height: newFile.height
-    };
-
-    // Гарантируем, что savedMedia содержит created_at в правильном формате
-    if (savedMedia) {
-      if (!savedMedia.created_at) {
-        savedMedia.created_at = new Date().toISOString();
-      }
-      
-      if (savedMedia.created_at && typeof savedMedia.created_at === 'string') {
-        try {
-          const date = new Date(savedMedia.created_at);
-          if (!isNaN(date.getTime())) {
-            savedMedia.created_at = date.toISOString();
-          } else {
-            savedMedia.created_at = new Date().toISOString();
-          }
-        } catch (error) {
-          savedMedia.created_at = new Date().toISOString();
-        }
-      }
+    // 9. Для видео без превью и без клиентского thumbnail можно установить иконку
+    else if (fileType === 'video' && !thumbnailUrl) {
+      console.log(`[UNIVERSAL UPLOAD] No thumbnail available for video`);
+      // Можно установить иконку видео по умолчанию
+      // thumbnailUrl = 'https://img.icons8.com/color/96/000000/video.png';
     }
 
-    // Возвращаем успешный результат
-    res.json({
-      success: true,
-      publicUrl: publicPageUrl,
-      fileName: fileName,
-      thumbnailUrl: thumbnailUrl,
-      durationSeconds: durationSeconds,
-      width: width,
-      height: height,
-      media: savedMedia,
-      createdAt: savedMedia?.created_at || new Date().toISOString()
-    });
+
+	// 9а. АВТОМАТИЧЕСКОЕ СОЗДАНИЕ ПРЕВЬЮ ДЛЯ PDF И ВИДЕО БЕЗ ПРЕВЬЮ
+	// Если это PDF или видео, а превью нет - запускаем асинхронное создание
+	if ((fileType === 'document' || fileType === 'video') && !thumbnailUrl) {
+	  console.log(`[UNIVERSAL UPLOAD] No thumbnail for ${fileType}. Starting async preview generation...`);
+	  
+	  // Запускаем в фоне (не блокируем ответ)
+	  setTimeout(async () => {
+		try {
+		  // Получаем ID только что сохраненного медиафайла
+		  let mediaFileId = savedMedia?.id;
+		  
+		  // Если не получили ID из savedMedia, ищем в БД
+		  if (!mediaFileId) {
+			const { data: dbFile } = await supabase
+			  .from('media_files')
+			  .select('id')
+			  .eq('file_name', fileName)
+			  .order('created_at', { ascending: false })
+			  .limit(1)
+			  .single();
+			
+			if (dbFile) {
+			  mediaFileId = dbFile.id;
+			}
+		  }
+		  
+		  if (mediaFileId) {
+			console.log(`[UNIVERSAL UPLOAD] Async preview generation for media ${mediaFileId}`);
+			
+			// Вызываем эндпоинт обновления превью
+			const previewResponse = await fetch(`http://localhost:${PORT}/api/media/${mediaFileId}/update-yandex-preview`, {
+			  method: 'POST',
+			  headers: {
+				'Content-Type': 'application/json'
+			  },
+			  body: JSON.stringify({
+				entityType: entityType,
+				entityId: entityId
+			  })
+			});
+			
+			if (previewResponse.ok) {
+			  const previewResult = await previewResponse.json();
+			  if (previewResult.success && previewResult.changes?.includes('thumbnail')) {
+				console.log(`[UNIVERSAL UPLOAD] Successfully generated preview for ${fileName}`);
+			  }
+			}
+		  }
+		} catch (previewError) {
+		  console.error(`[UNIVERSAL UPLOAD] Async preview generation error:`, previewError.message);
+		}
+	  }, 2000); // Задержка 2 секунды перед попыткой создания превью
+	}
+
+
+    // 10. Сохраняем в БД в зависимости от типа сущности
+    let savedMedia;
+
+    // Если это МЫШЦА - сохраняем в обе системы для обратной совместимости
+    if (entityType === 'muscle') {
+      console.log(`[UNIVERSAL UPLOAD] Saving for muscle in both systems`);
+
+      // 10A. В СТАРУЮ СИСТЕМУ (для обратной совместимости)
+      const { data: oldMedia, error: oldError } = await supabase
+        .from('muscle_media')
+        .insert({
+          muscle_id: entityId,
+          file_url: publicPageUrl,
+          public_url: publicPageUrl,
+          file_name: fileName,
+          file_type: fileType,
+          description: description,
+          display_order: 0
+        })
+        .select()
+        .single();
+
+      if (oldError) {
+        console.error(`[UNIVERSAL UPLOAD] Error saving to old system:`, oldError);
+        throw oldError;
+      }
+
+      // 10B. В НОВУЮ СИСТЕМУ (для будущего)
+      const { data: newFile, error: newError } = await supabase
+        .from('media_files')
+        .insert({
+          file_url: publicPageUrl,
+          file_name: fileName,
+          file_type: fileType,
+          mime_type: file.mimetype,
+          file_size: file.size,
+          width: width,
+          height: height,
+          duration_seconds: durationSeconds,
+          thumbnail_url: thumbnailUrl,
+          public_url: publicPageUrl,
+          description: description,
+          display_order: 0
+        })
+        .select()
+        .single();
+
+      if (newError) {
+        console.error(`[UNIVERSAL UPLOAD] Error saving to new system:`, newError);
+        // Не прерываем, если старая система работает
+      }
+
+      // 10C. Создаем связь в новой системе
+      if (newFile) {
+        await supabase
+          .from('entity_media')
+          .insert({
+            media_file_id: newFile.id,
+            entity_type: entityType,
+            entity_id: entityId,
+            relation_type: 'primary',
+            display_order: 0
+          });
+      }
+
+      savedMedia = oldMedia; // Возвращаем старый формат для фронтенда
+
+    } else {
+      // Для НОВЫХ СУЩНОСТЕЙ - только новая система
+      console.log(`[UNIVERSAL UPLOAD] Saving for ${entityType} in new system`);
+
+      // Сохраняем в media_files
+      const { data: newFile, error: newError } = await supabase
+        .from('media_files')
+        .insert({
+          file_url: publicPageUrl,
+          file_name: fileName,
+          file_type: fileType,
+          mime_type: file.mimetype,
+          file_size: file.size,
+          width: width,
+          height: height,
+          duration_seconds: durationSeconds,
+          thumbnail_url: thumbnailUrl,
+          public_url: publicPageUrl,
+          description: description,
+          display_order: 0
+        })
+        .select()
+        .single();
+
+      if (newError) throw newError;
+
+      // Создаем связь между файлом и сущностью
+      await supabase
+        .from('entity_media')
+        .insert({
+          media_file_id: newFile.id,
+          entity_type: entityType,
+          entity_id: entityId,
+          relation_type: 'primary',
+          display_order: 0
+        });
+
+      savedMedia = {
+        id: newFile.id,
+        entity_id: entityId,
+        entity_type: entityType,
+        file_url: newFile.file_url,
+        file_name: newFile.file_name,
+        file_type: newFile.file_type,
+        thumbnail_url: newFile.thumbnail_url,
+        public_url: newFile.public_url,
+        description: newFile.description,
+        display_order: 0,
+        duration_seconds: newFile.duration_seconds,
+        width: newFile.width,
+        height: newFile.height
+      };
+    }
+
+
+	// Гарантируем, что savedMedia содержит created_at в правильном формате
+	if (savedMedia) {
+	  // Если savedMedia не имеет created_at, добавляем текущее время
+	  if (!savedMedia.created_at) {
+		savedMedia.created_at = new Date().toISOString();
+	  }
+	  
+	  // Если savedMedia имеет created_at но в неправильном формате, исправляем
+	  if (savedMedia.created_at && typeof savedMedia.created_at === 'string') {
+		// Приводим к ISO формату
+		try {
+		  const date = new Date(savedMedia.created_at);
+		  if (!isNaN(date.getTime())) {
+			savedMedia.created_at = date.toISOString();
+		  } else {
+			// Если не парсится, используем текущее время
+			savedMedia.created_at = new Date().toISOString();
+		  }
+		} catch (error) {
+		  savedMedia.created_at = new Date().toISOString();
+		}
+	  }
+	}
+
+	// Возвращаем успешный результат с ГАРАНТИРОВАННЫМ created_at
+	res.json({
+	  success: true,
+	  publicUrl: publicPageUrl,
+	  fileName: fileName,
+	  thumbnailUrl: thumbnailUrl,
+	  durationSeconds: durationSeconds,
+	  width: width,
+	  height: height,
+	  media: savedMedia,  // ? Теперь с правильным created_at
+	  // Дублируем created_at на верхнем уровне для надежности
+	  createdAt: savedMedia?.created_at || new Date().toISOString()
+	});
 
   } catch (error) {
     console.error('[UNIVERSAL UPLOAD] Error:', error);
@@ -387,42 +635,56 @@ app.post('/api/media/upload', upload.fields([
 app.get('/api/media/:entityType/:entityId', async (req, res) => {
   try {
     const { entityType, entityId } = req.params;
-    const { relation_type = 'primary' } = req.query;    
+    const { relation_type = 'primary' } = req.query;
 
-    // Используем правильный запрос с порядком по display_order из entity_media
+    console.log(`[UNIVERSAL GET] Получение медиа для ${entityType} ${entityId}`);
+
+    // Если это мышца - используем старую таблицу для обратной совместимости
+    if (entityType === 'muscle') {
+      const { data, error } = await supabase
+        .from('muscle_media')
+        .select('*')
+        .eq('muscle_id', entityId)
+        .order('display_order');
+
+      if (error) throw error;
+
+      return res.json({
+        success: true,
+        data: data || []
+      });
+    }
+
+    // Для новых сущностей - используем новую систему
     const { data, error } = await supabase
-      .from('entity_media')
+      .from('media_files')
       .select(`
-        display_order,
-        relation_type,
-        created_at,
-        media_files(*)
+        *,
+        entity_media!inner (
+          display_order,
+          relation_type,
+          created_at
+        )
       `)
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .eq('relation_type', relation_type)
-      .order('display_order'); // ? Теперь это работает!
+      .eq('entity_media.entity_type', entityType)
+      .eq('entity_media.entity_id', entityId)
+      .eq('entity_media.relation_type', relation_type)
+      .order('entity_media.display_order');
 
     if (error) throw error;
 
-    // Форматируем ответ
+    // Форматируем ответ в совместимом формате
     const formattedData = data.map(item => ({
-      id: item.media_files.id,
+      id: item.id,
       entity_id: entityId,
       entity_type: entityType,
-      file_url: item.media_files.file_url,
-      file_name: item.media_files.file_name,
-      file_type: item.media_files.file_type,
-      public_url: item.media_files.public_url,
-      description: item.media_files.description,
-      display_order: item.display_order || 0,
-      created_at: item.created_at || item.media_files.created_at,
-      thumbnail_url: item.media_files.thumbnail_url,
-      duration_seconds: item.media_files.duration_seconds,
-      width: item.media_files.width,
-      height: item.media_files.height,
-      file_size: item.media_files.file_size,
-      mime_type: item.media_files.mime_type
+      file_url: item.file_url,
+      file_name: item.file_name,
+      file_type: item.file_type,
+      public_url: item.public_url,
+      description: item.description,
+      display_order: item.entity_media[0]?.display_order || 0,
+      created_at: item.entity_media[0]?.created_at || item.created_at
     }));
 
     res.json({
@@ -447,6 +709,16 @@ app.delete('/api/media/:mediaId', async (req, res) => {
 
     console.log(`[UNIVERSAL DELETE] Удаление медиа ${mediaId} для ${entityType} ${entityId}`);
 
+    // Если это мышца - удаляем из старой системы
+    if (entityType === 'muscle') {
+      const { error } = await supabase
+        .from('muscle_media')
+        .delete()
+        .eq('id', mediaId)
+        .eq('muscle_id', entityId);
+
+      if (error) throw error;
+    }
 
     // Всегда удаляем связь из новой системы
     const { error: linkError } = await supabase
@@ -499,7 +771,26 @@ app.post('/api/media/reorder', async (req, res) => {
       throw new Error('orderedIds должен быть массивом');
     }
 
-    
+    // Если это мышца - обновляем в старой системе
+    if (entityType === 'muscle') {
+      for (let i = 0; i < orderedIds.length; i++) {
+        const mediaId = orderedIds[i];
+        
+        const { error } = await supabase
+          .from('muscle_media')
+          .update({ 
+            display_order: i,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', mediaId)
+          .eq('muscle_id', entityId);
+        
+        if (error) {
+          console.error(`Ошибка обновления порядка для ${mediaId}:`, error);
+          throw error;
+        }
+      }
+    }
 
     // Обновляем в новой системе
     for (let i = 0; i < orderedIds.length; i++) {
@@ -545,7 +836,7 @@ app.get('/api/media/supported-entities', async (req, res) => {
           type: 'muscle',
           name: 'Мышцы',
           description: 'Мышцы человеческого тела',
-          hasLegacySupport: false
+          hasLegacySupport: true
         },
         {
           type: 'organ',
@@ -570,12 +861,6 @@ app.get('/api/media/supported-entities', async (req, res) => {
           name: 'Группы мышц',
           description: 'Группы связанных мышц',
           hasLegacySupport: false
-        },
-		{
-          type: 'receptor_class',
-          name: 'Классы рецепторов',
-          description: 'Классы рецепторов - механо, ноци и т.д.',
-          hasLegacySupport: false
         }
       ]
     });
@@ -586,6 +871,7 @@ app.get('/api/media/supported-entities', async (req, res) => {
     });
   }
 });
+
 
 app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
   try {
@@ -875,7 +1161,7 @@ async function getDirectLink(url) {
     //console.log('[DEBUG] Full API response:', JSON.stringify(data));
 
     if (data.href) {
-      //console.log('[DEBUG] Success! Obtained fresh direct link.');
+      console.log('[DEBUG] Success! Obtained fresh direct link.');
       return data.href;
     } else {
       console.error('[DEBUG] Error: "href" field is missing in API response.');
@@ -986,7 +1272,7 @@ app.get('/api/proxy-image', async (req, res) => {
 
     // Получаем актуальную прямую ссылку
     const directUrl = await getDirectLink(url);
-    //console.log('Using direct URL:', directUrl);
+    console.log('Using direct URL:', directUrl);
 
     const response = await fetch(directUrl, {
       headers: {
@@ -1115,6 +1401,62 @@ app.get('/api/debug-link', async (req, res) => {
   }
 });
 
+
+// Эндпоинт для массового обновления ссылок, кажется можно удалить
+app.post('/api/refresh-links-XXX', async (req, res) => {
+  try {
+    const { urls } = req.body;
+    if (!urls || !Array.isArray(urls)) {
+      return res.status(400).json({ error: 'URLs array required' });
+    }
+
+    const results = [];
+    
+    for (const url of urls) {
+      try {
+        const directUrl = await getDirectLink(url);
+        
+        // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Сохраняем новую ссылку в базу данных
+        const { error: updateError } = await supabase
+          .from('muscle_media')
+          .update({ 
+            file_url: directUrl  // Обновляем прямую ссылку
+          })
+          .eq('public_url', url); // Ищем запись по публичному URL
+        
+        if (updateError) {
+          console.error(`[REFRESH] Error updating DB for ${url}:`, updateError.message);
+          results.push({
+            originalUrl: url,
+            error: `DB update failed: ${updateError.message}`,
+            success: false
+          });
+        } else {
+          console.log(`[REFRESH] Successfully updated DB for: ${url}`);
+          results.push({
+            originalUrl: url,
+            refreshedUrl: directUrl,
+            success: true
+          });
+        }
+        
+      } catch (error) {
+        console.error(`[REFRESH] Error processing ${url}:`, error.message);
+        results.push({
+          originalUrl: url,
+          error: error.message,
+          success: false
+        });
+      }
+    }
+    
+    res.json({ results });
+    
+  } catch (error) {
+    console.error('[REFRESH] Global error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Проверьте поддержку форматов превью на Я-Диске:
 app.get('/api/test-yandex-preview', async (req, res) => {
@@ -1661,7 +2003,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 // ЭНДПОИНТ ДЛЯ СВЯЗЫВАНИЯ СУЩЕСТВУЮЩЕГО МЕДИА С СУЩНОСТЬЮ
 // ============================================
 
-// Получение списка медиафайлов для выбора (с фильтрацией) - ВЕРСИЯ С ДЕТАЛЬНОЙ ОТЛАДКОЙ
+// Получение списка медиафайлов для выбора (с фильтрацией)
 app.get('/api/media/files', async (req, res) => {
   try {
     const { 
@@ -1672,73 +2014,57 @@ app.get('/api/media/files', async (req, res) => {
       exclude_entity_id 
     } = req.query;
     
-    console.log(`[DEBUG] === START /api/media/files ===`);
-    console.log(`[DEBUG] Request parameters:`, {
-      search,
-      file_type,
-      limit,
-      exclude_entity_type,
-      exclude_entity_id
-    });
+    console.log(`[GET MEDIA FILES] Запрос списка медиафайлов: поиск="${search}", тип=${file_type}, лимит=${limit}`);
     
-    let linkedIds = [];
+    let query = supabase
+      .from('media_files')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
     
+    // Фильтр по поисковому запросу
+    if (search) {
+      query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+    
+    // Фильтр по типу файла
+    if (file_type) {
+      query = query.eq('file_type', file_type);
+    }
+    
+    // Исключение файлов, уже связанных с указанной сущностью
     if (exclude_entity_type && exclude_entity_id) {
-      
-      
-      const { data: linkedMedia, error: linkError } = await supabase
+      // Получаем ID медиафайлов, уже связанных с этой сущностью
+      const { data: linkedMedia } = await supabase
         .from('entity_media')
         .select('media_file_id')
         .eq('entity_type', exclude_entity_type)
         .eq('entity_id', exclude_entity_id);
       
-      if (linkError) {
-        console.error('[DEBUG] Error finding links:', linkError);
-      } else {
-      
+      if (linkedMedia && linkedMedia.length > 0) {
+        const linkedIds = linkedMedia.map(item => item.media_file_id);
+        query = query.not('id', 'in', `(${linkedIds.join(',')})`);
       }
     }
     
-    
-    let query = supabase
-      .from('media_files')
-      .select('*', { count: 'exact' })
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-    
-    if (search) {
-      query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`);
+    // Лимит
+    if (limit) {
+      const limitNum = parseInt(limit);
+      query = query.limit(limitNum > 0 ? limitNum : 50);
     }
     
-    if (file_type) {
-      query = query.eq('file_type', file_type);
-    }
+    const { data, error } = await query;
     
-    if (linkedIds.length > 0) {
-   
-      query = query.not('id', 'in', `(${linkedIds.join(',')})`);
-    }
-    
-    const limitNum = parseInt(limit) || 50;
-    query = query.limit(limitNum);
-    
-   
-    const { data, error, count } = await query;
-    
-    if (error) {
-      console.error('[DEBUG] Query error:', error);
-      throw error;
-    }
-    
+    if (error) throw error;
     
     res.json({
       success: true,
-      count: count || 0,
+      count: data?.length || 0,
       files: data || []
     });
     
   } catch (error) {
-    console.error('[ERROR] /api/media/files Error:', error);
+    console.error('[GET MEDIA FILES] Error:', error);
     res.status(500).json({ 
       success: false,
       error: error.message 
@@ -1751,7 +2077,7 @@ app.post('/api/media/link', async (req, res) => {
   try {
     const { mediaFileId, entityType, entityId, relationType = 'primary' } = req.body;
     
-
+    console.log(`[LINK MEDIA] Связывание медиа ${mediaFileId} с ${entityType} ${entityId}`);
     
     if (!mediaFileId || !entityType || !entityId) {
       return res.status(400).json({

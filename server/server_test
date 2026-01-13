@@ -1,0 +1,306 @@
+// server.js
+// 1. Импорты
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
+const express = require('express');
+const multer = require('multer');
+const fetch = require('node-fetch').default;
+const cors = require('cors');
+
+// 2. Инициализация
+const app = express();
+const supabaseUrl = 'https://btqttycwerqqbvfzmqlo.supabase.co';
+const supabaseKey = 'eyJhbGci...'; // Полный ключ
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+ee = 0;
+// Принудительная очистка кэша модулей
+Object.keys(require.cache).forEach(function(key) {
+  delete require.cache[key];
+  ee = ee+1;
+});
+
+// Проверка версий
+console.log('Express version:', require('express/package.json').version);
+console.log('Node version:', process.version);
+console.log('File modified:', require('fs').statSync(__filename).mtime);
+console.log('Current time:', new Date());
+console.log('Deleted keys:', ee);
+
+// Middleware для логирования всех запросов
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${req.method} ${req.url}`);
+    console.log(`[REQUEST] Headers:`, req.headers);
+    next();
+});
+
+
+// 3. Middleware (упрощенная версия CORS)
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://your-frontend-domain.vercel.app']
+    : ['http://localhost:3000'],
+  credentials: true
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 4. Multer (если не используется - можно закомментировать)
+// const upload = multer({ storage: multer.memoryStorage() });
+
+// 5. Отладка регистрации маршрутов
+const originalGet = app.get;
+const routes = [];
+
+app.get = function(path, ...handlers) {
+  console.log(`[ROUTE REGISTER] GET: ${path}`);
+  routes.push({ method: 'GET', path });
+  return originalGet.call(this, path, ...handlers);
+};
+
+// 6. Существующая функция getDirectLink (без изменений)
+async function getDirectLink(url) {
+  console.log('[DEBUG] getDirectLink called for URL:', url);
+
+  // Если это прямая ссылка, а не публичная страница
+  if (!url.includes('yadi.sk') && !url.includes('disk.yandex.ru')) {
+    console.log('[DEBUG] Input URL is a direct link. Trying to find public_url via Yandex.Disk API.');
+
+    try {
+      const urlObj = new URL(url);
+      const filename = urlObj.searchParams.get('filename');
+
+      if (filename) {
+        console.log('[DEBUG] Extracted filename from URL:', filename);
+        const apiPath = `app:/muscle-app/${filename}`;
+        const apiUrl = `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(apiPath)}&fields=public_url`;
+
+        const resourceRes = await fetch(apiUrl, {
+          headers: {
+            'Authorization': `OAuth ${process.env.YANDEX_TOKEN}`,
+            'Accept': 'application/json'
+          },
+          timeout: 5000
+        });
+
+        if (resourceRes.ok) {
+          const data = await resourceRes.json();
+          if (data.public_url) {
+            console.log('[DEBUG] Found public_url via API:', data.public_url);
+            return await getDirectLink(data.public_url);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[DEBUG] Error while trying to find public_url:', error.message);
+    }
+    
+    console.log('[DEBUG] Could not find public_url. Returning original URL.');
+    return url;
+  }
+
+  // Для публичных страниц получаем прямую ссылку через API
+  try {
+    console.log('[DEBUG] Getting fresh direct link via /download API for:', url);
+    
+    const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(url)}`;
+    const publicRes = await fetch(apiUrl, { 
+      headers: { 
+        'Authorization': `OAuth ${process.env.YANDEX_TOKEN}`,
+        'Accept': 'application/json'
+      },
+      timeout: 10000
+    });
+    
+    console.log(`[DEBUG] API /download response status: ${publicRes.status}`);
+
+    if (!publicRes.ok) {
+      let errorBody = 'Could not read error body';
+      try {
+        errorBody = await publicRes.text();
+      } catch (e) { /* игнорируем */ }
+      console.error(`[DEBUG] API Error! Status: ${publicRes.status}, Body:`, errorBody);
+      throw new Error(`API returned status ${publicRes.status}`);
+    }
+
+    const data = await publicRes.json();
+    console.log('[DEBUG] Full API response:', JSON.stringify(data));
+
+    if (data.href) {
+      console.log('[DEBUG] Success! Obtained fresh direct link.');
+      return data.href;
+    } else {
+      console.error('[DEBUG] Error: "href" field missing in API response.');
+      throw new Error('Field "href" missing in API response');
+    }
+
+  } catch (error) {
+    console.error('[DEBUG] Critical error in getDirectLink:', error.message);
+    return url;
+  }
+}
+
+// 7. Маршруты (ВСЕ подряд)
+app.get('/api/test-abc', (req, res) => {
+  console.log('HIT: /api/test-abc called');
+  res.json({ test: 'abc' });
+});
+
+app.get('/api/proxy-image', async (req, res) => {
+  console.log('HIT: /api/proxy-image called');
+  try {
+    // Обработка HEAD-запроса для проверки соединения
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
+    
+    const { url } = req.query;
+    if (!url) {
+      throw new Error('URL parameter is required');
+    }
+
+    console.log('Proxy request for URL:', url);
+    const directUrl = await getDirectLink(url);
+    console.log('Using direct URL:', directUrl);
+
+    const response = await fetch(directUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://disk.yandex.ru/',
+        'Accept': 'image/*,*/*;q=0.8'
+      },
+      timeout: 10000
+    });
+    
+    console.log('Image response status:', response.status);
+    
+    if (!response.ok) {
+      console.log('Trying original URL as fallback');
+      const fallbackResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://disk.yandex.ru/'
+        }
+      });
+      
+      if (fallbackResponse.ok) {
+        const contentType = fallbackResponse.headers.get('content-type');
+        const buffer = await fallbackResponse.buffer();
+        res.set('Content-Type', contentType);
+        res.set('Cache-Control', 'public, max-age=3600');
+        return res.send(buffer);
+      }
+      
+      throw new Error(`Loading picture error: ${response.status}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    const buffer = await response.buffer();
+
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('Proxy error details:', error);
+    res.status(500).json({ 
+      error: error.message,
+      details: 'Check server logs'
+    });
+  }
+});
+
+// Маршрут 3: Добавить обработку ошибок
+app.get('/api/debug-simple', async (req, res) => {
+  try {
+    console.log('HIT: /api/debug-simple called');
+    res.json({ success: true, debug: 'simple' });
+  } catch (error) {
+    console.error('Error in /api/debug-simple:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Маршрут 3: Добавить обработку ошибок
+app.get('/api/debug-simpl', async (req, res) => {
+  console.log('HIT: /api/check-token called');
+  try {
+    const response = await fetch('https://cloud-api.yandex.net/v1/disk/', {
+      headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` }
+    });
+    
+    res.json({
+      status: response.status,
+      statusText: response.statusText,
+      tokenValid: response.ok,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.get('/api/check-toke', async (req, res) => {
+  console.log('HIT: /api/check-token called');
+  try {
+    const response = await fetch('https://cloud-api.yandex.net/v1/disk/', {
+      headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` }
+    });
+    
+    res.json({
+      status: response.status,
+      statusText: response.statusText,
+      tokenValid: response.ok,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 8. Отладочный маршрут для проверки ВСЕХ зарегистрированных маршрутов
+app.get('/api/debug-routes', (req, res) => {
+  console.log('HIT: /api/debug-routes called');
+  
+  const registeredRoutes = [];
+  
+  function findRoutes(layer, path = '') {
+    if (layer.route) {
+      const methods = Object.keys(layer.route.methods).map(m => m.toUpperCase());
+      registeredRoutes.push({
+        path: path + layer.route.path,
+        methods: methods
+      });
+    } else if (layer.name === 'router' || layer.name === 'bound dispatch') {
+      if (layer.handle.stack) {
+        layer.handle.stack.forEach(stack => {
+          findRoutes(stack, path);
+        });
+      }
+    }
+  }
+  
+  app._router.stack.forEach(layer => {
+    findRoutes(layer);
+  });
+  
+  res.json({ 
+    registeredRoutes,
+    manuallyTracked: routes,
+    totalRegistered: registeredRoutes.length
+  });
+});
+
+// 9. Запуск сервера
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server started at port ${PORT}`);
+  console.log('Available routes:');
+  console.log('  GET /api/test-abc');
+  console.log('  GET /api/proxy-image');
+  console.log('  GET /api/debug-simple');
+  console.log('  GET /api/check-token');
+  console.log('  GET /api/debug-routes (debug)');
+});

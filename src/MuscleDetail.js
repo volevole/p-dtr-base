@@ -1,7 +1,11 @@
-import React, { useEffect, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
-import { supabase } from './supabaseClient'
+//MuscleDetail.js
+import React, { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { supabase } from './utils/supabaseClient';
+import API_URL from './config/api';
 import { FaCopy, FaPlus, FaPlusCircle, FaEdit } from 'react-icons/fa';
+import { getMediaForEntity, uploadMediaForEntity } from './utils/mediaHelper';
+import MediaManager from './MediaManager'; // ← ДОБАВИТЬ ЭТОТ ИМПОРТ
 
 async function fetchDysfunctionsCount(muscleId) {
   const { count: muscleCount } = await supabase
@@ -27,184 +31,6 @@ async function fetchDysfunctionsCount(muscleId) {
   return (muscleCount || 0) + groupCount
 }
 
-function MuscleMediaGallery({ muscleId }) {
-  const [media, setMedia] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [viewingMedia, setViewingMedia] = useState(null);
-
-  useEffect(() => {
-    const fetchMedia = async () => {
-      const { data, error } = await supabase
-        .from('muscle_media')
-        .select('*')
-        .eq('muscle_id', muscleId)
-        .order('display_order');
-
-      if (!error) setMedia(data);
-      setLoading(false);
-    };
-
-    fetchMedia();
-  }, [muscleId]);
-
-  if (loading) return <div>Загрузка медиа...</div>;
-  if (!media.length) return null;
-
-  return (
-    <div className="media-gallery">
-      <h3 style={{ margin: '20px 0 10px 0' }}>Медиа материалы</h3>
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-        gap: '15px',
-        marginTop: '15px'
-      }}>
-        {media.map((item) => (
-          <div 
-            key={item.id} 
-            className="media-item"
-            style={{ 
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              cursor: 'pointer'
-            }}
-            onClick={() => setViewingMedia(item)}
-          >
-            {item.file_type === 'image' ? (
-              <img 
-                src={item.file_url} 
-                alt={item.description || `Медиа ${item.display_order}`}
-                style={{ 
-                  width: '100%',
-                  height: '150px',
-                  objectFit: 'cover'
-                }}
-              />
-            ) : (
-              <video 
-                style={{ 
-                  width: '100%',
-                  height: '150px',
-                  objectFit: 'cover'
-                }}
-              >
-                <source src={item.file_url} type="video/mp4" />
-              </video>
-            )}
-            
-            {item.description && (
-              <div style={{
-                padding: '8px',
-                backgroundColor: '#f8f9fa',
-                borderTop: '1px solid #eee'
-              }}>
-                <p style={{ 
-                  margin: 0,
-                  fontSize: '12px',
-                  color: '#666',
-                  lineHeight: '1.3'
-                }}>
-                  {item.description.length > 60 
-                    ? `${item.description.substring(0, 60)}...` 
-                    : item.description
-                  }
-                </p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {viewingMedia && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px'
-          }}
-          onClick={() => setViewingMedia(null)}
-        >
-          <div 
-            style={{
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              overflow: 'hidden'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ padding: '15px', backgroundColor: '#f8f9fa' }}>
-              <button 
-                onClick={() => setViewingMedia(null)}
-                style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  background: 'rgba(0,0,0,0.7)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  cursor: 'pointer',
-                  zIndex: 1001
-                }}
-              >
-                ×
-              </button>
-              
-              {viewingMedia.file_type === 'image' ? (
-                <img 
-                  src={viewingMedia.file_url} 
-                  alt={viewingMedia.description || 'Медиа'}
-                  style={{ 
-                    maxWidth: '100%',
-                    maxHeight: '70vh',
-                    objectFit: 'contain'
-                  }}
-                />
-              ) : (
-                <video 
-                  controls
-                  style={{ 
-                    maxWidth: '100%',
-                    maxHeight: '70vh'
-                  }}
-                >
-                  <source src={viewingMedia.file_url} type="video/mp4" />
-                </video>
-              )}
-              
-              {viewingMedia.description && (
-                <div style={{
-                  padding: '15px',
-                  backgroundColor: 'white',
-                  borderTop: '1px solid ',
-                  borderTopColor: '#eee'
-                }}>
-                  <h4 style={{ margin: '0 0 10px 0' }}>Описание:</h4>
-                  <p style={{ margin: 0, lineHeight: '1.4' }}>
-                    {viewingMedia.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function MuscleDetail() {
   const { id } = useParams()
@@ -212,62 +38,121 @@ function MuscleDetail() {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate();
   const [dysfunctionsCount, setDysfunctionsCount] = useState(0)
-  const [relationships, setRelationships] = useState([]) // Перенесено сюда
+  const [relationships, setRelationships] = useState([])
   const cellStyle = {         
      paddingTop: '12px',
      padding: '5px',
      verticalAlign: 'top'
   }
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
+ useEffect(() => {
+  async function fetchData() {
+    setLoading(true)
 
-      const [muscleData, count, relationshipsData] = await Promise.all([
-        supabase
-          .from('muscles')
-          .select(`
-            *,
-            muscle_functions (note, functions(name)),
-            muscle_meridians (meridians(name)),
-            muscle_organs (organs(name)),
-            muscle_nerves (nerve_id, nerves(name, type)),
-            muscle_group_membership (muscle_groups(name, description, type)),
-            muscle_vertebrae (vertebrae(code))
-          `)
-          .eq('id', id)
-          .single(),
-        fetchDysfunctionsCount(id),
-        // Загрузка отношений
-        supabase
-          .from('muscle_relationships')
-          .select(`
-            *,
-            function:functions(name),
-            synergists:muscle_relationship_synergists(
-              muscle:muscles(id, name_ru, name_lat)
-            ),
-            antagonists:muscle_relationship_antagonists(
-              muscle:muscles(id, name_ru, name_lat)
+    try {
+      // Разбиваем запрос на части, чтобы избежать проблем с синтаксисом
+      const { data: muscleData, error: muscleError } = await supabase
+        .from('muscles')
+        .select(`
+          *,
+          muscle_functions (
+            note,
+            functions (
+              name
             )
-          `)
-          .eq('muscle_id', id)
-      ]);
+          ),
+          muscle_meridians (
+            meridian_id,
+            meridians (
+              name,
+              code
+            )
+          ),
+          muscle_organs (
+            organ_id,
+            organs (
+              name,
+              system
+            )
+          ),
+          muscle_nerves (
+            nerve_id,
+            nerves (
+              name,
+              type
+            )
+          ),
+          muscle_group_membership (
+            group_id,
+            muscle_groups (
+              id,
+              name,
+              description,
+              type
+            )
+          ),
+          muscle_vertebrae (
+            vertebrae (
+              code
+            )
+          )
+        `)
+        .eq('id', id)
+        .single();
 
-      if (muscleData.error) {
-        console.error('Ошибка загрузки:', muscleData.error);
-        setLoading(false);
-        return;
-      }
-    
-      setMuscle(muscleData.data);
+      if (muscleError) throw muscleError;
+
+      // Загрузка счетчика дисфункций
+      const count = await fetchDysfunctionsCount(id);
+
+      // Загрузка ВСЕХ взаимоотношений
+      const { data: allRelationshipsData, error: relationshipsError } = await supabase
+        .from('muscle_relationships')
+        .select(`
+          *,
+          function:functions (
+            name
+          ),
+          synergists:muscle_relationship_synergists (
+            muscle:muscles (
+              id,
+              name_ru,
+              name_lat
+            )
+          ),
+          antagonists:muscle_relationship_antagonists (
+            muscle:muscles (
+              id,
+              name_ru,
+              name_lat
+            )
+          )
+        `);
+
+      if (relationshipsError) throw relationshipsError;
+
+      // Фильтруем отношения, где текущая мышца участвует
+      const filteredRelationships = allRelationshipsData?.filter(relationship => {
+        const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
+        const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;
+        return isSynergist || isAntagonist;
+      }) || [];
+
+      setMuscle(muscleData);
       setDysfunctionsCount(count);
-      setRelationships(relationshipsData.data || []);
+      setRelationships(filteredRelationships);
+      
+
+      
+    } catch (error) {
+      console.error('Ошибка загрузки:', error);
+    } finally {
       setLoading(false);
     }
+  }
 
-    fetchData();
-  }, [id]);
+  fetchData();
+}, [id]);
 
   if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>
   if (!muscle) return <div style={{ padding: '2rem' }}>Мышца не найдена</div>
@@ -319,24 +204,52 @@ function MuscleDetail() {
         <tr><td style={cellStyle}> <strong>Группы:</strong></td>
         <td style={cellStyle}>
           {groups.length === 1 ? (
-          <>
-               {groups[0].muscle_groups.name}
-               <em><small>{groups[0].muscle_groups.description ? ` –  ${groups[0].muscle_groups.description}` : ''} 
-              <small>{groups[0].muscle_groups.type ? ` –  ${groups[0].muscle_groups.type}` : ''}</small></small>
-           </em>
-          </>
-           ) : (
             <>
-           {groups.map((f, idx) => (
-            <li key={idx}>
-              {f.muscle_groups.name}
-              <em><small>{f.muscle_groups.description ? ` –  ${f.muscle_groups.description}` : ''}
-                <small>{f.muscle_groups.type ? ` –  ${f.muscle_groups.type}` : ''}</small></small>
-            </em>
-            </li>
-          ))}
-        </>
-        )}
+              <Link 
+                to={`/group/${groups[0].muscle_groups.id}`}
+                style={{ 
+                  color: '#1976d2', 
+                  textDecoration: 'none',
+                  fontWeight: 'bold'
+                }}
+              >
+                {groups[0].muscle_groups.name}
+              </Link>
+              <em>
+                <small>
+                  {groups[0].muscle_groups.description ? ` –  ${groups[0].muscle_groups.description}` : ''} 
+                  <small>
+                    {groups[0].muscle_groups.type ? ` –  ${groups[0].muscle_groups.type}` : ''}
+                  </small>
+                </small>
+              </em>
+            </>
+          ) : (
+            <ul style={{ margin: 0, paddingLeft: '20px' }}>
+              {groups.map((f, idx) => (
+                <li key={idx}>
+                  <Link 
+                    to={`/group/${f.muscle_groups.id}`}
+                    style={{ 
+                      color: '#1976d2', 
+                      textDecoration: 'none',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {f.muscle_groups.name}
+                  </Link>
+                  <em>
+                    <small>
+                      {f.muscle_groups.description ? ` –  ${f.muscle_groups.description}` : ''}
+                      <small>
+                        {f.muscle_groups.type ? ` –  ${f.muscle_groups.type}` : ''}
+                      </small>
+                    </small>
+                  </em>
+                </li>
+              ))}
+            </ul>
+          )}
         </td></tr>
         <tr><td style={cellStyle}> <strong>Функции:</strong></td>
         <td style={cellStyle}>
@@ -356,38 +269,78 @@ function MuscleDetail() {
         </>
         )}
         </td></tr>
-        <tr><td style={cellStyle}><strong>Меридиан:</strong></td>
-        <td style={cellStyle}>
-          {meridians.length === 1 ? (
-          <>
-               {meridians[0].meridians.name}
-          </>
-           ) : (
-            <>
-           {meridians.map((f, idx) => (
-            <li key={idx}>
-               {f.meridians.name}
-            </li>
-          ))}
-        </>
-        )}
-        </td></tr>
-        <tr><td style={cellStyle}><strong>Орган :</strong></td>
-        <td style={cellStyle}>
-          {organs.length === 1 ? (
-          <>
-               {organs[0].organs.name}
-          </>
-           ) : (
-            <>
-           {organs.map((f, idx) => (	
-            <li key={idx}>
-               {f.organs.name} 
-            </li>
-          ))}
-        </>
-        )}
-        </td></tr>
+		<tr><td style={cellStyle}><strong>Меридиан:</strong></td>
+		<td style={cellStyle}>
+		  {meridians.length === 1 ? (
+			<>
+			  <Link 
+				to={`/meridian/${meridians[0].meridian_id}`}
+				style={{ 
+				  color: '#1976d2', 
+				  textDecoration: 'none',
+				  fontWeight: 'bold'
+				}}
+			  >
+				{meridians[0].meridians.name}
+			  </Link>
+			  {meridians[0].meridians.code && <span> [{meridians[0].meridians.code}]</span>}
+			</>
+		  ) : (
+			<ul style={{ margin: 0, paddingLeft: '20px' }}>
+			  {meridians.map((f, idx) => (
+				<li key={idx}>
+				  <Link 
+					to={`/meridian/${f.meridian_id}`}
+					style={{ 
+					  color: '#1976d2', 
+					  textDecoration: 'none',
+					  fontWeight: 'bold'
+					}}
+				  >
+					{f.meridians.name}
+				  </Link>
+				  {f.meridians.code && <span> [{f.meridians.code}]</span>}
+				</li>
+			  ))}
+			</ul>
+		  )}
+		</td></tr>
+		<tr><td style={cellStyle}><strong>Орган :</strong></td>
+		<td style={cellStyle}>
+		  {organs.length === 1 ? (
+			<>
+			  <Link 
+				to={`/organ/${organs[0].organ_id}`}
+				style={{ 
+				  color: '#1976d2', 
+				  textDecoration: 'none',
+				  fontWeight: 'bold'
+				}}
+			  >
+				{organs[0].organs.name}
+			  </Link>
+			  {organs[0].organs.system && <span> ({organs[0].organs.system})</span>}
+			</>
+		  ) : (
+			<ul style={{ margin: 0, paddingLeft: '20px' }}>
+			  {organs.map((f, idx) => (
+				<li key={idx}>
+				  <Link 
+					to={`/organ/${f.organ_id}`}
+					style={{ 
+					  color: '#1976d2', 
+					  textDecoration: 'none',
+					  fontWeight: 'bold'
+					}}
+				  >
+					{f.organs.name}
+				  </Link>
+				  {f.organs.system && <span> ({f.organs.system})</span>}
+				</li>
+			  ))}
+			</ul>
+		  )}
+		</td></tr>
         <tr><td style={cellStyle}><strong>Иннервация:</strong></td>
         <td style={cellStyle}>
           {nerves.length === 1 ? (
@@ -428,53 +381,93 @@ function MuscleDetail() {
       </tbody></table>
 
       {/* Блок взаимоотношений - добавлен в правильное место */}
-      {relationships.length > 0 && (
-        <div style={{ marginTop: '30px' }}>
-          <h3>Взаимоотношения мышцы</h3>
-          {relationships.map(relationship => (
-            <div key={relationship.id} style={{
-              border: '1px solid #ddd',
-              padding: '15px',
-              borderRadius: '8px',
-              marginBottom: '15px',
-              backgroundColor: '#f9f9f9'
-            }}>
-              <h4 style={{ margin: '0 0 10px 0' }}>
-                {relationship.function?.name}
-                {relationship.note && ` - ${relationship.note}`}
-              </h4>
-              
-              {relationship.synergists && relationship.synergists.length > 0 && (
-                <div style={{ marginBottom: '10px' }}>
-                  <strong>Синергисты:</strong>
-                  <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
-                    {relationship.synergists.map(synergist => (
-                      <li key={synergist.muscle.id}>
-                        {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+		{relationships.length > 0 && (
+		  <div style={{ marginTop: '30px' }}>
+			<h3>Взаимоотношения мышцы</h3>
+			{relationships.map(relationship => {
+			  const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
+			  const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;
+			  
+			  return (
+				<div key={relationship.id} style={{
+				  border: '1px solid #ddd',
+				  padding: '15px',
+				  borderRadius: '8px',
+				  marginBottom: '15px',
+				  backgroundColor: '#f9f9f9'
+				}}>
+				  <h4 style={{ margin: '0 0 10px 0' }}>
+					{relationship.function?.name}
+					{relationship.note && ` - ${relationship.note}`}
+				  </h4>
+				  
+				  {/* Добавляем отображение роли текущей мышцы */}
+				  <div style={{ marginBottom: '10px' }}>
+					<strong>Роль этой мышцы:</strong>{' '}
+					{isSynergist ? (
+					  <span style={{color: 'green'}}>Синергист</span>
+					) : isAntagonist ? (
+					  <span style={{color: 'red'}}>Антагонист</span>
+					) : null}
+				  </div>
+				  
+				  {relationship.synergists && relationship.synergists.length > 0 && (
+					<div style={{ marginBottom: '10px' }}>
+					  <strong>Синергисты:</strong>
+					  <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+						{relationship.synergists.map(synergist => (
+						  <li key={synergist.muscle.id}>
+							<Link 
+							  to={`/muscle/${synergist.muscle.id}`}
+							  style={{ 
+								color: '#1976d2', 
+								textDecoration: 'none',
+								fontWeight: '500'
+							  }}
+							>
+							  {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
+							</Link>
+						  </li>
+						))}
+					  </ul>
+					</div>
+				  )}
 
-              {relationship.antagonists && relationship.antagonists.length > 0 && (
-                <div style={{ marginBottom: '10px' }}>
-                  <strong>Антагонисты:</strong>
-                  <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
-                    {relationship.antagonists.map(antagonist => (
-                      <li key={antagonist.muscle.id}>
-                        {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+				  {relationship.antagonists && relationship.antagonists.length > 0 && (
+					<div style={{ marginBottom: '10px' }}>
+					  <strong>Антагонисты:</strong>
+					  <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+						{relationship.antagonists.map(antagonist => (
+						  <li key={antagonist.muscle.id}>
+							<Link 
+							  to={`/muscle/${antagonist.muscle.id}`}
+							  style={{ 
+								color: '#1976d2', 
+								textDecoration: 'none',
+								fontWeight: '500'
+							  }}
+							>
+							  {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
+							</Link>
+						  </li>
+						))}
+					  </ul>
+					</div>
+				  )}
+				</div>
+			  );
+			})}
+		  </div>
+		)}
       
-      <MuscleMediaGallery muscleId={id} />
+      {/* ====== ВОТ ЗДЕСЬ ЗАМЕНА: УБИРАЕМ MuscleMediaGallery, ДОБАВЛЯЕМ MediaManager ====== */}
+      <MediaManager 
+        entityType="muscle"
+        entityId={id}
+        entityName={muscle?.name_ru || ''}
+        showTitle={true}
+        readonly={true}
+      />
       
       <hr style={{ margin: '30px 0' }} />
       <p><strong>ID:</strong> {muscle.id}</p>

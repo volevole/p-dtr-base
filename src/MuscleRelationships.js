@@ -1,6 +1,6 @@
 //MuscleRelationships.js
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from './utils/supabaseClient';
 
 function MuscleRelationships({ muscleId, muscleName }) {
   const [relationships, setRelationships] = useState([]);
@@ -19,7 +19,8 @@ function MuscleRelationships({ muscleId, muscleName }) {
     fetchData();
   }, [muscleId]);
 
-  const fetchData = async () => {
+const fetchData = async () => {
+  try {
     // Загрузка всех мышц для выпадающих списков
     const { data: musclesData } = await supabase
       .from('muscles')
@@ -32,8 +33,8 @@ function MuscleRelationships({ muscleId, muscleName }) {
       .select('id, name')
       .order('name');
 
-    // Загрузка существующих отношений
-    const { data: relationshipsData } = await supabase
+    // Загрузка ВСЕХ отношений (без фильтра по muscle_id)
+    const { data: allRelationshipsData, error } = await supabase
       .from('muscle_relationships')
       .select(`
         *,
@@ -44,18 +45,39 @@ function MuscleRelationships({ muscleId, muscleName }) {
         antagonists:muscle_relationship_antagonists(
           muscle:muscles(id, name_ru, name_lat)
         )
-      `)
-      .eq('muscle_id', muscleId);
+      `);
+
+    if (error) throw error;
+
+    // Фильтруем отношения, где текущая мышца есть в синергистах ИЛИ антагонистах
+    const filteredRelationships = allRelationshipsData?.filter(relationship => {
+      const isSynergist = relationship.synergists?.some(s => s.muscle.id === muscleId) || false;
+      const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === muscleId) || false;
+      return isSynergist || isAntagonist; // <-- Ключевое изменение!
+    }) || [];
 
     setAllMuscles(musclesData || []);
     setAllFunctions(functionsData || []);
-    setRelationships(relationshipsData || []);
-  };
+    setRelationships(filteredRelationships);
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    alert('Ошибка загрузки данных: ' + error.message);
+  }
+};
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
+      // Убираем дубликаты и текущую мышцу из formData.synergists
+    const uniqueSynergists = [...new Set(formData.synergists.filter(id => id !== muscleId))];
+    
+    // Всегда добавляем текущую мышцу в синергисты
+    const updatedSynergists = [...uniqueSynergists, muscleId];
+    const updatedAntagonists = [...new Set(formData.antagonists.filter(id => id !== muscleId))]; // Антагонисты без изменений
+
       if (editingRelationship) {
         // Редактирование существующего отношения
         const { error } = await supabase
@@ -68,17 +90,16 @@ function MuscleRelationships({ muscleId, muscleName }) {
 
         if (error) throw error;
 
-        // Обновляем синергисты
-        await updateSynergists(editingRelationship.id, formData.synergists);
+        // Обновляем синергисты (включая текущую мышцу)
+        await updateSynergists(editingRelationship.id, updatedSynergists);
         // Обновляем антагонисты
-        await updateAntagonists(editingRelationship.id, formData.antagonists);
+        await updateAntagonists(editingRelationship.id, updatedAntagonists);
 
       } else {
-        // Создание нового отношения
+        // Создание нового отношения (БЕЗ muscle_id)
         const { data, error } = await supabase
           .from('muscle_relationships')
           .insert({
-            muscle_id: muscleId,
             function_id: formData.function_id,
             note: formData.note
           })
@@ -87,9 +108,9 @@ function MuscleRelationships({ muscleId, muscleName }) {
 
         if (error) throw error;
 
-        // Добавляем синергистов и антагонистов
-        await updateSynergists(data.id, formData.synergists);
-        await updateAntagonists(data.id, formData.antagonists);
+        // Добавляем синергистов (включая текущую мышцу) и антагонистов
+        await updateSynergists(data.id, updatedSynergists);
+        await updateAntagonists(data.id, updatedAntagonists);
       }
 
       setShowForm(false);
@@ -104,72 +125,108 @@ function MuscleRelationships({ muscleId, muscleName }) {
   };
 
   const updateSynergists = async (relationshipId, synergistIds) => {
-    // Удаляем старые синергисты
-    await supabase
-      .from('muscle_relationship_synergists')
-      .delete()
-      .eq('relationship_id', relationshipId);
-
-    // Добавляем новые
-    if (synergistIds.length > 0) {
-      const synergistsData = synergistIds.map(synergistId => ({
-        relationship_id: relationshipId,
-        synergist_id: synergistId
-      }));
-
-      const { error } = await supabase
+    try {
+		
+		//console.log('[DEBUG] Updating synergists for relationship', relationshipId);
+		//console.log('[DEBUG] Synergist IDs to insert:', synergistIds);
+		
+		// Проверяем на дубликаты внутри массива
+		const uniqueIds = [...new Set(synergistIds)];
+		if (uniqueIds.length !== synergistIds.length) {
+		  console.warn('[DEBUG] Duplicate muscle IDs in array!', synergistIds);
+		}
+		
+      // Удаляем старые синергисты
+      const { error: deleteError } = await supabase
         .from('muscle_relationship_synergists')
-        .insert(synergistsData);
+        .delete()
+        .eq('relationship_id', relationshipId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // Добавляем новые
+      if (synergistIds.length > 0) {
+        const synergistsData = synergistIds.map(synergistId => ({
+          relationship_id: relationshipId,
+          synergist_id: synergistId
+        }));
+
+        const { error: insertError } = await supabase
+          .from('muscle_relationship_synergists')
+          .insert(synergistsData);
+
+        if (insertError) throw insertError;
+      }
+    } catch (error) {
+		console.error('Error message on adding syn :', error.message);
+      throw new Error(`Ошибка обновления синергистов: ${error.message}`);
     }
   };
 
   const updateAntagonists = async (relationshipId, antagonistIds) => {
-    // Удаляем старых антагонистов
-    await supabase
-      .from('muscle_relationship_antagonists')
-      .delete()
-      .eq('relationship_id', relationshipId);
-
-    // Добавляем новых
-    if (antagonistIds.length > 0) {
-      const antagonistsData = antagonistIds.map(antagonistId => ({
-        relationship_id: relationshipId,
-        antagonist_id: antagonistId
-      }));
-
-      const { error } = await supabase
+    try {
+      // Удаляем старых антагонистов
+      const { error: deleteError } = await supabase
         .from('muscle_relationship_antagonists')
-        .insert(antagonistsData);
+        .delete()
+        .eq('relationship_id', relationshipId);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      // Добавляем новых
+      if (antagonistIds.length > 0) {
+        const antagonistsData = antagonistIds.map(antagonistId => ({
+          relationship_id: relationshipId,
+          antagonist_id: antagonistId
+        }));
+
+        const { error: insertError } = await supabase
+          .from('muscle_relationship_antagonists')
+          .insert(antagonistsData);
+
+        if (insertError) throw insertError;
+      }
+    } catch (error) {
+      throw new Error(`Ошибка обновления антагонистов: ${error.message}`);
     }
   };
 
   const handleEdit = (relationship) => {
-    setEditingRelationship(relationship);
-    setFormData({
-      function_id: relationship.function_id,
-      note: relationship.note || '',
-      synergists: relationship.synergists.map(s => s.muscle.id),
-      antagonists: relationship.antagonists.map(a => a.muscle.id)
-    });
-    setShowForm(true);
-  };
+	  setEditingRelationship(relationship);
+	  
+	  // Автоматически добавляем текущую мышцу в синергисты
+	  const synergists = relationship.synergists?.map(s => s.muscle.id) || [];
+	  const antagonists = relationship.antagonists?.map(a => a.muscle.id) || [];
+	  
+	  // Убеждаемся, что текущая мышца есть в синергистах
+	  const updatedSynergists = synergists.includes(muscleId) ? synergists : [...synergists, muscleId];
+	  
+	  // Убираем текущую мышцу из массива для формы, чтобы она не отображалась в списке выбора
+	  const formSynergists = updatedSynergists.filter(id => id !== muscleId);
+	  
+	  setFormData({
+		function_id: relationship.function_id,
+		note: relationship.note || '',
+		synergists: formSynergists, // Только другие мышцы
+		antagonists: antagonists.filter(id => id !== muscleId) // Тоже убираем текущую мышцу
+	  });
+	  setShowForm(true);
+	};
 
   const handleDelete = async (relationshipId) => {
     if (window.confirm('Удалить это отношение?')) {
-      const { error } = await supabase
-        .from('muscle_relationships')
-        .delete()
-        .eq('id', relationshipId);
+      try {
+        const { error } = await supabase
+          .from('muscle_relationships')
+          .delete()
+          .eq('id', relationshipId);
 
-      if (error) {
+        if (error) throw error;
+        
+        fetchData();
+      } catch (error) {
         console.error('Error deleting relationship:', error);
         alert('Ошибка при удалении: ' + error.message);
-      } else {
-        fetchData();
       }
     }
   };
@@ -181,6 +238,12 @@ function MuscleRelationships({ muscleId, muscleName }) {
         ? prev[type].filter(id => id !== muscleId)
         : [...prev[type], muscleId]
     }));
+  };
+
+  // Функция для получения названий мышц из массива
+  const getMuscleNames = (musclesArray) => {
+    if (!musclesArray || musclesArray.length === 0) return '—';
+    return musclesArray.map(m => `${m.muscle.name_ru} (${m.muscle.name_lat})`).join(', ');
   };
 
   return (
@@ -238,38 +301,45 @@ function MuscleRelationships({ muscleId, muscleName }) {
           </div>
 
           <div style={{ marginBottom: '15px' }}>
-            <label>Синергисты:</label>
+            <label>Синергисты (кроме текущей мышцы):</label>
             <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px' }}>
-              {allMuscles.map(muscle => (
-                <div key={muscle.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={formData.synergists.includes(muscle.id)}
-                      onChange={() => toggleMuscleSelection(muscle.id, 'synergists')}
-                    />
-                    {muscle.name_ru} ({muscle.name_lat})
-                  </label>
-                </div>
-              ))}
+              {allMuscles
+                .filter(muscle => muscle.id !== muscleId) // Скрываем текущую мышцу
+                .map(muscle => (
+                  <div key={muscle.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={formData.synergists.includes(muscle.id)}
+                        onChange={() => toggleMuscleSelection(muscle.id, 'synergists')}
+                      />
+                      {muscle.name_ru} ({muscle.name_lat})
+                    </label>
+                  </div>
+                ))}
+            </div>
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              * Текущая мышца "{muscleName}" автоматически добавляется в синергисты
             </div>
           </div>
 
           <div style={{ marginBottom: '15px' }}>
             <label>Антагонисты:</label>
             <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px' }}>
-              {allMuscles.map(muscle => (
-                <div key={muscle.id}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={formData.antagonists.includes(muscle.id)}
-                      onChange={() => toggleMuscleSelection(muscle.id, 'antagonists')}
-                    />
-                    {muscle.name_ru} ({muscle.name_lat})
-                  </label>
-                </div>
-              ))}
+              {allMuscles
+                .filter(muscle => muscle.id !== muscleId) // Скрываем текущую мышцу
+                .map(muscle => (
+                  <div key={muscle.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={formData.antagonists.includes(muscle.id)}
+                        onChange={() => toggleMuscleSelection(muscle.id, 'antagonists')}
+                      />
+                      {muscle.name_ru} ({muscle.name_lat})
+                    </label>
+                  </div>
+                ))}
             </div>
           </div>
 
@@ -308,76 +378,74 @@ function MuscleRelationships({ muscleId, muscleName }) {
       )}
 
       <div>
-        {relationships.map(relationship => (
-          <div key={relationship.id} style={{
-            border: '1px solid #ddd',
-            padding: '15px',
-            borderRadius: '8px',
-            marginBottom: '15px',
-            backgroundColor: 'white'
-          }}>
-            <h4 style={{ margin: '0 0 10px 0' }}>
-              {relationship.function?.name}
-              {relationship.note && ` - ${relationship.note}`}
-            </h4>
-            
-            {relationship.synergists.length > 0 && (
+        {relationships.map(relationship => {
+          // Определяем роль текущей мышцы в этом отношении
+          const isSynergist = relationship.synergists?.some(s => s.muscle.id === muscleId) || false;
+          
+          return (
+            <div key={relationship.id} style={{
+              border: '1px solid #ddd',
+              padding: '15px',
+              borderRadius: '8px',
+              marginBottom: '15px',
+              backgroundColor: 'white'
+            }}>
+              <h4 style={{ margin: '0 0 10px 0' }}>
+                {relationship.function?.name}
+                {relationship.note && ` - ${relationship.note}`}
+              </h4>
+              
+            <div style={{ marginBottom: '10px' }}>
+				  <strong>Роль этой мышцы:</strong>{' '}
+				  {isSynergist ? (
+					<span style={{color: 'green'}}>Синергист</span>
+				  ) : (
+					<span style={{color: 'red'}}>Антагонист</span>
+				  )}
+			</div>
+              
               <div style={{ marginBottom: '10px' }}>
-                <strong>Синергисты:</strong>
-                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
-                  {relationship.synergists.map(synergist => (
-                    <li key={synergist.muscle.id}>
-                      {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
-                    </li>
-                  ))}
-                </ul>
+                <strong>Синергисты:</strong>{' '}
+                {getMuscleNames(relationship.synergists)}
               </div>
-            )}
 
-            {relationship.antagonists.length > 0 && (
               <div style={{ marginBottom: '10px' }}>
-                <strong>Антагонисты:</strong>
-                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
-                  {relationship.antagonists.map(antagonist => (
-                    <li key={antagonist.muscle.id}>
-                      {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
-                    </li>
-                  ))}
-                </ul>
+                <strong>Антагонисты:</strong>{' '}
+                {getMuscleNames(relationship.antagonists)}
               </div>
-            )}
 
-            <div>
-              <button 
-                onClick={() => handleEdit(relationship)}
-                style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  marginRight: '10px'
-                }}
-              >
-                Редактировать
-              </button>
-              <button 
-                onClick={() => handleDelete(relationship.id)}
-                style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Удалить
-              </button>
+              <div>
+                <button 
+                  onClick={() => handleEdit(relationship)}
+                  style={{
+                    padding: '5px 10px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginRight: '10px'
+                  }}
+                >
+                  Редактировать
+                </button>
+                <button 
+                  onClick={() => handleDelete(relationship.id)}
+                  style={{
+                    padding: '5px 10px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Удалить
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {relationships.length === 0 && !showForm && (
           <p style={{ color: '#666', fontStyle: 'italic' }}>
