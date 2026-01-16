@@ -18,8 +18,10 @@ import {
   FaImages,
   FaDatabase,
   FaHistory,
-  FaSignInAlt
+  FaSignInAlt,
+  FaTerminal
 } from 'react-icons/fa';
+
 
 function Sidebar() {
   const location = useLocation();
@@ -62,6 +64,7 @@ function Sidebar() {
     if (path.startsWith('/settings')) return 'settings';
     if (path.startsWith('/all-media')) return 'all-media';
     if (path.startsWith('/export')) return 'export';
+	if (path.startsWith('/environment-info')) return 'environment-info';
     return '';
   };
 
@@ -491,6 +494,32 @@ function Sidebar() {
                       ⚙️ Настройки
                     </Link>
                   </li>
+				  <li style={{ marginBottom: '5px' }}>
+					  <Link 
+						to="/environment-info" 
+						style={{ 
+						  display: 'flex', 
+						  alignItems: 'center',
+						  color: activeEntity === 'environment-info' ? '#007bff' : '#495057',
+						  textDecoration: 'none',
+						  padding: '6px 8px',
+						  borderRadius: '4px',
+						  backgroundColor: activeEntity === 'environment-info' ? '#e3f2fd' : 'transparent',
+						  fontSize: '14px'
+						}}
+						onClick={(e) => e.stopPropagation()}
+					  >
+						<div style={{ 
+						  width: '6px', 
+						  height: '6px', 
+						  backgroundColor: activeEntity === 'environment-info' ? '#007bff' : '#6c757d',
+						  borderRadius: '50%',
+						  marginRight: '10px'
+						}} />
+						<FaTerminal style={{ marginRight: '8px', fontSize: '12px' }} />
+						Информация об окружении
+					  </Link>
+				  </li>
                 </ul>
               </div>
             )}

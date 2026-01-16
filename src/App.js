@@ -3,6 +3,7 @@ import React from 'react'
 import { Routes, Route, BrowserRouter } from 'react-router-dom'
 import Sidebar from './Sidebar'; 
 import AllMediaPage from './utils/AllMediaPage';
+import EnvironmentInfoPage from './EnvironmentInfoPage';
 
 // Импорт страниц про мышцы
 import MuscleDetail from './MuscleDetail'      
@@ -98,6 +99,7 @@ function App() {
 			
 			
 		  <Route path="/all-media" element={<AllMediaPage />} />	
+		  <Route path="/environment-info" element={<EnvironmentInfoPage />} />
 		</Routes>
         </div>
       </div>
