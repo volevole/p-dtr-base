@@ -4,8 +4,9 @@
   "devCommand": "npm start",
   "framework": "create-react-app",
   "installCommand": "npm install",
-  "ignoreCommand": "if [ -d \"server\" ]; then echo \"Ignoring server directory\"; fi",
-  "env": {
-    "REACT_APP_API_URL": "https://p-dtr-base.onrender.com"
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
   }
 }
