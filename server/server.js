@@ -15,17 +15,28 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 3. Middleware
 app.use(express.json());
-app.use(cors({
+
+// Настройка CORS
+const corsOptions = {
   origin: [
     'http://localhost:3000',
     'https://p-dtr-base.onrender.com',
-    // добавьте другие домены при необходимости
+    'https://larchik-p-dtr.vercel.app',         // Ваш основной фронтенд
+    'https://*.vercel.app',                     // Все Vercel домены
+    /\.vercel\.app$/,                           // Регулярка для всех vercel.app поддоменов
   ],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-app.options('/api/proxy-image', cors());
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  maxAge: 86400 // 24 часа кэширования preflight
+};
+
+app.use(cors(corsOptions));
+
+// Обработка preflight запросов для всех API endpoints
+app.options('*', cors(corsOptions));  // ? Это обработает ВСЕ OPTIONS запросы
+
 app.use(express.urlencoded({ extended: true }));
 
 // 4. Multer middleware
