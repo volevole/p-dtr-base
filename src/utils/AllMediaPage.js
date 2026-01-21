@@ -53,6 +53,7 @@ function AllMediaPage() {
       case 'muscle_group': return 'name';
       case 'receptor': return 'name';
       case 'receptor_class': return 'name';
+	  case 'entry': return 'name';
       case 'tool': return 'name';
       default: return 'name';
     }
@@ -141,64 +142,218 @@ function AllMediaPage() {
     }
   };
 
-  // utils/AllMediaPage.js - исправленная функция processMediaFiles
-const processMediaFiles = () => {
-  const { connectionsByFile = {}, entityInfo = {} } = entityConnections;
-  
-  const processed = mediaFiles.map(file => {
-    const fileConnections = connectionsByFile[file.id] || [];
-    
-    const connectionsWithInfo = fileConnections.map(conn => {
-      const entityData = entityInfo[conn.entity_type]?.[conn.entity_id];
-      const entityName = entityData?.name || `Unknown ${conn.entity_type}`;
-      
-      return {
-        ...conn,
-        entity_name: entityName,
-        entity_link: getEntityLink(conn.entity_type, conn.entity_id)
-      };
-    });
+	// Функция для принудительного обновления статуса превью
+	const refreshFileStatus = async (fileId) => {
+	  try {
+		// Получаем свежие данные из базы
+		const { data: freshFile, error } = await supabase
+		  .from('media_files')
+		  .select('*')
+		  .eq('id', fileId)
+		  .single();
+		
+		if (error) {
+		  addDebugMessage(`Error refreshing file ${fileId}: ${error.message}`);
+		  return;
+		}
+		
+		// ОБНОВЛЯЕМ mediaFiles ПЕРЕД вызовом processMediaFiles
+		setMediaFiles(prev => prev.map(f => 
+		  f.id === fileId ? freshFile : f
+		));
+		
+		addDebugMessage(`Status refreshed for file ${fileId}`);
+		
+		// НЕ нужно вызывать processMediaFiles здесь - она запустится сама через useEffect
+		// когда обновится mediaFiles
+		
+	  } catch (error) {
+		addDebugMessage(`Error refreshing status for ${fileId}: ${error.message}`);
+	  }
+	};
 
-    // Используем функцию processMediaForDisplay из общих утилит
-    const processedMedia = processMediaForDisplay([file])[0] || file;
-    
-    // Ключевое исправление для превью
-    const currentTime = new Date();
-    const thumbnailUpdatedAt = file.thumbnail_updated_at ? new Date(file.thumbnail_updated_at) : null;
-    
-    // Проверяем, просрочено ли превью (4 часа = 4 * 60 * 60 * 1000 = 14,400,000 ms)
-    const isExpired = thumbnailUpdatedAt ? 
-      (currentTime - thumbnailUpdatedAt) > 14400000 : 
-      !file.thumbnail_url; // Если нет даты обновления и нет thumbnail_url
-    
-    // Ключевое исправление для ссылок
-    // Проверяем, действительна ли ссылка на файл
-    // Если file_url существует и не содержит признаков ошибок
-    const hasValidFileUrl = file.file_url && 
-      file.file_url.includes('https://') && 
-      !file.file_url.includes('error') &&
-      !file.file_url.includes('expired') &&
-      !file.file_url.includes('access_denied') &&
-      !file.file_url.includes('<!DOCTYPE');
-    
-    // Проверяем, нуждается ли ссылка в обновлении
-    // Ссылка считается устаревшей, если ее нет или она выглядит недействительной
-    const needsRefresh = !hasValidFileUrl;
-    
-    return {
-      ...processedMedia,
-      connections: connectionsWithInfo,
-      connection_count: fileConnections.length,
-      has_expired_thumbnail: isExpired,
-      thumbnail_working: checkThumbnailWorking(file),
-      needs_link_refresh: needsRefresh, // Используем нашу собственную проверку
-      has_valid_file_url: hasValidFileUrl // Добавляем флаг валидности
-    };
-  });
-
-  setProcessedMedia(processed);
-  addDebugMessage(`Processed ${processed.length} media files`);
+	const handleUpdatePreview = async (item) => {
+	  if (!window.confirm(`Обновить превью для файла "${item.file_name}"?`)) return;
+	  
+	  try {
+		addDebugMessage(`Individual preview update for ${item.file_name}`);
+		const result = await updateYandexLinksForFile(item, false, true);
+		
+		if (result && result.changes && result.changes.includes('thumbnail')) {
+		  // Обновляем локальное состояние
+		  setMediaFiles(prev => prev.map(f => 
+			f.id === item.id 
+			  ? { 
+				  ...f, 
+				  thumbnail_url: result.updatedThumbnailUrl || f.thumbnail_url,
+				  thumbnail_updated_at: new Date().toISOString(),
+				  has_expired_thumbnail: false,
+				  updated_at: new Date().toISOString()
+				} 
+			  : f
+		  ));
+		  
+		  // Принудительно обновляем статус из базы
+		  await refreshFileStatus(item.id);
+		  
+		  alert(`Превью успешно обновлено для "${item.file_name}"`);
+		  
+		  // НЕ вызываем fetchMediaFiles() - обновится через useEffect
+		  
+		} else {
+		  alert(`Не удалось обновить превью для "${item.file_name}"`);
+		}
+	  } catch (error) {
+		alert(`Ошибка: ${error.message}`);
+	  }
 };
+
+	const handleUpdateLink = async (item) => {
+	  if (!window.confirm(`Обновить основную ссылку для файла "${item.file_name}"?`)) return;
+	  
+	  try {
+		addDebugMessage(`Individual link update for ${item.file_name}`);
+		const result = await updateYandexLinksForFile(item, true, false);
+		
+		if (result && result.changes && result.changes.includes('main_link')) {
+		  // Обновляем локальное состояние
+		  setMediaFiles(prev => prev.map(f => 
+			f.id === item.id 
+			  ? { 
+				  ...f, 
+				  file_url: result.updatedFileUrl || f.file_url,
+				  needs_link_refresh: false,
+				  updated_at: new Date().toISOString()
+				} 
+			  : f
+		  ));
+		  
+		  // Принудительно обновляем статус из базы
+		  await refreshFileStatus(item.id);
+		  
+		  alert(`Ссылка успешно обновлена для "${item.file_name}"`);
+		} else {
+		  alert(`Не удалось обновить ссылку для "${item.file_name}"`);
+		}
+	  } catch (error) {
+		alert(`Ошибка: ${error.message}`);
+	  }
+	};
+
+	const handleUpdateAll = async (item) => {
+	  if (!window.confirm(`Обновить и превью, и ссылку для файла "${item.file_name}"?`)) return;
+	  
+	  try {
+		addDebugMessage(`Individual full update for ${item.file_name}`);
+		const result = await updateYandexLinksForFile(item, true, true);
+		
+		if (result) {
+		  // Обновляем локальное состояние
+		  setMediaFiles(prev => prev.map(f => 
+			f.id === item.id 
+			  ? { 
+				  ...f, 
+				  file_url: result.updatedFileUrl || f.file_url,
+				  thumbnail_url: result.updatedThumbnailUrl || f.thumbnail_url,
+				  thumbnail_updated_at: result.changes && result.changes.includes('thumbnail') 
+					? new Date().toISOString() 
+					: f.thumbnail_updated_at,
+				  needs_link_refresh: result.changes && result.changes.includes('main_link') ? false : f.needs_link_refresh,
+				  has_expired_thumbnail: result.changes && result.changes.includes('thumbnail') ? false : f.has_expired_thumbnail,
+				  updated_at: new Date().toISOString()
+				} 
+			  : f
+		  ));
+		  
+		  // Принудительно обновляем статус из базы
+		  await refreshFileStatus(item.id);
+		  
+		  let message = `Обновлено для "${item.file_name}":`;
+		  if (result.changes && result.changes.includes('main_link')) message += '\n✅ Основная ссылка';
+		  if (result.changes && result.changes.includes('thumbnail')) message += '\n✅ Превью';
+		  
+		  alert(message);
+		} else {
+		  alert(`Не удалось обновить файл "${item.file_name}"`);
+		}
+	  } catch (error) {
+		alert(`Ошибка: ${error.message}`);
+	  }
+	};
+
+	// utils/AllMediaPage.js - исправленная логика определения устаревания
+	const processMediaFiles = () => {
+	  const { connectionsByFile = {}, entityInfo = {} } = entityConnections;
+	  
+	  const processed = mediaFiles.map(file => {
+		const fileConnections = connectionsByFile[file.id] || [];
+		
+		const connectionsWithInfo = fileConnections.map(conn => {
+		  const entityData = entityInfo[conn.entity_type]?.[conn.entity_id];
+		  const entityName = entityData?.name || `Unknown ${conn.entity_type}`;
+		  
+		  return {
+			...conn,
+			entity_name: entityName,
+			entity_link: getEntityLink(conn.entity_type, conn.entity_id)
+		  };
+		});
+
+		const processedMedia = processMediaForDisplay([file])[0] || file;
+		
+		// Ключевое исправление: правильное определение устаревания превью
+		const currentTime = new Date();
+		const thumbnailUpdatedAt = file.thumbnail_updated_at ? new Date(file.thumbnail_updated_at) : null;
+		
+		// Для изображений: если есть file_url, превью считается актуальным
+		// Для других типов: проверяем, когда обновлялось превью
+		let hasExpiredThumbnail = false;
+		
+		if (file.file_type === 'image') {
+		  // Для изображений превью не устаревает, если есть file_url
+		  hasExpiredThumbnail = !file.file_url || !file.thumbnail_url;
+		} else {
+		  // Для остальных типов проверяем устаревание (4 часа)
+		  if (thumbnailUpdatedAt) {
+			const hoursDiff = (currentTime - thumbnailUpdatedAt) / (1000 * 60 * 60);
+			hasExpiredThumbnail = hoursDiff > 4; // 4 часа
+		  } else {
+			// Если нет даты обновления и нет превью
+			hasExpiredThumbnail = true;
+		  }
+		}
+		
+		// Проверяем валидность основной ссылки
+		const hasValidFileUrl = file.file_url && 
+		  file.file_url.includes('https://') && 
+		  !file.file_url.includes('error') &&
+		  !file.file_url.includes('expired') &&
+		  !file.file_url.includes('access_denied') &&
+		  !file.file_url.includes('<!DOCTYPE');
+		
+		// Для отладки
+		addDebugMessage(`File ${file.file_name}: thumb_date=${thumbnailUpdatedAt?.toISOString() || 'null'}, expired=${hasExpiredThumbnail}`);
+		
+		return {
+		  ...processedMedia,
+		  connections: connectionsWithInfo,
+		  connection_count: fileConnections.length,
+		  has_expired_thumbnail: hasExpiredThumbnail,
+		  thumbnail_working: checkThumbnailWorking(file),
+		  needs_link_refresh: !hasValidFileUrl,
+		  has_valid_file_url: hasValidFileUrl,
+		  // Передаем оригинальные данные для корректного обновления
+		  _original: {
+			thumbnail_updated_at: file.thumbnail_updated_at,
+			thumbnail_url: file.thumbnail_url,
+			file_url: file.file_url
+		  }
+		};
+	  });
+
+	  setProcessedMedia(processed);
+	  addDebugMessage(`Processed ${processed.length} media files (thumbnail_updated_at: ${mediaFiles[0]?.thumbnail_updated_at || 'none'})`);
+	};
 
   // Функция для получения имени таблицы по типу сущности
   const getTableName = (entityType) => {
@@ -210,6 +365,7 @@ const processMediaFiles = () => {
       case 'muscle_group': return 'muscle_groups';
       case 'receptor': return 'receptors';
       case 'receptor_class': return 'receptor_classes';
+	  case 'entry': return 'entries';
       case 'tool': return 'tools';
       default: return entityType;
     }
@@ -229,6 +385,7 @@ const processMediaFiles = () => {
       case 'muscle_group': return '/group';
       case 'receptor': return '/receptor';
       case 'receptor_class': return '/receptor-class';
+	  case 'entry': return '/entry';
       case 'tool': return '/tool';
       default: return '#';
     }
@@ -243,21 +400,28 @@ const processMediaFiles = () => {
       case 'muscle_group': return 'Группа мышц';
       case 'receptor': return 'Рецептор';
       case 'receptor_class': return 'Класс рецепторов';
+	  case 'entry': return 'Заход';
       case 'tool': return 'Инструмент';
       default: return 'Сущность';
     }
   };
 
   const checkThumbnailWorking = (file) => {
-    if (!file.thumbnail_url) return false;
-    
-    const urlPattern = /^https?:\/\/.+/;
-    return urlPattern.test(file.thumbnail_url) && 
-           !file.thumbnail_url.includes('error') &&
-           !file.thumbnail_url.includes('expired') &&
-           !file.thumbnail_url.includes('access_denied') &&
-           !file.thumbnail_url.includes('<!DOCTYPE');
-  };
+	  // Для изображений: если есть file_url, то превью всегда работает
+	  if (file.file_type === 'image') {
+		return file.file_url && file.file_url.includes('https://');
+	  }
+	  
+	  // Для других типов проверяем thumbnail_url
+	  if (!file.thumbnail_url) return false;
+	  
+	  const urlPattern = /^https?:\/\/.+/;
+	  return urlPattern.test(file.thumbnail_url) && 
+			 !file.thumbnail_url.includes('error') &&
+			 !file.thumbnail_url.includes('expired') &&
+			 !file.thumbnail_url.includes('access_denied') &&
+			 !file.thumbnail_url.includes('<!DOCTYPE');
+	};
 
   // Функция для обновления превью через серверный API
   const updatePreviewViaServer = async (file) => {
@@ -297,75 +461,131 @@ const processMediaFiles = () => {
   };
 
   // Функция для обновления ссылок через API Яндекса
+
   const updateYandexLinksForFile = async (file, updateMainLink = false, updateThumbnail = false) => {
-    try {
-      if (!file.public_url) {
-        addDebugMessage(`No public_url for file ${file.file_name}`);
-        return null;
-      }
+	  try {
+		addDebugMessage(`Updating links for ${file.file_name}: main=${updateMainLink}, thumb=${updateThumbnail}`);
+		
+		if (!file.public_url) {
+		  addDebugMessage(`No public_url for ${file.file_name}`);
+		  return null;
+		}
 
-      const response = await fetch(`${API_URL}/api/update-yandex-links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          mediaId: file.id,
-          fileName: file.file_name,
-          fileType: file.file_type,
-          publicUrl: file.public_url,
-          currentFileUrl: file.file_url,
-          currentThumbnailUrl: file.thumbnail_url,
-          updateMainLink: updateMainLink,
-          updateThumbnail: updateThumbnail,
-          silentUpdate: true
-        }),
-      });
+		let endpoint, requestBody, isPreviewOnly = false;
+		
+		if (updateThumbnail && !updateMainLink) {
+		  // Только превью
+		  isPreviewOnly = true;
+		  endpoint = `${API_URL}/api/media/${file.id}/update-yandex-preview`;
+		  requestBody = { 
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		  };
+		} else {
+		  // Основная ссылка или всё
+		  endpoint = `${API_URL}/api/refresh-links`;
+		  requestBody = {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+			  mediaItems: [{
+				id: file.id,
+				publicUrl: file.public_url,
+				currentFileUrl: file.file_url,
+				currentThumbnailUrl: file.thumbnail_url,
+				fileName: file.file_name,
+				fileType: file.file_type
+			  }],
+			  entityType: 'all',
+			  entityId: 'all'
+			})
+		  };
+		}
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        addDebugMessage(`Yandex links API error for ${file.file_name}: ${errorText.substring(0, 200)}`);
-        return null;
-      }
+		addDebugMessage(`Calling ${endpoint} for ${file.file_name}`);
+		
+		const response = await fetch(endpoint, requestBody);
+		
+		if (!response.ok) {
+		  const errorText = await response.text();
+		  addDebugMessage(`Error ${response.status}: ${errorText.substring(0, 200)}`);
+		  throw new Error(`Server error: ${response.status}`);
+		}
 
-      const result = await response.json();
-      
-      if (result.success) {
-        addDebugMessage(`Updated ${file.file_name}: main=${updateMainLink}, thumb=${updateThumbnail}`);
-        
-        // Ключевое исправление: обновляем thumbnail_updated_at в базе данных
-        if (updateThumbnail) {
-          try {
-            const { error } = await supabase
-              .from('media_files')
-              .update({ 
-                thumbnail_updated_at: new Date().toISOString()
-              })
-              .eq('id', file.id);
-            
-            if (error) {
-              addDebugMessage(`Warning: Could not update thumbnail_updated_at for ${file.file_name}: ${error.message}`);
-            } else {
-              addDebugMessage(`Updated thumbnail_updated_at for ${file.file_name}`);
-            }
-          } catch (err) {
-            addDebugMessage(`Error updating thumbnail_updated_at: ${err.message}`);
-          }
-        }
-        
-        return {
-          updatedFileUrl: result.updatedFileUrl || file.file_url,
-          updatedThumbnailUrl: result.updatedThumbnailUrl || file.thumbnail_url
-        };
-      } else {
-        addDebugMessage(`Failed to update ${file.file_name}: ${result.error || 'Unknown error'}`);
-        return null;
-      }
-    } catch (error) {
-      addDebugMessage(`Error updating links for ${file.file_name}: ${error.message}`);
-      return null;
-    }
-  };
+		const result = await response.json();
+		
+		if (result.success) {
+		  let changes = [];
+		  let updatedFileUrl = file.file_url;
+		  let updatedThumbnailUrl = file.thumbnail_url;
+		  
+		  // Обновляем базу данных
+		  const updateData = {
+			updated_at: new Date().toISOString()
+		  };
+		  
+		  if (isPreviewOnly) {
+			// Обработка ответа от /api/media/{id}/update-yandex-preview
+			changes = result.changes || [];
+			updatedThumbnailUrl = result.updateData?.thumbnail_url || file.thumbnail_url;
+			
+			if (result.updated || (result.changes && result.changes.includes('thumbnail'))) {
+			  updateData.thumbnail_updated_at = new Date().toISOString();
+			  updateData.thumbnail_url = updatedThumbnailUrl;
+			}
+			
+		  } else {
+			// Обработка ответа от /api/refresh-links
+			const fileResult = result.results?.[0];
+			if (fileResult && fileResult.success) {
+			  changes = fileResult.changes || [];
+			  
+			  if (changes.includes('main_link')) {
+				updatedFileUrl = fileResult.updatedFileUrl || file.file_url;
+				updateData.file_url = updatedFileUrl;
+			  }
+			  
+			  if (changes.includes('preview_link')) {
+				updatedThumbnailUrl = fileResult.updatedThumbnailUrl || file.thumbnail_url;
+				updateData.thumbnail_updated_at = new Date().toISOString();
+				updateData.thumbnail_url = updatedThumbnailUrl;
+			  }
+			}
+		  }
+		  
+		  // Обновляем базу данных, если есть изменения
+		  if (Object.keys(updateData).length > 1) { // больше чем только updated_at
+			try {
+			  const { error: updateError } = await supabase
+				.from('media_files')
+				.update(updateData)
+				.eq('id', file.id);
+			  
+			  if (updateError) {
+				addDebugMessage(`Database update error for ${file.file_name}: ${updateError.message}`);
+			  } else {
+				addDebugMessage(`Database updated for ${file.file_name}: ${JSON.stringify(updateData)}`);
+			  }
+			} catch (dbError) {
+			  addDebugMessage(`Error updating database for ${file.file_name}: ${dbError.message}`);
+			}
+		  }
+		  
+		  return {
+			updatedFileUrl,
+			updatedThumbnailUrl,
+			changes
+		  };
+		}
+		
+		addDebugMessage(`Update failed for ${file.file_name}: ${result.error || 'Unknown error'}`);
+		return null;
+		
+	  } catch (error) {
+		addDebugMessage(`Error updating ${file.file_name}: ${error.message}`);
+		return null;
+	  }
+	};
 
   // Упрощенный обработчик просмотра медиа
   const handleMediaView = (item) => {
@@ -383,8 +603,11 @@ const processMediaFiles = () => {
 
   // Функция для массового обновления превью
 const handleUpdatePreviews = async () => {
-  const filesToUpdate = filteredMedia.filter(file => 
-    file.has_expired_thumbnail || !file.thumbnail_url
+  // Находим файлы, которые нуждаются в обновлении превью
+  const filesToUpdate = processedMedia.filter(file => 
+    file.has_expired_thumbnail || 
+    (file.file_type !== 'image' && !file.thumbnail_url) ||
+    (file.thumbnail_url && !checkThumbnailWorking(file))
   );
   
   if (filesToUpdate.length === 0) {
@@ -392,68 +615,76 @@ const handleUpdatePreviews = async () => {
     return;
   }
 
-  const message = `Обновить превью для ${filesToUpdate.length} файлов?`;
+  const message = `Обновить превью для ${filesToUpdate.length} файлов?\n\n` +
+    `Это займет примерно ${Math.ceil(filesToUpdate.length * 0.5)} секунд.`;
+  
   if (!window.confirm(message)) {
     return;
   }
 
   setUpdatingPreviews(true);
-  addDebugMessage(`Starting preview update for ${filesToUpdate.length} files via server API`);
+  addDebugMessage(`Starting batch preview update for ${filesToUpdate.length} files`);
 
   try {
-    let updatedCount = 0;
-    let failedCount = 0;
+    // Используем массовый endpoint
+    const mediaIds = filesToUpdate.map(file => file.id);
+    const response = await fetch(`${API_URL}/api/update-media-previews`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mediaIds,
+        entityType: 'all',
+        entityId: 'all'
+      }),
+    });
 
-    for (const file of filesToUpdate) {
-      try {
-        addDebugMessage(`Updating preview via server API for ${file.file_name}`);
-        
-        // Определяем, что нужно обновить для этого файла
-        const needsThumbnailUpdate = file.has_expired_thumbnail || !file.thumbnail_url;
-        // Для обновления превью обычно не нужно обновлять основную ссылку
-        const needsMainLinkUpdate = false;
-        
-        const result = await updateYandexLinksForFile(
-          file, 
-          needsMainLinkUpdate, 
-          needsThumbnailUpdate
-        );
-        
-        if (result) {
-          updatedCount++;
-          setMediaFiles(prev => prev.map(f => 
-            f.id === file.id 
-              ? { 
-                  ...f, 
-                  file_url: result.updatedFileUrl || f.file_url,
-                  thumbnail_url: result.updatedThumbnailUrl || f.thumbnail_url,
-                  thumbnail_updated_at: needsThumbnailUpdate ? new Date().toISOString() : f.thumbnail_updated_at,
-                  has_expired_thumbnail: false,
-                  needs_link_refresh: false, // Важно: сбрасываем флаг
-                  updated_at: new Date().toISOString()
-                } 
-              : f
-          ));
-          addDebugMessage(`Successfully updated ${file.file_name}`);
-        } else {
-          failedCount++;
-          addDebugMessage(`Failed to update preview for ${file.file_name}`);
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (error) {
-        failedCount++;
-        addDebugMessage(`Error updating ${file.file_name}: ${error.message}`);
-      }
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server error: ${errorText}`);
     }
 
-    alert(`Обновление превью завершено!\n\n` +
-      `Всего файлов: ${filesToUpdate.length}\n` +
-      `Успешно обновлено: ${updatedCount}\n` +
-      `Не удалось: ${failedCount}`);
+    const result = await response.json();
     
-    // Обновляем список файлов
-    await fetchMediaFiles();
+    if (result.success) {
+      const successCount = result.results.filter(r => r.success).length;
+      const failCount = result.total - successCount;
+      
+      // Обновляем thumbnail_updated_at для успешно обновленных файлов
+      const successfulIds = result.results
+        .filter(r => r.success && r.changes && r.changes.includes('thumbnail'))
+        .map(r => r.mediaId);
+      
+      if (successfulIds.length > 0) {
+		  // Принудительно обновляем статус для каждого успешно обновленного файла
+		  for (const mediaId of successfulIds) {
+			await refreshFileStatus(mediaId);
+		  }
+      }
+      
+      // Показываем результат
+      let detailedMessage = `Обновление превью завершено!\n\n` +
+        `Всего файлов: ${result.total}\n` +
+        `Успешно обновлено: ${successCount}\n` +
+        `Не удалось: ${failCount}`;
+      
+      if (failCount > 0) {
+        const failedFiles = result.results
+          .filter(r => !r.success)
+          .map(r => `• ${r.file_name || r.mediaId}: ${r.error || r.message}`)
+          .join('\n');
+        
+        detailedMessage += `\n\nНе удалось обновить:\n${failedFiles}`;
+      }
+      
+      alert(detailedMessage);
+      
+    } else {
+      alert(`Ошибка при обновлении превью: ${result.error || 'Неизвестная ошибка'}`);
+    }
+    
+   
     
   } catch (error) {
     alert('Ошибка при обновлении превью: ' + error.message);
@@ -463,98 +694,100 @@ const handleUpdatePreviews = async () => {
 };
 
   // Умная кнопка обновления ссылок
-  const handleUpdateYandexLinks = async () => {
-    const filesToUpdate = filteredMedia;
-    const count = filesToUpdate.length;
+const handleUpdateYandexLinks = async () => {
+  const filesToUpdate = filteredMedia.filter(file => 
+    file.needs_link_refresh || file.has_expired_thumbnail
+  );
+  
+  if (filesToUpdate.length === 0) {
+    alert('Нет файлов с устаревшими ссылками для обновления');
+    return;
+  }
+
+  const message = `Обновить ссылки Яндекс.Диска для ${filesToUpdate.length} файлов?\n\n` +
+    `Это займет примерно ${Math.ceil(filesToUpdate.length * 0.5)} секунд.`;
+  
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  setUpdatingLinks(true);
+  addDebugMessage(`Starting link update for ${filesToUpdate.length} files`);
+
+  try {
+    // Используем endpoint /api/refresh-links
+    const mediaItems = filesToUpdate.map(file => ({
+      id: file.id,
+      publicUrl: file.public_url,
+      currentFileUrl: file.file_url,
+      currentThumbnailUrl: file.thumbnail_url,
+      fileName: file.file_name,
+      fileType: file.file_type
+    }));
     
-    if (count === 0) {
-      alert('Нет файлов для обновления');
-      return;
+    const response = await fetch(`${API_URL}/api/refresh-links`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        mediaItems,
+        entityType: 'all',
+        entityId: 'all'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server error: ${errorText}`);
     }
 
-    const message = filter 
-      ? `Обновить ссылки Яндекс.Диска для ${count} отфильтрованных файлов?`
-      : `Обновить ссылки Яндекс.Диска для всех ${count} файлов?`;
+    const result = await response.json();
     
-    if (!window.confirm(message)) {
-      return;
-    }
+    if (result.success) {
+      const successCount = result.results.filter(r => r.success).length;
+      const failCount = result.total - successCount;
+      
+      // Обновляем локальное состояние
+		const updatedFiles = result.results
+		  .filter(r => r.success && r.changes && r.changes.length > 0)
+		  .map(r => r.mediaId);
 
-    setUpdatingLinks(true);
-    addDebugMessage(`Starting link update for ${count} files`);
+		if (updatedFiles.length > 0) {
+		  for (const mediaId of updatedFiles) {
+			await refreshFileStatus(mediaId);
+		  }
+		}      
 
-    try {
-      let updatedCount = 0;
-      let failedCount = 0;
-      let skippedCount = 0;
-
-      for (const file of filesToUpdate) {
-        try {
-          if (!file.public_url) {
-            skippedCount++;
-            addDebugMessage(`Skipping ${file.file_name}: no public_url`);
-            continue;
-          }
-
-          const needsMainLinkUpdate = file.needs_link_refresh;
-          const needsThumbnailUpdate = file.has_expired_thumbnail || !file.thumbnail_url;
-
-          if (!needsMainLinkUpdate && !needsThumbnailUpdate) {
-            skippedCount++;
-            addDebugMessage(`Skipping ${file.file_name}: no updates needed`);
-            continue;
-          }
-
-          addDebugMessage(`Updating ${file.file_name}: main=${needsMainLinkUpdate}, thumb=${needsThumbnailUpdate}`);
-
-          const result = await updateYandexLinksForFile(
-            file, 
-            needsMainLinkUpdate, 
-            needsThumbnailUpdate
-          );
-          
-          if (result) {
-            updatedCount++;
-            setMediaFiles(prev => prev.map(f => 
-              f.id === file.id 
-                ? { 
-                    ...f, 
-                    file_url: result.updatedFileUrl || f.file_url,
-                    thumbnail_url: result.updatedThumbnailUrl || f.thumbnail_url,
-                    thumbnail_updated_at: needsThumbnailUpdate ? new Date().toISOString() : f.thumbnail_updated_at,
-                    has_expired_thumbnail: false,
-                    needs_link_refresh: false,
-                    updated_at: new Date().toISOString()
-                  } 
-                : f
-            ));
-            addDebugMessage(`Successfully updated ${file.file_name}`);
-          } else {
-            failedCount++;
-            addDebugMessage(`Failed to update ${file.file_name}`);
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          failedCount++;
-          addDebugMessage(`Error updating ${file.file_name}: ${error.message}`);
-        }
+      
+      // Показываем результат
+      let detailedMessage = `Обновление ссылок завершено!\n\n` +
+        `Всего файлов: ${result.total}\n` +
+        `Успешно обновлено: ${successCount}\n` +
+        `Не удалось: ${failCount}`;
+      
+      if (failCount > 0) {
+        const failedFiles = result.results
+          .filter(r => !r.success)
+          .map(r => `• ${r.fileName || r.mediaId}: ${r.error || r.message}`)
+          .join('\n');
+        
+        detailedMessage += `\n\nНе удалось обновить:\n${failedFiles}`;
       }
-
-      alert(`Обновление завершено!\n\n` +
-        `Всего файлов: ${count}\n` +
-        `Успешно обновлено: ${updatedCount}\n` +
-        `Пропущено: ${skippedCount}\n` +
-        `Не удалось: ${failedCount}`);
       
-      await fetchMediaFiles();
+      alert(detailedMessage);
       
-    } catch (error) {
-      alert('Ошибка при обновлении ссылок: ' + error.message);
-    } finally {
-      setUpdatingLinks(false);
+      
+    } else {
+      alert(`Ошибка при обновлении ссылок: ${result.error || 'Неизвестная ошибка'}`);
     }
-  };
+    
+  } catch (error) {
+    alert('Ошибка при обновлении ссылок: ' + error.message);
+  } finally {
+    setUpdatingLinks(false);
+  }
+};
 
   const getUpdateButtonText = () => {
     const count = filteredMedia.length;
@@ -1038,7 +1271,9 @@ const handleUpdatePreviews = async () => {
           />
 
 		{/* Таблица с детальной информацией */}
-		<div style={{ marginTop: '30px' }}>
+		  
+		  
+		  <div style={{ marginTop: '30px' }}>
 		  <h3>Детальная информация о файлах</h3>
 		  <div style={{ 
 			overflowX: 'auto',
@@ -1062,12 +1297,18 @@ const handleUpdatePreviews = async () => {
 				  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Статус ссылки</th>
 				  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Связи</th>
 				  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Создан</th>
+				  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Обновить</th>
 				</tr>
-			  </thead>
+			  </thead>			  
+			  
 			  <tbody>
+			 
 				{filteredMedia.map(item => (
+				
 				  <tr key={item.id} style={{ borderBottom: '1px solid #dee2e6' }}>
+					
 					<td style={{ padding: '8px', verticalAlign: 'middle' }}>
+						 
 					  <div 
 						style={{
 						  width: '50px',
@@ -1084,20 +1325,36 @@ const handleUpdatePreviews = async () => {
 						title={item.thumbnailUrl ? "Просмотреть медиа" : "Нет превью"}
 					  >
 						{item.thumbnailUrl ? (
-						  <img 
-							src={item.thumbnailUrl} 
-							alt={item.file_name}
-							style={{
+						  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+							<img 
+							  src={item.thumbnailUrl} 
+							  alt={item.file_name}
+							  style={{
+								width: '100%',
+								height: '100%',
+								objectFit: 'cover',
+								position: 'absolute',
+								top: 0,
+								left: 0
+							  }}
+							  onError={(e) => {
+								if (e.target) {
+								  e.target.style.display = 'none';
+								}
+							  }}
+							/>
+							{/* Запасная иконка под изображением */}
+							<div style={{
 							  width: '100%',
 							  height: '100%',
-							  objectFit: 'cover'
-							}}
-							onError={(e) => {
-							  e.target.style.display = 'none';
-							  e.target.parentElement.innerHTML = getFileIcon(item.file_type);
-							  e.target.parentElement.style.fontSize = '20px';
-							}}
-						  />
+							  display: 'flex',
+							  alignItems: 'center',
+							  justifyContent: 'center',
+							  fontSize: '20px'
+							}}>
+							  {getFileIcon(item.file_type)}
+							</div>
+						  </div>
 						) : (
 						  <div style={{ fontSize: '20px' }}>
 							{getFileIcon(item.file_type)}
@@ -1126,7 +1383,9 @@ const handleUpdatePreviews = async () => {
 						  </div>
 						)}
 					  </div>
+					  
 					</td>
+					
 					<td style={{ padding: '12px' }}>
 					  <div style={{ fontWeight: 'bold', textAlign: 'left' }}> {item.file_name}</div>
 					  {item.description && (
@@ -1143,7 +1402,9 @@ const handleUpdatePreviews = async () => {
 					<td style={{ padding: '12px' }}>{formatFileSize(item.file_size)}</td>
 					<td style={{ padding: '12px' }}>
 					  {item.has_expired_thumbnail ? (
-						<span style={{ color: '#dc3545', fontWeight: 'bold' }}>⚠️ Просрочено</span>
+						<span style={{ color: '#dc3545', fontWeight: 'bold' }}>⚠️ Устарело</span>
+					  ) : item.file_type === 'image' && item.file_url ? (
+						<span style={{ color: '#28a745' }}>✓ Изображение</span>
 					  ) : item.thumbnail_url ? (
 						<span style={{ color: '#28a745' }}>✓ OK</span>
 					  ) : (
@@ -1199,16 +1460,111 @@ const handleUpdatePreviews = async () => {
 						<span style={{ color: '#6c757d', fontStyle: 'italic' }}>Нет связей</span>
 					  )}
 					</td>
+					 
 					<td style={{ padding: '12px', fontSize: '12px', color: '#666' }}>
 					  {new Date(item.created_at).toLocaleDateString('ru-RU')}
 					</td>
+
+					{/* НОВАЯ КОЛОНКА: Действия */}
+					<td style={{ padding: '8px' }}>
+					  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+						{/* Первая строка: две маленькие кнопки */}
+						<div style={{ display: 'flex', gap: '2px', marginBottom: '2px' }}>
+						  {/* Кнопка обновления превью */}
+						  <button
+							  onClick={async (e) => {
+								e.stopPropagation();
+								await handleUpdatePreview(item);
+							  }}
+							  disabled={updatingPreviews || !item.public_url}
+							  style={{
+								padding: '2px 4px',
+								height: '22px',
+								minWidth: '28px',
+								backgroundColor: (!item.public_url || updatingPreviews) ? '#f8f9fa' : '#e9f7fe',
+								color: (!item.public_url || updatingPreviews) ? '#ccc' : '#17a2b8',
+								border: '1px solid #b6d4fe',
+								borderRadius: '3px',
+								cursor: (!item.public_url || updatingPreviews) ? 'not-allowed' : 'pointer',
+								fontSize: '11px',
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								flex: 1
+							  }}
+							  title={!item.public_url ? "Нет public_url для обновления" : "Обновить превью"}
+							>
+							  {updatingPreviews ? '⏳' : '🖼️'}
+  						  </button>
+						  
+						  {/* Кнопка обновления ссылки */}
+						  <button
+							  onClick={async (e) => {
+								e.stopPropagation();
+								await handleUpdateLink(item);
+							  }}
+							  disabled={updatingLinks || !item.public_url}
+							  style={{
+								padding: '2px 4px',
+								height: '22px',
+								minWidth: '28px',
+								backgroundColor: (!item.public_url || updatingLinks) ? '#f8f9fa' : '#f0f9ff',
+								color: (!item.public_url || updatingLinks) ? '#ccc' : '#28a745',
+								border: '1px solid #c3e6cb',
+								borderRadius: '3px',
+								cursor: (!item.public_url || updatingLinks) ? 'not-allowed' : 'pointer',
+								fontSize: '11px',
+								display: 'flex',
+								alignItems: 'center',
+								justifyContent: 'center',
+								flex: 1
+							  }}
+							  title={!item.public_url ? "Нет public_url для обновления" : "Обновить основную ссылку"}
+							>
+							  {updatingLinks ? '⏳' : '🔗'}
+						 </button>
+						</div>
+						
+						{/* Вторая строка: кнопка "Всё" */}
+						<button
+						  onClick={async (e) => {
+							e.stopPropagation();
+							await handleUpdateAll(item);
+						  }}
+						  disabled={updatingLinks || updatingPreviews || !item.public_url}
+						  style={{
+							padding: '2px 4px',
+							height: '20px',
+							backgroundColor: (!item.public_url || updatingLinks || updatingPreviews) ? '#f8f9fa' : '#fff3cd',
+							color: (!item.public_url || updatingLinks || updatingPreviews) ? '#ccc' : '#856404',
+							border: '1px solid #ffeaa7',
+							borderRadius: '3px',
+							cursor: (!item.public_url || updatingLinks || updatingPreviews) ? 'not-allowed' : 'pointer',
+							fontSize: '10px',
+							width: '100%',
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							gap: '3px'
+						  }}
+						  title={!item.public_url ? "Нет public_url для обновления" : "Обновить всё"}
+						>
+						  {(updatingLinks || updatingPreviews) ? '⏳' : '🔄'} Всё
+						</button>
+					  </div>
+					</td>
+					
 				  </tr>
+				  
 				))}
+				
 			  </tbody>
+			  
 			</table>
 		  </div>
-		</div>
-        </div>
+		</div>		 
+	   </div> 
+		
       )}
 
       {/* Модальное окно для просмотра медиа */}

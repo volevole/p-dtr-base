@@ -388,60 +388,87 @@ app.post('/api/media/upload', upload.fields([
 
 
 // 2. Универсальное получение медиа для любой сущности
-app.get('/api/media/:entityType/:entityId', async (req, res) => {
-  try {
-    const { entityType, entityId } = req.params;
-    const { relation_type = 'primary' } = req.query;    
+	app.get('/api/media/:entityType/:entityId', async (req, res) => {
+	  try {
+		const { entityType, entityId } = req.params;
+		const { relation_type = 'primary' } = req.query;    
 
-    // Используем правильный запрос с порядком по display_order из entity_media
-    const { data, error } = await supabase
-      .from('entity_media')
-      .select(`
-        display_order,
-        relation_type,
-        created_at,
-        media_files(*)
-      `)
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .eq('relation_type', relation_type)
-      .order('display_order'); // ? Теперь это работает!
+		// Use correct query with ordering by display_order from entity_media
+		const { data, error } = await supabase
+		  .from('entity_media')
+		  .select(`
+			display_order,
+			relation_type,
+			created_at,
+			media_files(
+			  id,
+			  file_url,
+			  file_name,
+			  file_type,
+			  mime_type,
+			  file_size,
+			  width,
+			  height,
+			  duration_seconds,
+			  thumbnail_url,
+			  public_url,
+			  description,
+			  created_at,
+			  updated_at,
+			  is_active,
+			  thumbnail_updated_at
+			)
+		  `)
+		  .eq('entity_type', entityType)
+		  .eq('entity_id', entityId)
+		  .eq('relation_type', relation_type)
+		  .order('display_order');
 
-    if (error) throw error;
+		if (error) throw error;
 
-    // Форматируем ответ
-    const formattedData = data.map(item => ({
-      id: item.media_files.id,
-      entity_id: entityId,
-      entity_type: entityType,
-      file_url: item.media_files.file_url,
-      file_name: item.media_files.file_name,
-      file_type: item.media_files.file_type,
-      public_url: item.media_files.public_url,
-      description: item.media_files.description,
-      display_order: item.display_order || 0,
-      created_at: item.created_at || item.media_files.created_at,
-      thumbnail_url: item.media_files.thumbnail_url,
-      duration_seconds: item.media_files.duration_seconds,
-      width: item.media_files.width,
-      height: item.media_files.height,
-      file_size: item.media_files.file_size,
-      mime_type: item.media_files.mime_type
-    }));
+		// Format response
+		const formattedData = data.map(item => ({
+		  id: item.media_files.id,
+		  entity_id: entityId,
+		  entity_type: entityType,
+		  file_url: item.media_files.file_url,
+		  file_name: item.media_files.file_name,
+		  file_type: item.media_files.file_type,
+		  public_url: item.media_files.public_url,
+		  description: item.media_files.description,
+		  display_order: item.display_order || 0,
+		  created_at: item.created_at || item.media_files.created_at,
+		  thumbnail_url: item.media_files.thumbnail_url,
+		  duration_seconds: item.media_files.duration_seconds,
+		  width: item.media_files.width,
+		  height: item.media_files.height,
+		  file_size: item.media_files.file_size,
+		  mime_type: item.media_files.mime_type,
+		  updated_at: item.media_files.updated_at,
+		  is_active: item.media_files.is_active,
+		  thumbnail_updated_at: item.media_files.thumbnail_updated_at
+		}));
 
-    res.json({
-      success: true,
-      data: formattedData
-    });
+		// Debug log - LATIN ONLY
+		console.log(`[API] Got ${formattedData.length} media files for ${entityType}/${entityId}`);
+		if (formattedData.length > 0) {
+		  console.log('[API] First file thumbnail_updated_at:', formattedData[0].thumbnail_updated_at);
+		  console.log('[API] First file fields:', Object.keys(formattedData[0]));
+		}
 
-  } catch (error) {
-    console.error('[UNIVERSAL GET] Error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-});
+		res.json({
+		  success: true,
+		  data: formattedData
+		});
+
+	  } catch (error) {
+		console.error('[UNIVERSAL GET] Error:', error.message);
+		res.status(500).json({ 
+		  success: false,
+		  error: error.message 
+		});
+	  }
+	});
 
 // 3. Универсальное удаление медиа
 app.delete('/api/media/:mediaId', async (req, res) => {
@@ -649,11 +676,12 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
         newThumbnailUrl = previewData.preview.L; // Большое превью (500px)
       }
       
-      if (newThumbnailUrl && newThumbnailUrl !== mediaFile.thumbnail_url) {
-        updateData.thumbnail_url = newThumbnailUrl;
-        changes.push('thumbnail');
-        console.log(`[UPDATE PREVIEW] Updated thumbnail for ${mediaFile.file_name}`);
-      }
+     if (newThumbnailUrl && newThumbnailUrl !== mediaFile.thumbnail_url) {
+		  updateData.thumbnail_url = newThumbnailUrl;
+		  updateData.thumbnail_updated_at = new Date().toISOString(); // ? ДОБАВЬТЕ ЭТУ СТРОКУ!
+		  changes.push('thumbnail');
+		  console.log(`[UPDATE PREVIEW] Updated thumbnail for ${mediaFile.file_name}`);
+		}
     }
     
     // 2. ДЛИТЕЛЬНОСТЬ ВИДЕО
@@ -1351,6 +1379,20 @@ app.post('/api/update-media-previews', async (req, res) => {
           console.warn(`[UPDATE MEDIA PREVIEWS] Could not get filename for ${mediaId}: ${dbError.message}`);
         }
         
+		if (updateResult.success && updateResult.changes && updateResult.changes.includes('thumbnail')) {
+		  const { error: timestampError } = await supabase
+			.from('media_files')
+			.update({ 
+			  thumbnail_updated_at: new Date().toISOString()
+			})
+			.eq('id', mediaId);
+		  
+		  if (timestampError) {
+			console.warn(`[UPDATE MEDIA PREVIEWS] Could not update thumbnail_updated_at for ${mediaId}: ${timestampError.message}`);
+		  }
+		}
+		
+		
         const result = {
           mediaId,
           file_name: fileName,
@@ -1489,6 +1531,7 @@ app.post('/api/refresh-links', async (req, res) => {
           
           if (freshPreviewUrl && freshPreviewUrl !== item.currentThumbnailUrl) {
             updates.thumbnail_url = freshPreviewUrl;
+			updates.thumbnail_updated_at = new Date().toISOString(); // 
             changes.push('preview_link');
             console.log(`[REFRESH LINKS] Обновлена ссылка на превью для ${fileName}`);
           } else if (!freshPreviewUrl && item.currentThumbnailUrl) {
@@ -1666,202 +1709,241 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 // ============================================
 
 // Получение списка медиафайлов для выбора (с фильтрацией) - ВЕРСИЯ С ДЕТАЛЬНОЙ ОТЛАДКОЙ
-app.get('/api/media/files', async (req, res) => {
-  try {
-    const { 
-      search = '', 
-      file_type = '', 
-      limit = 50, 
-      exclude_entity_type, 
-      exclude_entity_id 
-    } = req.query;
-    
-    console.log(`[DEBUG] === START /api/media/files ===`);
-    console.log(`[DEBUG] Request parameters:`, {
-      search,
-      file_type,
-      limit,
-      exclude_entity_type,
-      exclude_entity_id
-    });
-    
-    let linkedIds = [];
-    
-    if (exclude_entity_type && exclude_entity_id) {
-      
-      
-      const { data: linkedMedia, error: linkError } = await supabase
-        .from('entity_media')
-        .select('media_file_id')
-        .eq('entity_type', exclude_entity_type)
-        .eq('entity_id', exclude_entity_id);
-      
-      if (linkError) {
-        console.error('[DEBUG] Error finding links:', linkError);
-      } else {
-      
-      }
-    }
-    
-    
-    let query = supabase
-      .from('media_files')
-      .select('*', { count: 'exact' })
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-    
-    if (search) {
-      query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`);
-    }
-    
-    if (file_type) {
-      query = query.eq('file_type', file_type);
-    }
-    
-    if (linkedIds.length > 0) {
-   
-      query = query.not('id', 'in', `(${linkedIds.join(',')})`);
-    }
-    
-    const limitNum = parseInt(limit) || 50;
-    query = query.limit(limitNum);
-    
-   
-    const { data, error, count } = await query;
-    
-    if (error) {
-      console.error('[DEBUG] Query error:', error);
-      throw error;
-    }
-    
-    
-    res.json({
-      success: true,
-      count: count || 0,
-      files: data || []
-    });
-    
-  } catch (error) {
-    console.error('[ERROR] /api/media/files Error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-});
+// Альтернативная логика: показываем все, кроме привязанных к текущей сущности
+	app.get('/api/media/files', async (req, res) => {
+	  try {
+		const { 
+		  search = '', 
+		  file_type = '', 
+		  limit = 50, 
+		  exclude_entity_type, 
+		  exclude_entity_id 
+		} = req.query;
+		
+		console.log(`[DEBUG] === START /api/media/files ===`);
+		console.log(`[DEBUG] Params:`, { exclude_entity_type, exclude_entity_id, search, file_type });
+		
+		// 1. Получаем ВСЕ медиафайлы (включая is_active = false)
+		let query = supabase
+		  .from('media_files')
+		  .select('*', { count: 'exact' })
+		  .order('created_at', { ascending: false });
+		
+		// Фильтры поиска
+		if (search) {
+		  query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`);
+		}
+		
+		if (file_type) {
+		  query = query.eq('file_type', file_type);
+		}
+		
+		// Выполняем запрос
+		const { data: allMedia, error, count } = await query;
+		
+		if (error) throw error;
+		
+		console.log(`[DEBUG] Total media in DB (including inactive): ${allMedia?.length || 0}`);
+		
+		let availableMedia = allMedia || [];
+		
+		// 2. Если нужно исключить медиа текущей сущности
+		if (exclude_entity_type && exclude_entity_id) {
+		  console.log(`[DEBUG] Checking links for: ${exclude_entity_type}/${exclude_entity_id}`);
+		  
+		  const { data: linkedMedia, error: linkError } = await supabase
+			.from('entity_media')
+			.select('media_file_id')
+			.eq('entity_type', exclude_entity_type)
+			.eq('entity_id', exclude_entity_id);
+		  
+		  if (linkError) {
+			console.error('[DEBUG] Link query error:', linkError);
+		  } else {
+			console.log(`[DEBUG] Found ${linkedMedia?.length || 0} linked media`);
+			
+			if (linkedMedia && linkedMedia.length > 0) {
+			  const linkedIds = linkedMedia.map(item => item.media_file_id);
+			  console.log(`[DEBUG] Linked media IDs:`, linkedIds);
+			  
+			  // Исключаем медиа, уже привязанные к текущей сущности
+			  const beforeCount = availableMedia.length;
+			  availableMedia = availableMedia.filter(media => !linkedIds.includes(media.id));
+			  
+			  console.log(`[DEBUG] Filtered: ${beforeCount} -> ${availableMedia.length} (excluded ${beforeCount - availableMedia.length})`);
+			}
+		  }
+		}
+		
+		// 3. Применяем лимит
+		const limitNum = parseInt(limit) || 50;
+		const beforeLimit = availableMedia.length;
+		availableMedia = availableMedia.slice(0, limitNum);
+		
+		console.log(`[DEBUG] Final result: ${availableMedia.length} files (limited from ${beforeLimit})`);
+		
+		// Логируем статус is_active для отладки
+		const activeCount = availableMedia.filter(m => m.is_active).length;
+		const inactiveCount = availableMedia.filter(m => !m.is_active).length;
+		console.log(`[DEBUG] Active/Inactive in result: ${activeCount}/${inactiveCount}`);
+		
+		res.json({
+		  success: true,
+		  count: availableMedia.length,
+		  files: availableMedia
+		});
+		
+	  } catch (error) {
+		console.error('[ERROR] /api/media/files Error:', error.message);
+		res.status(500).json({ 
+		  success: false,
+		  error: error.message 
+		});
+	  }
+	});
 
 // Связывание существующего медиафайла с сущностью
-app.post('/api/media/link', async (req, res) => {
-  try {
-    const { mediaFileId, entityType, entityId, relationType = 'primary' } = req.body;
-    
-
-    
-    if (!mediaFileId || !entityType || !entityId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Требуются параметры: mediaFileId, entityType, entityId'
-      });
-    }
-    
-    // Проверяем, существует ли медиафайл
-    const { data: mediaFile, error: mediaError } = await supabase
-      .from('media_files')
-      .select('*')
-      .eq('id', mediaFileId)
-      .eq('is_active', true)
-      .single();
-    
-    if (mediaError || !mediaFile) {
-      return res.status(404).json({
-        success: false,
-        error: 'Медиафайл не найден или неактивен'
-      });
-    }
-    
-    // Проверяем, не существует ли уже такая связь
-    const { data: existingLink } = await supabase
-      .from('entity_media')
-      .select('id')
-      .eq('media_file_id', mediaFileId)
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .eq('relation_type', relationType)
-      .single();
-    
-    if (existingLink) {
-      return res.status(409).json({
-        success: false,
-        error: 'Этот медиафайл уже связан с данной сущностью'
-      });
-    }
-    
-    // Получаем максимальный display_order для этой сущности
-    const { data: maxOrderData } = await supabase
-      .from('entity_media')
-      .select('display_order')
-      .eq('entity_type', entityType)
-      .eq('entity_id', entityId)
-      .order('display_order', { ascending: false })
-      .limit(1);
-    
-    const nextDisplayOrder = maxOrderData && maxOrderData.length > 0 
-      ? maxOrderData[0].display_order + 1 
-      : 0;
-    
-    // Создаем связь
-    const { data: newLink, error: createError } = await supabase
-      .from('entity_media')
-      .insert({
-        media_file_id: mediaFileId,
-        entity_type: entityType,
-        entity_id: entityId,
-        relation_type: relationType,
-        display_order: nextDisplayOrder
-      })
-      .select()
-      .single();
-    
-    if (createError) throw createError;
-    
-    // Форматируем ответ в совместимом формате
-    const resultMedia = {
-      id: mediaFile.id,
-      entity_id: entityId,
-      entity_type: entityType,
-      file_url: mediaFile.file_url,
-      file_name: mediaFile.file_name,
-      file_type: mediaFile.file_type,
-      thumbnail_url: mediaFile.thumbnail_url,
-      public_url: mediaFile.public_url,
-      description: mediaFile.description,
-      display_order: nextDisplayOrder,
-      duration_seconds: mediaFile.duration_seconds,
-      width: mediaFile.width,
-      height: mediaFile.height,
-      file_size: mediaFile.file_size,
-      mime_type: mediaFile.mime_type,
-      created_at: newLink.created_at,
-      updated_at: mediaFile.updated_at
-    };
-    
-    console.log(`[LINK MEDIA] Успешно создана связь ID: ${newLink.id}`);
-    
-    res.json({
-      success: true,
-      message: 'Медиафайл успешно связан с сущностью',
-      media: resultMedia,
-      link: newLink
-    });
-    
-  } catch (error) {
-    console.error('[LINK MEDIA] Error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-});
+	app.post('/api/media/link', async (req, res) => {
+	  try {
+		const { mediaFileId, entityType, entityId, relationType = 'primary' } = req.body;
+		
+		console.log('[LINK] Request:', { mediaFileId, entityType, entityId, relationType });
+		
+		if (!mediaFileId || !entityType || !entityId) {
+		  return res.status(400).json({
+			success: false,
+			error: 'Требуются параметры: mediaFileId, entityType, entityId'
+		  });
+		}
+		
+		// ИСПРАВЛЕНИЕ: Убираем проверку is_active при поиске медиафайла
+		const { data: mediaFile, error: mediaError } = await supabase
+		  .from('media_files')
+		  .select('*')
+		  .eq('id', mediaFileId)
+		  // .eq('is_active', true)  ? УБРАТЬ ЭТУ СТРОКУ
+		  .single();
+		
+		if (mediaError || !mediaFile) {
+		  console.log('[LINK] Media file not found:', mediaError || 'No data');
+		  return res.status(404).json({
+			success: false,
+			error: 'Медиафайл не найден'
+		  });
+		}
+		
+		console.log('[LINK] Found media file:', { 
+		  id: mediaFile.id, 
+		  name: mediaFile.file_name,
+		  is_active: mediaFile.is_active 
+		});
+		
+		// Проверяем, не существует ли уже такая связь
+		const { data: existingLink } = await supabase
+		  .from('entity_media')
+		  .select('id')
+		  .eq('media_file_id', mediaFileId)
+		  .eq('entity_type', entityType)
+		  .eq('entity_id', entityId)
+		  .eq('relation_type', relationType)
+		  .single();
+		
+		if (existingLink) {
+		  return res.status(409).json({
+			success: false,
+			error: 'Этот медиафайл уже связан с данной сущностью'
+		  });
+		}
+		
+		// Получаем максимальный display_order для этой сущности
+		const { data: maxOrderData } = await supabase
+		  .from('entity_media')
+		  .select('display_order')
+		  .eq('entity_type', entityType)
+		  .eq('entity_id', entityId)
+		  .order('display_order', { ascending: false })
+		  .limit(1);
+		
+		const nextDisplayOrder = maxOrderData && maxOrderData.length > 0 
+		  ? maxOrderData[0].display_order + 1 
+		  : 0;
+		
+		// Создаем связь
+		const { data: newLink, error: createError } = await supabase
+		  .from('entity_media')
+		  .insert({
+			media_file_id: mediaFileId,
+			entity_type: entityType,
+			entity_id: entityId,
+			relation_type: relationType,
+			display_order: nextDisplayOrder
+		  })
+		  .select()
+		  .single();
+		
+		if (createError) {
+		  console.error('[LINK] Error creating link:', createError);
+		  throw createError;
+		}
+		
+		// ВАЖНОЕ ДОПОЛНЕНИЕ: Активируем медиафайл при связывании
+		if (!mediaFile.is_active) {
+		  const { error: updateError } = await supabase
+			.from('media_files')
+			.update({ 
+			  is_active: true,
+			  updated_at: new Date().toISOString()
+			})
+			.eq('id', mediaFileId);
+		  
+		  if (updateError) {
+			console.warn('[LINK] Warning: could not activate media file:', updateError);
+		  } else {
+			console.log('[LINK] Activated media file:', mediaFileId);
+			mediaFile.is_active = true; // Обновляем локальный объект
+		  }
+		}
+		
+		// Форматируем ответ в совместимом формате
+		const resultMedia = {
+		  id: mediaFile.id,
+		  entity_id: entityId,
+		  entity_type: entityType,
+		  file_url: mediaFile.file_url,
+		  file_name: mediaFile.file_name,
+		  file_type: mediaFile.file_type,
+		  thumbnail_url: mediaFile.thumbnail_url,
+		  public_url: mediaFile.public_url,
+		  description: mediaFile.description,
+		  display_order: nextDisplayOrder,
+		  duration_seconds: mediaFile.duration_seconds,
+		  width: mediaFile.width,
+		  height: mediaFile.height,
+		  file_size: mediaFile.file_size,
+		  mime_type: mediaFile.mime_type,
+		  created_at: newLink.created_at,
+		  updated_at: mediaFile.updated_at,
+		  thumbnail_updated_at: mediaFile.thumbnail_updated_at,
+		  is_active: true // Теперь всегда true после связывания
+		};
+		
+		console.log(`[LINK] Успешно создана связь для ${mediaFile.file_name}`);
+		
+		res.json({
+		  success: true,
+		  message: 'Медиафайл успешно связан с сущностью',
+		  media: resultMedia,
+		  link: newLink
+		});
+		
+	  } catch (error) {
+		console.error('[LINK] Error:', error.message);
+		res.status(500).json({ 
+		  success: false,
+		  error: error.message 
+		});
+	  }
+	});
 
 // ДОБАВЬТЕ в самый конец файла, перед app.listen:
 

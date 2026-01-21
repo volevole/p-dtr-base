@@ -1,5 +1,5 @@
 // MediaManager.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMediaManager } from './hooks/useMediaManager';
 import { MediaList } from './MediaList';
 import MediaViewer from './MediaViewer';
@@ -14,8 +14,7 @@ import MediaViewer from './MediaViewer';
  * @param {string} props.className - Дополнительные CSS классы
  * @param {Object} props.style - Дополнительные стили
  */
- 
-// MediaManager.js - полный код с функцией renderMediaContent
+
 function MediaManager({ 
   entityType, 
   entityId, 
@@ -64,6 +63,22 @@ function MediaManager({
   const [loadingMedia, setLoadingMedia] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFileType, setSelectedFileType] = useState('');
+  const [autoScrollDebug, setAutoScrollDebug] = useState(true);
+
+  // Реф для автоматической прокрутки логов
+  const debugEndRef = useRef(null);
+
+  // Автоматическая прокрутка при новых сообщениях
+  useEffect(() => {
+    if (debugEndRef.current && autoScrollDebug) {
+      debugEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [debugMessages, autoScrollDebug]);
+
+  // Обработчик клика по кнопке "Показать/скрыть отладку"
+  const handleToggleDebugPanel = () => {
+    setShowDebugPanel(!showDebugPanel);
+  };
 
   // Загрузка доступных медиафайлов для связывания
   const loadAvailableMedia = async () => {
@@ -262,22 +277,23 @@ function MediaManager({
                   overflow: 'hidden'
                 }}>
                   {thumbnailUrl ? (
-                    <img 
-                      src={thumbnailUrl}
-                      alt=""
-                      style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        objectFit: 'cover' 
-                      }}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = getFileIcon(item.file_type);
-                      }}
-                    />
-                  ) : (
-                    getFileIcon(item.file_type)
-                  )}
+					  <img 
+						src={thumbnailUrl}
+						alt=""
+						style={{ 
+						  width: '100%', 
+						  height: '100%', 
+						  objectFit: 'cover' 
+						}}
+						key={`thumb-${item.id}-${item.thumbnail_updated_at || 'no-date'}`} // Ключ для принудительного обновления
+						onError={(e) => {
+						  e.target.style.display = 'none';
+						  e.target.parentElement.innerHTML = getFileIcon(item.file_type);
+						}}
+					  />
+					) : (
+					  getFileIcon(item.file_type)
+					)}
                 </div>
                 
                 {/* Информация */}
@@ -370,7 +386,33 @@ function MediaManager({
         marginTop: '30px',
         ...style 
       }} className={className}>
-        {showTitle && <h3>Медиафайлы {entityName}</h3>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          {showTitle && <h3 style={{ margin: 0 }}>Медиафайлы {entityName}</h3>}
+           
+			  <button
+				onClick={handleToggleDebugPanel}
+				style={{
+				  padding: '8px 16px',
+				  backgroundColor: showDebugPanel ? '#6c757d' : '#f8f9fa',
+				  color: showDebugPanel ? 'white' : '#495057',
+				  border: '1px solid #dee2e6',
+				  borderRadius: '6px',
+				  cursor: 'pointer',
+				  fontSize: '14px',
+				  fontWeight: '500',
+				  display: 'flex',
+				  alignItems: 'center',
+				  gap: '8px',
+				  transition: 'all 0.2s ease'
+				}}
+				title="Показать/скрыть панель отладки"
+			  >
+				<span>{showDebugPanel ? '🔧' : '🔨'}</span>
+				<span>{showDebugPanel ? 'Скрыть отладку' : 'Показать отладку'}</span>
+			  </button>
+		    
+        </div>
+        
         <div style={{ 
           textAlign: 'center', 
           padding: '40px', 
@@ -391,11 +433,111 @@ function MediaManager({
       marginTop: '30px',
       ...style 
     }} className={className}>
-      {showTitle && <h3>Медиафайлы {entityName}</h3>}
+      
+      {/* Заголовок с кнопкой отладки */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        {showTitle && <h3 style={{ margin: 0 }}>Медиафайлы {entityName}</h3>}
+        
+        {/* Кнопка отладки - всегда видна (даже в readonly) */}
+        <button
+          onClick={handleToggleDebugPanel}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: showDebugPanel ? '#6c757d' : '#f8f9fa',
+            color: showDebugPanel ? 'white' : '#495057',
+            border: '1px solid #dee2e6',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+          title="Показать/скрыть панель отладки"
+        >
+          <span>{showDebugPanel ? '🔧' : '🔨'}</span>
+          <span>{showDebugPanel ? 'Скрыть отладку' : 'Показать отладку'}</span>
+        </button>
+      </div>
       
       <p style={{ color: '#666', marginBottom: '20px' }}>
         {readonly ? 'Медиафайлы (только просмотр)' : 'Загрузите изображения, видео или документы'}
       </p>
+
+      {/* Панель отладки */}
+      {showDebugPanel && (
+        <div style={{ 
+          marginBottom: '20px',
+          border: '1px solid #dee2e6',
+          borderRadius: '8px',
+          overflow: 'hidden'
+        }}>
+          <div style={{ 
+            backgroundColor: '#f8f9fa',
+            padding: '15px',
+            borderBottom: '1px solid #dee2e6',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#495057' }}>
+              Логи отладки ({debugMessages.length} сообщений)
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px' }}>
+                <input
+                  type="checkbox"
+                  checked={autoScrollDebug}
+                  onChange={(e) => setAutoScrollDebug(e.target.checked)}
+                  style={{ margin: 0 }}
+                />
+                Автопрокрутка
+              </label>
+              <button
+                onClick={clearDebugMessages}
+                style={{
+                  padding: '4px 12px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Очистить логи
+              </button>
+            </div>
+          </div>
+          
+          <div style={{ 
+            backgroundColor: '#212529',
+            color: '#f8f9fa',
+            fontFamily: 'Monaco, Consolas, monospace',
+            fontSize: '13px',
+            padding: '15px',
+            maxHeight: '400px',
+            overflowY: 'auto',
+            whiteSpace: 'pre-wrap',
+            lineHeight: '1.5'
+          }}>
+            {debugMessages.length === 0 ? (
+              <div style={{ color: '#6c757d', fontStyle: 'italic' }}>
+                Нет сообщений отладки. Действия с медиафайлами появятся здесь.
+              </div>
+            ) : (
+              debugMessages.map((msg, index) => (
+                <div key={index} style={{ marginBottom: '8px' }}>
+                  {msg}
+                </div>
+              ))
+            )}
+            <div ref={debugEndRef} />
+          </div>
+        </div>
+      )}
 
       {/* Отображаем медиафайлы через функцию renderMediaContent */}
       {renderMediaContent()}
@@ -643,7 +785,6 @@ function MediaManager({
           </div>
         </div>
       )}
-
 
       {/* Модальные окна */}
 
@@ -1098,7 +1239,7 @@ function MediaManager({
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           marginBottom: '4px'
-                        }}>
+                        }}  title={file.file_name} >
                           {file.file_name}
                         </div>
                         
