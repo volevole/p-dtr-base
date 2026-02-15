@@ -1,4 +1,4 @@
-// MediaViewer.js - исправленная версия с использованием состояния React
+// MediaViewer.js - исправленная версия с улучшенным просмотром документов
 import React, { useState, useEffect } from 'react';
 import API_URL from './config/api';
 
@@ -8,7 +8,12 @@ function MediaViewer({ media }) {
   const [videoError, setVideoError] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [thumbnailError, setThumbnailError] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
+  // Определяем мобильное устройство
+  useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+  }, []);
 
   // Функция для получения URL медиа через прокси
   const getMediaUrl = () => {
@@ -254,8 +259,110 @@ function MediaViewer({ media }) {
     );
   };
 
-  // Рендеринг документа
+  // ИСПРАВЛЕННАЯ ФУНКЦИЯ РЕНДЕРИНГА ДОКУМЕНТА
   const renderDocument = () => {
+    // Определяем, PDF ли это
+    const isPdf = media.file_name.toLowerCase().endsWith('.pdf');
+    
+    // Для PDF - используем iframe для просмотра
+    if (isPdf) {
+      return (
+        <div style={{ padding: '0', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+          <div style={{ 
+            fontWeight: 'bold', 
+            fontSize: '16px', 
+            marginBottom: '10px',
+            padding: '15px 15px 0 15px',
+            wordBreak: 'break-all',
+            textAlign: 'center'
+          }}>
+            {media.file_name}
+          </div>
+          
+          {/* Информация о файле */}
+          <div style={{ 
+            fontSize: '14px', 
+            color: '#666',
+            margin: '0 15px 15px 15px',
+            padding: '10px',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            textAlign: 'left'
+          }}>
+            <div style={{ marginBottom: '5px' }}>
+              <strong>Тип:</strong> PDF документ
+            </div>
+            {media.file_size && (
+              <div style={{ marginBottom: '5px' }}>
+                <strong>Размер:</strong> {formatFileSize(media.file_size)}
+              </div>
+            )}
+          </div>
+          
+          {/* Просмотр PDF */}
+          <div style={{ textAlign: 'center', padding: '0 15px 15px 15px' }}>
+            <iframe
+              src={`${mediaUrl}#toolbar=1&navpanes=1`}
+              style={{
+                width: '100%',
+                height: isMobile ? '70vh' : '600px',
+                border: '1px solid #ddd',
+                borderRadius: '8px'
+              }}
+              title={media.file_name}
+            />
+          </div>
+          
+          {/* Кнопки для PDF */}
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '0 15px 15px 15px',
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: '10px',
+            justifyContent: 'center'
+          }}>
+            <a 
+              href={mediaUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              download
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                display: 'inline-block',
+                flex: isMobile ? '1' : '0 1 auto'
+              }}
+            >
+              📥 Скачать PDF
+            </a>
+            <a 
+              href={mediaUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                display: 'inline-block',
+                flex: isMobile ? '1' : '0 1 auto'
+              }}
+            >
+              ↗ Открыть в новой вкладке
+            </a>
+          </div>
+        </div>
+      );
+    }
+    
+    // Для других документов (не PDF)
     return (
       <div style={{ padding: '30px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
         <div style={{ fontSize: '64px', marginBottom: '15px', textAlign: 'center' }}>{renderFileIcon()}</div>
@@ -293,7 +400,31 @@ function MediaViewer({ media }) {
           )}
         </div>
         
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: '10px',
+          justifyContent: 'center'
+        }}>
+          <a 
+            href={mediaUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            download
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              textDecoration: 'none',
+              borderRadius: '6px',
+              fontWeight: 'bold',
+              display: 'inline-block',
+              flex: isMobile ? '1' : '0 1 auto'
+            }}
+          >
+            📥 Скачать файл
+          </a>
           <a 
             href={mediaUrl} 
             target="_blank" 
@@ -305,10 +436,11 @@ function MediaViewer({ media }) {
               textDecoration: 'none',
               borderRadius: '6px',
               fontWeight: 'bold',
-              display: 'inline-block'
+              display: 'inline-block',
+              flex: isMobile ? '1' : '0 1 auto'
             }}
           >
-            Открыть документ
+            ↗ Открыть в новой вкладке
           </a>
         </div>
       </div>
