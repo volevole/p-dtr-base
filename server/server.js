@@ -35,7 +35,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Обработка preflight запросов для всех API endpoints
-app.options('*', cors(corsOptions));  // ? Это обработает ВСЕ OPTIONS запросы
+//app.options('*', cors(corsOptions));  // ? Это обработает ВСЕ OPTIONS запросы
 
 app.use(express.urlencoded({ extended: true }));
 

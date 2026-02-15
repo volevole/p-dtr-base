@@ -4,12 +4,12 @@ import { supabase } from './supabaseClient';
 import MediaViewer from '../MediaViewer';
 import { MediaList } from '../MediaList';
 import { 
-  createProxyUrl, 
-  getThumbnailUrl, 
+  //createProxyUrl, 
+  //getThumbnailUrl, 
   getFileIcon, 
   formatFileSize,
-  isThumbnailExpired,
-  needsLinkRefresh,
+  //isThumbnailExpired,
+  //needsLinkRefresh,
   processMediaForDisplay 
 } from './mediaUtils';
 import API_URL from '../config/api';  // Базовый URL API
@@ -27,15 +27,19 @@ function AllMediaPage() {
   const [expiredThumbnailsOnly, setExpiredThumbnailsOnly] = useState(false);
   const [debugMessages, setDebugMessages] = useState([]);
 
-  useEffect(() => {
-    fetchMediaFiles();
-  }, []);
+  // Первый useEffect - загрузка данных при монтировании
+	useEffect(() => {
+	  fetchMediaFiles();
+	  // eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []); // fetchMediaFiles не включаем, потому что она стабильна и не должна вызывать перерендер
 
-  useEffect(() => {
-    if (mediaFiles.length > 0) {
-      processMediaFiles();
-    }
-  }, [mediaFiles]);
+	// Второй useEffect - обработка данных при изменении mediaFiles
+	useEffect(() => {
+	  if (mediaFiles.length > 0) {
+		processMediaFiles();
+	  }
+	  // eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mediaFiles]); // processMediaFiles не включаем, потому что она использует setState
 
   // Добавляем сообщение в отладку
   const addDebugMessage = (message) => {
@@ -423,43 +427,7 @@ function AllMediaPage() {
 			 !file.thumbnail_url.includes('<!DOCTYPE');
 	};
 
-  // Функция для обновления превью через серверный API
-  const updatePreviewViaServer = async (file) => {
-    try {
-      addDebugMessage(`Updating preview via server API for: ${file.file_name}`);
-      
-      const response = await fetch(
-        `${API_URL}/api/media/${file.id}/update-yandex-preview`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        addDebugMessage(`Server API error (${response.status}) for ${file.file_name}: ${errorText.substring(0, 200)}`);
-        return null;
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        addDebugMessage(`Server API success for ${file.file_name}: changes=${result.changes?.join(', ') || 'none'}`);
-        return result;
-      } else {
-        addDebugMessage(`Server API returned error for ${file.file_name}: ${result.error || 'Unknown error'}`);
-        return null;
-      }
-      
-    } catch (error) {
-      addDebugMessage(`Error calling server API for ${file.file_name}: ${error.message}`);
-      return null;
-    }
-  };
-
+ 
   // Функция для обновления ссылок через API Яндекса
 
   const updateYandexLinksForFile = async (file, updateMainLink = false, updateThumbnail = false) => {
@@ -1275,10 +1243,7 @@ const handleUpdateYandexLinks = async () => {
 		  
 		  <div style={{ marginTop: '30px' }}>
 		  <h3>Детальная информация о файлах</h3>
-		  <div style={{ 
-			overflowX: 'auto',
-			marginTop: '15px'
-		  }}>
+		  <div className="table-responsive" style={{ marginTop: '15px' }}>
 			<table style={{
 			  width: '100%',
 			  borderCollapse: 'collapse',
