@@ -260,71 +260,196 @@ function MediaViewer({ media }) {
   };
 
   // ИСПРАВЛЕННАЯ ФУНКЦИЯ РЕНДЕРИНГА ДОКУМЕНТА
-  const renderDocument = () => {
-    // Определяем, PDF ли это
-    const isPdf = media.file_name.toLowerCase().endsWith('.pdf');
-    
-	// Для PDF Создаем отдельно
-  if (isPdf) {
-  // Создаем URL для Google Docs Viewer
-  const pdfViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(mediaUrl)}&embedded=true`;
+// Рендеринг документа
+const renderDocument = () => {
+  // Определяем, PDF ли это
+  const isPdf = media.file_name.toLowerCase().endsWith('.pdf');
   
+  // Для PDF - используем разный подход для мобильных и десктопа
+  if (isPdf) {
+    if (isMobile) {
+      // МОБИЛЬНЫЕ: Google Docs Viewer
+      const pdfViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(mediaUrl)}&embedded=true`;
+      
+      return (
+        <div style={{ padding: '0', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+          <div style={{ 
+            fontWeight: 'bold', 
+            fontSize: '16px', 
+            marginBottom: '10px',
+            padding: '15px 15px 0 15px',
+            wordBreak: 'break-all',
+            textAlign: 'center'
+          }}>
+            {media.file_name}
+          </div>
+          
+          {/* Информация о файле */}
+          <div style={{ 
+            fontSize: '14px', 
+            color: '#666',
+            margin: '0 15px 15px 15px',
+            padding: '10px',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            textAlign: 'left'
+          }}>
+            <div style={{ marginBottom: '5px' }}>
+              <strong>Тип:</strong> PDF документ
+            </div>
+            {media.file_size && (
+              <div style={{ marginBottom: '5px' }}>
+                <strong>Размер:</strong> {formatFileSize(media.file_size)}
+              </div>
+            )}
+          </div>
+          
+          {/* Просмотр PDF через Google Docs Viewer (только для мобильных) */}
+          <div style={{ textAlign: 'center', padding: '0 15px 15px 15px' }}>
+            <iframe
+              src={pdfViewerUrl}
+              style={{
+                width: '100%',
+                height: '70vh',
+                border: '1px solid #ddd',
+                borderRadius: '8px'
+              }}
+              title={media.file_name}
+            />
+          </div>
+          
+          {/* Кнопка скачивания (запасной вариант) */}
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '0 15px 15px 15px'
+          }}>
+            <a 
+              href={mediaUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              download
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                display: 'inline-block'
+              }}
+            >
+              📥 Скачать PDF
+            </a>
+          </div>
+        </div>
+      );
+    } else {
+      // ДЕСКТОП: прямая ссылка (как было раньше)
+      return (
+        <div style={{ padding: '30px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+          <div style={{ fontSize: '64px', marginBottom: '15px', textAlign: 'center' }}>{renderFileIcon()}</div>
+          <div style={{ 
+            fontWeight: 'bold', 
+            fontSize: '18px', 
+            marginBottom: '10px',
+            wordBreak: 'break-all',
+            textAlign: 'center'
+          }}>
+            {media.file_name}
+          </div>
+          
+          <div style={{ 
+            fontSize: '14px', 
+            color: '#666',
+            marginBottom: '20px',
+            padding: '10px',
+            backgroundColor: 'white',
+            borderRadius: '6px',
+            textAlign: 'left'
+          }}>
+            <div style={{ marginBottom: '5px' }}>
+              <strong>Тип:</strong> PDF документ
+            </div>
+            {media.file_size && (
+              <div style={{ marginBottom: '5px' }}>
+                <strong>Размер:</strong> {formatFileSize(media.file_size)}
+              </div>
+            )}
+          </div>
+          
+          <div style={{ textAlign: 'center' }}>
+            <a 
+              href={mediaUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                fontWeight: 'bold',
+                display: 'inline-block'
+              }}
+            >
+              Открыть PDF
+            </a>
+          </div>
+        </div>
+      );
+    }
+  }
+  
+  // Для других документов (не PDF)
   return (
-    <div style={{ padding: '0', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+    <div style={{ padding: '30px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+      <div style={{ fontSize: '64px', marginBottom: '15px', textAlign: 'center' }}>{renderFileIcon()}</div>
       <div style={{ 
         fontWeight: 'bold', 
-        fontSize: '16px', 
+        fontSize: '18px', 
         marginBottom: '10px',
-        padding: '15px 15px 0 15px',
         wordBreak: 'break-all',
         textAlign: 'center'
       }}>
         {media.file_name}
       </div>
       
-      {/* Информация о файле */}
       <div style={{ 
         fontSize: '14px', 
         color: '#666',
-        margin: '0 15px 15px 15px',
+        marginBottom: '20px',
         padding: '10px',
         backgroundColor: 'white',
         borderRadius: '6px',
         textAlign: 'left'
       }}>
         <div style={{ marginBottom: '5px' }}>
-          <strong>Тип:</strong> PDF документ
+          <strong>Тип:</strong> {getFileTypeName()}
         </div>
         {media.file_size && (
           <div style={{ marginBottom: '5px' }}>
             <strong>Размер:</strong> {formatFileSize(media.file_size)}
           </div>
         )}
+        {media.thumbnail_url && !thumbnailError && (
+          <div style={{ marginBottom: '5px' }}>
+            <strong>Превью:</strong> доступно от Яндекс.Диска
+          </div>
+        )}
       </div>
       
-      {/* Просмотр PDF через Google Docs Viewer */}
-      <div style={{ textAlign: 'center', padding: '0 15px 15px 15px' }}>
-        <iframe
-          src={pdfViewerUrl}
-          style={{
-            width: '100%',
-            height: isMobile ? '70vh' : '600px',
-            border: '1px solid #ddd',
-            borderRadius: '8px'
-          }}
-          title={media.file_name}
-        />
-      </div>
-      
-      {/* Кнопка для скачивания (на случай если Google Viewer не работает) */}
       <div style={{ 
-        textAlign: 'center', 
-        padding: '0 15px 15px 15px'
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: '10px',
+        justifyContent: 'center'
       }}>
         <a 
           href={mediaUrl} 
           target="_blank" 
           rel="noopener noreferrer"
+          download
           style={{
             padding: '12px 24px',
             backgroundColor: '#28a745',
@@ -332,100 +457,33 @@ function MediaViewer({ media }) {
             textDecoration: 'none',
             borderRadius: '6px',
             fontWeight: 'bold',
-            display: 'inline-block'
+            display: 'inline-block',
+            flex: isMobile ? '1' : '0 1 auto'
           }}
         >
-          📥 Скачать PDF (если не открывается)
+          📥 Скачать файл
+        </a>
+        <a 
+          href={mediaUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{
+            padding: '12px 24px',
+            backgroundColor: '#007bff',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '6px',
+            fontWeight: 'bold',
+            display: 'inline-block',
+            flex: isMobile ? '1' : '0 1 auto'
+          }}
+        >
+          ↗ Открыть в новой вкладке
         </a>
       </div>
     </div>
   );
-}   
-	
-    // Для других документов (не PDF)
-    return (
-      <div style={{ padding: '30px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-        <div style={{ fontSize: '64px', marginBottom: '15px', textAlign: 'center' }}>{renderFileIcon()}</div>
-        <div style={{ 
-          fontWeight: 'bold', 
-          fontSize: '18px', 
-          marginBottom: '10px',
-          wordBreak: 'break-all',
-          textAlign: 'center'
-        }}>
-          {media.file_name}
-        </div>
-        
-        <div style={{ 
-          fontSize: '14px', 
-          color: '#666',
-          marginBottom: '20px',
-          padding: '10px',
-          backgroundColor: 'white',
-          borderRadius: '6px',
-          textAlign: 'left'
-        }}>
-          <div style={{ marginBottom: '5px' }}>
-            <strong>Тип:</strong> {getFileTypeName()}
-          </div>
-          {media.file_size && (
-            <div style={{ marginBottom: '5px' }}>
-              <strong>Размер:</strong> {formatFileSize(media.file_size)}
-            </div>
-          )}
-          {media.thumbnail_url && !thumbnailError && (
-            <div style={{ marginBottom: '5px' }}>
-              <strong>Превью:</strong> доступно от Яндекс.Диска
-            </div>
-          )}
-        </div>
-        
-        <div style={{ 
-          textAlign: 'center',
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          gap: '10px',
-          justifyContent: 'center'
-        }}>
-          <a 
-            href={mediaUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            download
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '6px',
-              fontWeight: 'bold',
-              display: 'inline-block',
-              flex: isMobile ? '1' : '0 1 auto'
-            }}
-          >
-            📥 Скачать файл
-          </a>
-          <a 
-            href={mediaUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '6px',
-              fontWeight: 'bold',
-              display: 'inline-block',
-              flex: isMobile ? '1' : '0 1 auto'
-            }}
-          >
-            ↗ Открыть в новой вкладке
-          </a>
-        </div>
-      </div>
-    );
-  };
+};
 
   // Рендеринг изображения
   const renderImage = () => {
