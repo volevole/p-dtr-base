@@ -40,7 +40,7 @@ export default function MuscleForm({ muscle, onSave }) {
         insertion: muscle.insertion || '',
         indicator: muscle.indicator || '',
         pain_zones_text: muscle.pain_zones_text || '',
-		display_order: muscle.display_order || '',
+		display_order: muscle.display_order || 0,
         notes: muscle.notes || ''
       });
 
