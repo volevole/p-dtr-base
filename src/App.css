@@ -561,3 +561,11 @@
     background-color: #404040;
   }
 }
+ /* Описание с форматированием */
+.description-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.6;
+  text-align: left;
+  font-family: inherit;
+}

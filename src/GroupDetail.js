@@ -70,16 +70,18 @@ function GroupDetail() {
       </div>
 
       {group.description && (
-        <div style={{ 
-          backgroundColor: '#f5f5f5', 
-          padding: '15px', 
-          borderRadius: '5px',
-          marginBottom: '20px'
-        }}>
-          <strong>Описание:</strong>
-          <p>{group.description}</p>
-        </div>
-      )}
+	  <div style={{ 
+		backgroundColor: '#f5f5f5', 
+		padding: '15px', 
+		borderRadius: '5px',
+		marginBottom: '20px'
+	  }}>
+		<strong>Описание:</strong>
+		<div className="description-text">
+		  {group.description}
+		</div>
+	  </div>
+	)}
 
       <h3>Мышцы в группе ({muscles.length})</h3>
       {muscles.length > 0 ? (
