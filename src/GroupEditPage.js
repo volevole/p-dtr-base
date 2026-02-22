@@ -38,19 +38,25 @@ function GroupEditPage() {
 
       if (groupError) throw groupError;
 
-      // Загрузка всех мышц
+      // Загрузка всех мышц - сортировка по display_order
       const { data: musclesData, error: musclesError } = await supabase
         .from('muscles')
-        .select('id, name_ru, name_lat')
-        .order('name_ru');
+        .select('id, name_ru, name_lat, display_order')
+        .order('display_order', { ascending: true, nullsFirst: false });  // ← сортировка по display_order, null в конце
 
       if (musclesError) throw musclesError;
 
-      // Загрузка мышц, которые уже в группе
+      // Загрузка мышц, которые уже в группе - с сортировкой по display_order
       const { data: groupMusclesData, error: membershipError } = await supabase
         .from('muscle_group_membership')
-        .select('muscle_id')
-        .eq('group_id', id);
+        .select(`
+          muscle_id,
+          muscles!inner (
+            display_order
+          )
+        `)
+        .eq('group_id', id)
+        .order('muscles(display_order)', { ascending: true });
 
       if (membershipError) throw membershipError;
 
@@ -64,7 +70,11 @@ function GroupEditPage() {
       }
 
       setAllMuscles(musclesData || []);
-      setSelectedMuscles(groupMusclesData?.map(item => item.muscle_id) || []);
+      
+      // Получаем ID мышц в правильном порядке
+      const selectedIds = groupMusclesData?.map(item => item.muscle_id) || [];
+      setSelectedMuscles(selectedIds);
+      
     } catch (error) {
       console.error('Error fetching data:', error);
       alert('Ошибка загрузки данных: ' + error.message);
@@ -72,7 +82,7 @@ function GroupEditPage() {
       setLoading(false);
     }
   };
-
+  
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({

@@ -425,7 +425,7 @@ console.log('Начинаем сохранять для :', muscle.id);
           name="notes"
           value={formData.notes}
           onChange={handleInputChange}
-          rows={3}
+          rows={7}
         />
       </div>
 	  

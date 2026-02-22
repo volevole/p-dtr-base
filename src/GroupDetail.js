@@ -25,13 +25,15 @@ function GroupDetail() {
         .from('muscle_group_membership')
         .select(`
           muscle_id,
-          muscles (
+          muscles!inner (
             id,
             name_ru,
-            name_lat
+            name_lat,
+            display_order
           )
         `)
-        .eq('group_id', id);
+        .eq('group_id', id)
+        .order('muscles(display_order)', { ascending: true });
 
       setGroup(groupData);
       setMuscles(musclesData?.map(item => item.muscles) || []);

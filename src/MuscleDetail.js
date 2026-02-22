@@ -1,4 +1,4 @@
-// MuscleDetail.js - с использованием CSS классов
+// MuscleDetail.js - адаптивная версия с использованием CSS классов
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
@@ -6,7 +6,7 @@ import API_URL from './config/api';
 import { FaCopy, FaPlus, FaPlusCircle, FaEdit } from 'react-icons/fa';
 import { getMediaForEntity, uploadMediaForEntity } from './utils/mediaHelper';
 import MediaManager from './MediaManager';
-import './App.css'; // Убедитесь, что стили подключены
+import './App.css';
 
 // Функция для обрезания длинного текста (только для определенных полей)
 const truncateText = (text, maxLength = 200) => {
@@ -61,13 +61,6 @@ function MuscleDetail() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
-  // Минимальные инлайн-стили только для отступов (их нет в CSS)
-  const containerStyle = {
-    padding: isMobile ? '1rem' : '2rem',
-    maxWidth: '1000px',
-    margin: 'auto'
-  };
-
   useEffect(() => {
     async function fetchData() {
       setLoading(true)
@@ -171,8 +164,8 @@ function MuscleDetail() {
     fetchData();
   }, [id]);
 
-  if (loading) return <div style={containerStyle}>Загрузка...</div>
-  if (!muscle) return <div style={containerStyle}>Мышца не найдена</div>
+  if (loading) return <div className="detail-container">Загрузка...</div>
+  if (!muscle) return <div className="detail-container">Мышца не найдена</div>
 
   const functions = muscle.muscle_functions || []
   const meridians = muscle.muscle_meridians || []
@@ -183,52 +176,32 @@ function MuscleDetail() {
 
   // Функция для рендеринга групп
   const renderGroups = () => {
-    if (groups.length === 0) return <span style={{ color: '#999' }}>—</span>;
+    if (groups.length === 0) return <span className="empty-value">—</span>;
     
     if (groups.length === 1) {
       return (
         <>
-          <Link 
-            to={`/group/${groups[0].muscle_groups.id}`}
-            className="link-text"
-            style={{ fontWeight: 'bold' }}
-          >
+          <Link to={`/group/${groups[0].muscle_groups.id}`} className="link-text bold-link">
             {groups[0].muscle_groups.name}
           </Link>
-          <em>
-            <small>
-              {groups[0].muscle_groups.description 
-                ? ` – ${truncateText(groups[0].muscle_groups.description, isMobile ? 50 : 200)}` 
-                : ''} 
-              {groups[0].muscle_groups.type 
-                ? ` (${groups[0].muscle_groups.type})` 
-                : ''}
-            </small>
+          <em className="small-text">
+            {groups[0].muscle_groups.description && ` – ${truncateText(groups[0].muscle_groups.description, isMobile ? 50 : 200)}`}
+            {groups[0].muscle_groups.type && ` (${groups[0].muscle_groups.type})`}
           </em>
         </>
       );
     }
     
     return (
-      <ul style={{ margin: 0, paddingLeft: isMobile ? '15px' : '20px' }}>
+      <ul className="detail-list">
         {groups.map((f, idx) => (
           <li key={idx}>
-            <Link 
-              to={`/group/${f.muscle_groups.id}`}
-              className="link-text"
-              style={{ fontWeight: 'bold' }}
-            >
+            <Link to={`/group/${f.muscle_groups.id}`} className="link-text bold-link">
               {f.muscle_groups.name}
             </Link>
-            <em>
-              <small>
-                {f.muscle_groups.description 
-                  ? ` – ${truncateText(f.muscle_groups.description, isMobile ? 50 : 200)}` 
-                  : ''}
-                {f.muscle_groups.type 
-                  ? ` (${f.muscle_groups.type})` 
-                  : ''}
-              </small>
+            <em className="small-text">
+              {f.muscle_groups.description && ` – ${truncateText(f.muscle_groups.description, isMobile ? 50 : 200)}`}
+              {f.muscle_groups.type && ` (${f.muscle_groups.type})`}
             </em>
           </li>
         ))}
@@ -238,23 +211,23 @@ function MuscleDetail() {
 
   // Функция для рендеринга функций
   const renderFunctions = () => {
-    if (functions.length === 0) return <span style={{ color: '#999' }}>—</span>;
+    if (functions.length === 0) return <span className="empty-value">—</span>;
     
     if (functions.length === 1) {
       return (
         <>
           {functions[0].functions.name}
-          {functions[0].note && <em> – {truncateText(functions[0].note, isMobile ? 50 : 200)}</em>}
+          {functions[0].note && <em className="small-text"> – {truncateText(functions[0].note, isMobile ? 50 : 200)}</em>}
         </>
       );
     }
     
     return (
-      <ul style={{ margin: 0, paddingLeft: isMobile ? '15px' : '20px' }}>
+      <ul className="detail-list">
         {functions.map((f, idx) => (
           <li key={idx}>
             {f.functions.name}
-            {f.note && <em> – {truncateText(f.note, isMobile ? 50 : 200)}</em>}
+            {f.note && <em className="small-text"> – {truncateText(f.note, isMobile ? 50 : 200)}</em>}
           </li>
         ))}
       </ul>
@@ -263,35 +236,27 @@ function MuscleDetail() {
 
   // Функция для рендеринга меридианов
   const renderMeridians = () => {
-    if (meridians.length === 0) return <span style={{ color: '#999' }}>—</span>;
+    if (meridians.length === 0) return <span className="empty-value">—</span>;
     
     if (meridians.length === 1) {
       return (
         <>
-          <Link 
-            to={`/meridian/${meridians[0].meridian_id}`}
-            className="link-text"
-            style={{ fontWeight: 'bold' }}
-          >
+          <Link to={`/meridian/${meridians[0].meridian_id}`} className="link-text bold-link">
             {meridians[0].meridians.name}
           </Link>
-          {meridians[0].meridians.code && <span> [{meridians[0].meridians.code}]</span>}
+          {meridians[0].meridians.code && <span className="code-badge"> [{meridians[0].meridians.code}]</span>}
         </>
       );
     }
     
     return (
-      <ul style={{ margin: 0, paddingLeft: isMobile ? '15px' : '20px' }}>
+      <ul className="detail-list">
         {meridians.map((f, idx) => (
           <li key={idx}>
-            <Link 
-              to={`/meridian/${f.meridian_id}`}
-              className="link-text"
-              style={{ fontWeight: 'bold' }}
-            >
+            <Link to={`/meridian/${f.meridian_id}`} className="link-text bold-link">
               {f.meridians.name}
             </Link>
-            {f.meridians.code && <span> [{f.meridians.code}]</span>}
+            {f.meridians.code && <span className="code-badge"> [{f.meridians.code}]</span>}
           </li>
         ))}
       </ul>
@@ -300,35 +265,27 @@ function MuscleDetail() {
 
   // Функция для рендеринга органов
   const renderOrgans = () => {
-    if (organs.length === 0) return <span style={{ color: '#999' }}>—</span>;
+    if (organs.length === 0) return <span className="empty-value">—</span>;
     
     if (organs.length === 1) {
       return (
         <>
-          <Link 
-            to={`/organ/${organs[0].organ_id}`}
-            className="link-text"
-            style={{ fontWeight: 'bold' }}
-          >
+          <Link to={`/organ/${organs[0].organ_id}`} className="link-text bold-link">
             {organs[0].organs.name}
           </Link>
-          {organs[0].organs.system && <span> ({organs[0].organs.system})</span>}
+          {organs[0].organs.system && <span className="system-badge"> ({organs[0].organs.system})</span>}
         </>
       );
     }
     
     return (
-      <ul style={{ margin: 0, paddingLeft: isMobile ? '15px' : '20px' }}>
+      <ul className="detail-list">
         {organs.map((f, idx) => (
           <li key={idx}>
-            <Link 
-              to={`/organ/${f.organ_id}`}
-              className="link-text"
-              style={{ fontWeight: 'bold' }}
-            >
+            <Link to={`/organ/${f.organ_id}`} className="link-text bold-link">
               {f.organs.name}
             </Link>
-            {f.organs.system && <span> ({f.organs.system})</span>}
+            {f.organs.system && <span className="system-badge"> ({f.organs.system})</span>}
           </li>
         ))}
       </ul>
@@ -337,23 +294,23 @@ function MuscleDetail() {
 
   // Функция для рендеринга нервов
   const renderNerves = () => {
-    if (nerves.length === 0) return <span style={{ color: '#999' }}>—</span>;
+    if (nerves.length === 0) return <span className="empty-value">—</span>;
     
     if (nerves.length === 1) {
       return (
         <>
           {nerves[0].nerves.name}
-          {nerves[0].nerves.type && <span> ({nerves[0].nerves.type})</span>}
+          {nerves[0].nerves.type && <span className="type-badge"> ({nerves[0].nerves.type})</span>}
         </>
       );
     }
     
     return (
-      <ul style={{ margin: 0, paddingLeft: isMobile ? '15px' : '20px' }}>
+      <ul className="detail-list">
         {nerves.map((f, idx) => (
           <li key={idx}>
             {f.nerves.name} 
-            {f.nerves.type && <span> ({f.nerves.type})</span>}
+            {f.nerves.type && <span className="type-badge"> ({f.nerves.type})</span>}
           </li>
         ))}
       </ul>
@@ -362,14 +319,14 @@ function MuscleDetail() {
 
   // Функция для рендеринга позвонков
   const renderVertebrae = () => {
-    if (verts.length === 0) return <span style={{ color: '#999' }}>—</span>;
+    if (verts.length === 0) return <span className="empty-value">—</span>;
     
     if (verts.length === 1) {
-      return <>{verts[0].vertebrae.code}</>;
+      return <span className="vertebrae-code">{verts[0].vertebrae.code}</span>;
     }
     
     return (
-      <ul style={{ margin: 0, paddingLeft: isMobile ? '15px' : '20px' }}>
+      <ul className="detail-list">
         {verts.map((f, idx) => (
           <li key={idx}>{f.vertebrae.code}</li>
         ))}
@@ -378,15 +335,9 @@ function MuscleDetail() {
   };
 
   return (
-    <div style={containerStyle}>
+    <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
       {/* Навигация */}
-      <div style={{ 
-        display: 'flex', 
-        gap: isMobile ? '0.5rem' : '1rem', 
-        alignItems: 'center', 
-        marginBottom: '20px',
-        flexWrap: 'wrap'
-      }}>
+      <div className="detail-navigation">
         <Link className="link-text" to="/">← Назад</Link>
         <button 
           onClick={() => navigate(`/muscle/${id}/edit`)}
@@ -396,144 +347,115 @@ function MuscleDetail() {
           ✏️
         </button>
         {dysfunctionsCount > 0 && (
-          <Link 
-            to={`/muscle/${id}/dysfunctions`}
-            className="link-text"
-          >
+          <Link to={`/muscle/${id}/dysfunctions`} className="link-text">
             Список дисфункций: {dysfunctionsCount}
           </Link>
         )}
       </div>
       
-      <h1 style={{ fontSize: isMobile ? '1.5rem' : '2rem' }}>
+      <h1 className="detail-title">
         {muscle.name_ru} 
-        <span style={{ fontWeight: 'normal', fontSize: isMobile ? '1rem' : '1.5rem' }}>
-          ({muscle.name_lat})
-        </span>
+        <span className="detail-subtitle">({muscle.name_lat})</span>
       </h1>
       
-      {/* Таблица с данными - используем стандартные HTML стили */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      {/* Адаптивное отображение - либо таблица, либо вертикальные блоки */}
+      <div className="detail-content">
+        <table className="detail-table">
           <tbody>
-            {/* Описание первым */}
-            <tr>
-              <td style={{ 
-                paddingTop: '12px',
-                padding: '5px',
-                verticalAlign: 'top',
-                fontWeight: 'bold',
-                width: isMobile ? '100px' : '150px'
-              }}>
-                Описание:
-              </td>
-              <td style={{ 
-                paddingTop: '12px',
-                padding: '5px',
-                verticalAlign: 'top',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
-                lineHeight: '1.5'
-              }}>
-                {muscle.notes || <span style={{ color: '#999' }}>—</span>}
-              </td>
-            </tr>
-            
-            {/* Остальные поля */}
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Начало:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>
-                {muscle.origin || <span style={{ color: '#999' }}>—</span>}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Прикрепление:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>
-                {muscle.insertion || <span style={{ color: '#999' }}>—</span>}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Группы:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>{renderGroups()}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Функции:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>{renderFunctions()}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Меридиан:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>{renderMeridians()}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Орган:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>{renderOrgans()}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Иннервация:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>{renderNerves()}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Позвонок:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>{renderVertebrae()}</td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Индикатор:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>
-                {muscle.indicator || <span style={{ color: '#999' }}>—</span>}
-              </td>
-            </tr>
-            <tr>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top', fontWeight: 'bold' }}>Зона боли:</td>
-              <td style={{ paddingTop: '12px', padding: '5px', verticalAlign: 'top' }}>
-                {muscle.pain_zones_text 
-                  ? truncateText(muscle.pain_zones_text, isMobile ? 100 : 500) 
-                  : <span style={{ color: '#999' }}>—</span>}
-              </td>
-            </tr>
+            <tr><td className="detail-label">Описание:</td><td className="detail-value description-text">{muscle.notes || <span className="empty-value">—</span>}</td></tr>
+            <tr><td className="detail-label">Начало:</td><td className="detail-value">{muscle.origin || <span className="empty-value">—</span>}</td></tr>
+            <tr><td className="detail-label">Прикрепление:</td><td className="detail-value">{muscle.insertion || <span className="empty-value">—</span>}</td></tr>
+            <tr><td className="detail-label">Группы:</td><td className="detail-value">{renderGroups()}</td></tr>
+            <tr><td className="detail-label">Функции:</td><td className="detail-value">{renderFunctions()}</td></tr>
+            <tr><td className="detail-label">Меридиан:</td><td className="detail-value">{renderMeridians()}</td></tr>
+            <tr><td className="detail-label">Орган:</td><td className="detail-value">{renderOrgans()}</td></tr>
+            <tr><td className="detail-label">Иннервация:</td><td className="detail-value">{renderNerves()}</td></tr>
+            <tr><td className="detail-label">Позвонок:</td><td className="detail-value">{renderVertebrae()}</td></tr>
+            <tr><td className="detail-label">Индикатор:</td><td className="detail-value">{muscle.indicator || <span className="empty-value">—</span>}</td></tr>
+            <tr><td className="detail-label">Зона боли:</td><td className="detail-value">{muscle.pain_zones_text || <span className="empty-value">—</span>}</td></tr>
           </tbody>
         </table>
+        
+        {/* Вертикальная версия для мобильных (будет показана через CSS медиа-запросы) */}
+        <div className="mobile-detail">
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Описание:</span>
+            <span className="mobile-detail-value description-text">{muscle.notes || <span className="empty-value">—</span>}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Начало:</span>
+            <span className="mobile-detail-value">{muscle.origin || <span className="empty-value">—</span>}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Прикрепление:</span>
+            <span className="mobile-detail-value">{muscle.insertion || <span className="empty-value">—</span>}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Группы:</span>
+            <span className="mobile-detail-value">{renderGroups()}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Функции:</span>
+            <span className="mobile-detail-value">{renderFunctions()}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Меридиан:</span>
+            <span className="mobile-detail-value">{renderMeridians()}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Орган:</span>
+            <span className="mobile-detail-value">{renderOrgans()}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Иннервация:</span>
+            <span className="mobile-detail-value">{renderNerves()}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Позвонок:</span>
+            <span className="mobile-detail-value">{renderVertebrae()}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Индикатор:</span>
+            <span className="mobile-detail-value">{muscle.indicator || <span className="empty-value">—</span>}</span>
+          </div>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Зона боли:</span>
+            <span className="mobile-detail-value">{muscle.pain_zones_text || <span className="empty-value">—</span>}</span>
+          </div>
+        </div>
       </div>
 
       {/* Блок взаимоотношений */}
       {relationships.length > 0 && (
-        <div style={{ marginTop: '30px' }}>
+        <div className="relationships-section">
           <h3>Взаимоотношения мышцы</h3>
           {relationships.map(relationship => {
             const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
             const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;
             
             return (
-              <div key={relationship.id} style={{
-                border: '1px solid #ddd',
-                padding: isMobile ? '10px' : '15px',
-                borderRadius: '8px',
-                marginBottom: '15px',
-                backgroundColor: '#f9f9f9'
-              }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: isMobile ? '1rem' : '1.2rem' }}>
+              <div key={relationship.id} className="relationship-card">
+                <h4 className="relationship-title">
                   {relationship.function?.name}
                   {relationship.note && ` - ${truncateText(relationship.note, isMobile ? 50 : 200)}`}
                 </h4>
                 
-                <div style={{ marginBottom: '10px' }}>
+                <div className="relationship-role">
                   <strong>Роль этой мышцы:</strong>{' '}
                   {isSynergist ? (
-                    <span style={{color: 'green'}}>Синергист</span>
+                    <span className="role-synergist">Синергист</span>
                   ) : isAntagonist ? (
-                    <span style={{color: 'red'}}>Антагонист</span>
+                    <span className="role-antagonist">Антагонист</span>
                   ) : null}
                 </div>
                 
                 {relationship.synergists && relationship.synergists.length > 0 && (
-                  <div style={{ marginBottom: '10px' }}>
+                  <div className="relationship-group">
                     <strong>Синергисты:</strong>
-                    <ul style={{ margin: '5px 0', paddingLeft: isMobile ? '15px' : '20px' }}>
+                    <ul className="relationship-list">
                       {relationship.synergists.map(synergist => (
                         <li key={synergist.muscle.id}>
-                          <Link 
-                            to={`/muscle/${synergist.muscle.id}`}
-                            className="link-text"
-                          >
+                          <Link to={`/muscle/${synergist.muscle.id}`} className="link-text">
                             {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
                           </Link>
                         </li>
@@ -543,15 +465,12 @@ function MuscleDetail() {
                 )}
 
                 {relationship.antagonists && relationship.antagonists.length > 0 && (
-                  <div style={{ marginBottom: '10px' }}>
+                  <div className="relationship-group">
                     <strong>Антагонисты:</strong>
-                    <ul style={{ margin: '5px 0', paddingLeft: isMobile ? '15px' : '20px' }}>
+                    <ul className="relationship-list">
                       {relationship.antagonists.map(antagonist => (
                         <li key={antagonist.muscle.id}>
-                          <Link 
-                            to={`/muscle/${antagonist.muscle.id}`}
-                            className="link-text"
-                          >
+                          <Link to={`/muscle/${antagonist.muscle.id}`} className="link-text">
                             {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
                           </Link>
                         </li>
@@ -574,8 +493,8 @@ function MuscleDetail() {
         readonly={true}
       />
       
-      <hr style={{ margin: '30px 0' }} />
-      <p><strong>ID:</strong> {muscle.id}</p>
+      <hr className="separator" />
+      <p className="detail-id"><strong>ID:</strong> {muscle.id}</p>
     </div>
   );
 }

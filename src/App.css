@@ -60,6 +60,7 @@
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  background-color: #f0f8ff;  /* светло-голубой (AliceBlue) */
 }
 
 .form-group input[type="number"] {
@@ -596,4 +597,490 @@
   .muscle-detail-table td {
     padding: 3px;
   }
+}
+
+/* App.css - добавить в конец файла */
+
+/* ===== СТИЛИ ДЛЯ ДЕТАЛЬНОГО ПРОСМОТРА СУЩНОСТЕЙ ===== */
+
+/* Контейнер для детального просмотра */
+.detail-container {
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Десктопная таблица */
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.detail-table td {
+  padding: 8px 5px;
+  vertical-align: top;
+}
+
+.detail-table td:first-child {
+  font-weight: bold;
+  width: 150px;
+  white-space: nowrap;
+}
+
+/* Мобильная верстка (вертикальная) */
+.mobile-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.mobile-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.mobile-detail-label {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.mobile-detail-value {
+  font-size: 1rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+/* Описание с форматированием (для обеих версий) */
+.detail-description {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.6;
+  font-family: inherit;
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 3px solid #007bff;
+}
+
+/* Медиа-запросы */
+@media (max-width: 768px) {
+  .detail-container {
+    padding: 1rem;
+  }
+  
+  /* Скрываем таблицу на мобильных */
+  .detail-table {
+    display: none;
+  }
+  
+  /* Показываем мобильную верстку */
+  .mobile-detail {
+    display: flex;
+  }
+  
+  /* Корректировка заголовка на мобильных */
+  .detail-container h1 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+  }
+  
+  .detail-container h1 span {
+    font-size: 1rem;
+  }
+}
+
+@media (min-width: 769px) {
+  /* На десктопе скрываем мобильную верстку */
+  .mobile-detail {
+    display: none;
+  }
+  
+  /* Показываем таблицу */
+  .detail-table {
+    display: table;
+  }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 480px) {
+  .detail-container {
+    padding: 0.8rem;
+  }
+  
+  .mobile-detail-item {
+    padding: 6px 0;
+  }
+  
+  .mobile-detail-label {
+    font-size: 0.85rem;
+  }
+  
+  .mobile-detail-value {
+    font-size: 0.95rem;
+  }
+}
+
+/* Добавить в App.css */
+
+/* ===== СТИЛИ ДЛЯ ДЕТАЛЬНОГО ПРОСМОТРА ===== */
+.detail-container {
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.detail-container.mobile-view {
+  padding: 1rem;
+}
+
+.detail-navigation {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.detail-title {
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.detail-subtitle {
+  font-weight: normal;
+  font-size: 1.5rem;
+}
+
+/* Десктопная таблица */
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.detail-table td {
+  padding: 5px;
+  vertical-align: top;
+}
+
+.detail-table td:first-child {
+  font-weight: bold;
+  width: 150px;
+}
+
+.detail-value {
+  padding: 5px;
+  vertical-align: top;
+}
+
+/* Мобильная версия (скрыта на десктопе) */
+.mobile-detail {
+  display: none;
+}
+
+/* Медиа-запрос для мобильных */
+@media (max-width: 768px) {
+  .detail-container {
+    padding: 1rem;
+  }
+  
+  .detail-title {
+    font-size: 1.5rem;
+  }
+  
+  .detail-subtitle {
+    font-size: 1rem;
+  }
+  
+  .detail-table {
+    display: none;
+  }
+  
+  .mobile-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .mobile-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .mobile-detail-label {
+    font-weight: bold;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  
+  .mobile-detail-value {
+    font-size: 1rem;
+    line-height: 1.5;
+    word-wrap: break-word;
+  }
+}
+
+/* Общие стили */
+.description-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.6;
+  background-color: #f8f9fa;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.empty-value {
+  color: #999;
+}
+
+.bold-link {
+  font-weight: bold;
+}
+
+.small-text {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.detail-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.code-badge, .system-badge, .type-badge {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.vertebrae-code {
+  font-weight: 500;
+}
+
+/* Стили для взаимоотношений */
+.relationships-section {
+  margin-top: 30px;
+}
+
+.relationship-card {
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  background-color: #f9f9f9;
+}
+
+.relationship-title {
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+}
+
+.relationship-role {
+  margin-bottom: 10px;
+}
+
+.role-synergist {
+  color: green;
+}
+
+.role-antagonist {
+  color: red;
+}
+
+.relationship-group {
+  margin-bottom: 10px;
+}
+
+.relationship-list {
+  margin: 5px 0;
+  padding-left: 20px;
+}
+
+/* Разделитель */
+.separator {
+  margin: 30px 0;
+}
+
+.detail-id {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Мобильные адаптации для взаимоотношений */
+@media (max-width: 768px) {
+  .relationship-card {
+    padding: 10px;
+  }
+  
+  .relationship-title {
+    font-size: 1rem;
+  }
+  
+  .relationship-list {
+    padding-left: 15px;
+  }
+}
+
+/* Добавить/обновить в App.css */
+
+/* Общие стили для значений на десктопе */
+.detail-value {
+  padding: 5px;
+  vertical-align: top;
+  background-color: #f0f8ff;  /* светло-голубой фон */
+  border-radius: 4px;
+}
+
+/* Специально для описания */
+.description-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.6;
+  background-color: #f0f8ff;  /* такой же голубой фон */
+  padding: 8px;
+  border-radius: 4px;
+}
+
+/* Для мобильной версии */
+.mobile-detail-value {
+  font-size: 1rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+  background-color: #f0f8ff;  /* такой же голубой фон */
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+/* Если есть отдельные ячейки в таблице, которым нужен фон */
+.detail-table td:not(:first-child) {
+  background-color: #f0f8ff;
+  border-radius: 4px;
+}
+
+/* Для пустых значений оставляем без фона или с очень светлым */
+.empty-value {
+  color: #999;
+  background-color: transparent;  /* без фона для пустых значений */
+}
+
+/* Для списков внутри значений */
+.detail-list {
+  margin: 0;
+  padding-left: 20px;
+  background-color: #f0f8ff;  /* фон для всего списка */
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.detail-list li {
+  margin-bottom: 4px;
+}
+
+/* Для кода/бейджей внутри значений */
+.code-badge, .system-badge, .type-badge {
+  color: #666;
+  font-size: 0.9em;
+  background-color: transparent;  /* прозрачный фон внутри голубого */
+}
+
+/* Для ячеек таблицы на десктопе */
+.detail-table td {
+  padding: 5px;
+  vertical-align: top;
+}
+
+/* Первая колонка (заголовки) без фона */
+.detail-table td:first-child {
+  font-weight: bold;
+  width: 150px;
+  background-color: transparent;  /* без фона для заголовков */
+}
+
+/* Для ссылок внутри значений оставляем стандартный цвет */
+.link-text {
+  text-decoration: none;
+  color: #1976d2;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Для мобильной версии поля */
+.mobile-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* Заголовки на мобильных без фона */
+.mobile-detail-label {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: #666;
+  background-color: transparent;
+}
+
+/* Для списков на мобильных */
+.mobile-detail-value .detail-list {
+  margin: 0;
+  padding: 6px 8px;
+  background-color: #f0f8ff;
+  border-radius: 4px;
+}
+
+/* Для элементов списка на мобильных */
+.mobile-detail-value ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* Для лучшего вида добавим небольшой отступ между ячейками */
+.detail-table td:not(:first-child) {
+  padding-left: 10px;
+}
+
+/* Для hover эффекта (опционально) */
+.detail-value:hover,
+.mobile-detail-value:hover,
+.description-text:hover,
+.detail-table td:not(:first-child):hover {
+  background-color: #e6f3ff;  /* чуть темнее при наведении */
+  transition: background-color 0.2s ease;
+}
+
+/* Десктопная таблица с отступами между строками */
+.detail-table {
+  border-collapse: separate;
+  border-spacing: 0 4px;  /* 4px белого фона между строками */
+  width: 100%;
+}
+
+.detail-table td {
+  padding: 8px 5px;
+  vertical-align: top;
+}
+
+.detail-table td:first-child {
+  font-weight: bold;
+  width: 150px;
+  white-space: nowrap;
+  background-color: transparent;
+}
+
+.detail-table td:not(:first-child) {
+  background-color: #f0f8ff;
+  border-radius: 4px;
+  padding-left: 12px;
+}
+
+/* Эффект при наведении */
+.detail-table tr:hover td:not(:first-child) {
+  background-color: #e6f3ff;
 }
