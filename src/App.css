@@ -569,3 +569,31 @@
   text-align: left;
   font-family: inherit;
 }
+
+/* App.css - добавить эти классы */
+.muscle-detail-table td {
+  padding: 5px;
+  vertical-align: top;
+}
+
+.muscle-detail-table td:first-child {
+  font-weight: bold;
+  width: 150px;
+}
+
+.muscle-detail-description {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.5;
+}
+
+/* ћобильные версии */
+@media (max-width: 768px) {
+  .muscle-detail-table td:first-child {
+    width: 100px;
+  }
+  
+  .muscle-detail-table td {
+    padding: 3px;
+  }
+}
