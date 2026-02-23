@@ -21,11 +21,11 @@ function MuscleRelationships({ muscleId, muscleName }) {
 
 const fetchData = async () => {
   try {
-    // Загрузка всех мышц для выпадающих списков
+    // Загрузка всех мышц для выпадающих списков - сортировка по display_order
     const { data: musclesData } = await supabase
       .from('muscles')
-      .select('id, name_ru, name_lat')
-      .order('name_ru');
+      .select('id, name_ru, name_lat, display_order')
+      .order('display_order', { ascending: true, nullsFirst: false });
 
     // Загрузка всех функций
     const { data: functionsData } = await supabase
@@ -34,26 +34,49 @@ const fetchData = async () => {
       .order('name');
 
     // Загрузка ВСЕХ отношений (без фильтра по muscle_id)
-    const { data: allRelationshipsData, error } = await supabase
-      .from('muscle_relationships')
-      .select(`
-        *,
-        function:functions(name),
-        synergists:muscle_relationship_synergists(
-          muscle:muscles(id, name_ru, name_lat)
-        ),
-        antagonists:muscle_relationship_antagonists(
-          muscle:muscles(id, name_ru, name_lat)
-        )
-      `);
+	const { data: allRelationshipsData, error } = await supabase
+	  .from('muscle_relationships')
+	  .select(`
+		*,
+		function:functions(name),
+		synergists:muscle_relationship_synergists(
+		  muscle:muscles(
+			id, 
+			name_ru, 
+			name_lat,
+			display_order
+		  )
+		),
+		antagonists:muscle_relationship_antagonists(
+		  muscle:muscles(
+			id, 
+			name_ru, 
+			name_lat,
+			display_order
+		  )
+		)
+	  `);
 
-    if (error) throw error;
+	if (error) throw error;
+
+	// После получения данных, сортируем синергистов и антагонистов по display_order
+	const processedRelationships = allRelationshipsData?.map(rel => ({
+	  ...rel,
+	  synergists: rel.synergists?.sort((a, b) => 
+		(a.muscle.display_order || 999) - (b.muscle.display_order || 999)
+	  ),
+	  antagonists: rel.antagonists?.sort((a, b) => 
+		(a.muscle.display_order || 999) - (b.muscle.display_order || 999)
+	  )
+	})) || [];
+
+	setRelationships(processedRelationships);
 
     // Фильтруем отношения, где текущая мышца есть в синергистах ИЛИ антагонистах
     const filteredRelationships = allRelationshipsData?.filter(relationship => {
       const isSynergist = relationship.synergists?.some(s => s.muscle.id === muscleId) || false;
       const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === muscleId) || false;
-      return isSynergist || isAntagonist; // <-- Ключевое изменение!
+      return isSynergist || isAntagonist;
     }) || [];
 
     setAllMuscles(musclesData || []);
@@ -65,7 +88,6 @@ const fetchData = async () => {
     alert('Ошибка загрузки данных: ' + error.message);
   }
 };
-
 
   const handleSubmit = async (e) => {
     e.preventDefault();
