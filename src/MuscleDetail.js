@@ -66,6 +66,7 @@ function MuscleDetail() {
       setLoading(true)
 
       try {
+        // 1. Сначала загружаем данные мышцы
         const { data: muscleData, error: muscleError } = await supabase
           .from('muscles')
           .select(`
@@ -117,8 +118,14 @@ function MuscleDetail() {
 
         if (muscleError) throw muscleError;
 
-        const count = await fetchDysfunctionsCount(id);
+        // 2. Устанавливаем данные мышцы СРАЗУ после их получения
+        setMuscle(muscleData);
 
+        // 3. Загружаем количество дисфункций
+        const count = await fetchDysfunctionsCount(id);
+        setDysfunctionsCount(count);
+
+        // 4. Загружаем отношения
         const { data: allRelationshipsData, error: relationshipsError } = await supabase
           .from('muscle_relationships')
           .select(`
@@ -130,29 +137,44 @@ function MuscleDetail() {
               muscle:muscles (
                 id,
                 name_ru,
-                name_lat
+                name_lat,
+                display_order
               )
             ),
             antagonists:muscle_relationship_antagonists (
               muscle:muscles (
                 id,
                 name_ru,
-                name_lat
+                name_lat,
+                display_order
               )
             )
           `);
 
         if (relationshipsError) throw relationshipsError;
 
+        // 5. Фильтруем и сортируем отношения
         const filteredRelationships = allRelationshipsData?.filter(relationship => {
           const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
           const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;
           return isSynergist || isAntagonist;
         }) || [];
 
-        setMuscle(muscleData);
-        setDysfunctionsCount(count);
-        setRelationships(filteredRelationships);
+        const sortedRelationships = filteredRelationships.map(rel => ({
+		  ...rel,
+		  synergists: (rel.synergists || []).sort((a, b) => {
+			const orderA = a.muscle.display_order ?? 999;
+			const orderB = b.muscle.display_order ?? 999;
+			return orderA - orderB;
+		  }),
+		  antagonists: (rel.antagonists || []).sort((a, b) => {
+			const orderA = a.muscle.display_order ?? 999;
+			const orderB = b.muscle.display_order ?? 999;
+			return orderA - orderB;
+		  })
+		}));
+
+        setRelationships(sortedRelationships);
         
       } catch (error) {
         console.error('Ошибка загрузки:', error);
@@ -425,65 +447,71 @@ function MuscleDetail() {
         </div>
       </div>
 
-      {/* Блок взаимоотношений */}
-      {relationships.length > 0 && (
-        <div className="relationships-section">
-          <h3>Взаимоотношения мышцы</h3>
-          {relationships.map(relationship => {
-            const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
-            const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;
-            
-            return (
-              <div key={relationship.id} className="relationship-card">
-                <h4 className="relationship-title">
-                  {relationship.function?.name}
-                  {relationship.note && ` - ${truncateText(relationship.note, isMobile ? 50 : 200)}`}
-                </h4>
-                
-                <div className="relationship-role">
-                  <strong>Роль этой мышцы:</strong>{' '}
-                  {isSynergist ? (
-                    <span className="role-synergist">Синергист</span>
-                  ) : isAntagonist ? (
-                    <span className="role-antagonist">Антагонист</span>
-                  ) : null}
-                </div>
-                
-                {relationship.synergists && relationship.synergists.length > 0 && (
-                  <div className="relationship-group">
-                    <strong>Синергисты:</strong>
-                    <ul className="relationship-list">
-                      {relationship.synergists.map(synergist => (
-                        <li key={synergist.muscle.id}>
-                          <Link to={`/muscle/${synergist.muscle.id}`} className="link-text">
-                            {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+    {/* Блок взаимоотношений */}
+	{relationships.length > 0 && (
+	  <div className="relationships-section">
+		<h3>Взаимоотношения мышцы</h3>
+		{relationships.map(relationship => {
+		  const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
+		  const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;		  
+		  
+		  
+		  return (
+			<div key={relationship.id} className="relationship-card">
+			  <h4 className="relationship-title">
+				{relationship.function?.name}
+				{relationship.note && ` - ${truncateText(relationship.note, isMobile ? 50 : 200)}`}
+			  </h4>
+			  
+			  <div className="relationship-role">
+				<strong>Роль этой мышцы:</strong>{' '}
+				{isSynergist ? (
+				  <span className="role-synergist">Синергист</span>
+				) : isAntagonist ? (
+				  <span className="role-antagonist">Антагонист</span>
+				) : null}
+			  </div>
+			  
+			  {relationship.synergists && relationship.synergists.length > 0 && (
+				<div className="relationship-group">
+				  <strong>Синергисты:</strong>
+				  <ul className="relationship-list">
+					{relationship.synergists.map(synergist => (
+					  <li key={synergist.muscle.id}>
+						<Link to={`/muscle/${synergist.muscle.id}`} className="link-text">
+						  {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
+						</Link>
+					  </li>
+					))}
+				  </ul>
+				</div>
+			  )}
 
-                {relationship.antagonists && relationship.antagonists.length > 0 && (
-                  <div className="relationship-group">
-                    <strong>Антагонисты:</strong>
-                    <ul className="relationship-list">
-                      {relationship.antagonists.map(antagonist => (
-                        <li key={antagonist.muscle.id}>
-                          <Link to={`/muscle/${antagonist.muscle.id}`} className="link-text">
-                            {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      
+			  {relationship.antagonists && relationship.antagonists.length > 0 && (
+				<div className="relationship-group">
+				  <strong>Антагонисты:</strong>
+				  <ul className="relationship-list">
+					{relationship.antagonists.map(antagonist => (
+					  <li key={antagonist.muscle.id}>
+						<Link to={`/muscle/${antagonist.muscle.id}`} className="link-text">
+						  {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
+						  {/* ВРЕМЕННО: показываем порядок */}
+						  <span style={{ fontSize: '10px', color: '#999', marginLeft: '5px' }}>
+							[{antagonist.muscle.display_order || '?'}]
+						  </span>
+						</Link>
+					  </li>
+					))}
+				  </ul>
+				</div>
+			  )}
+			</div>
+		  );
+		})}
+	  </div>
+	)}
+
+    
       {/* MediaManager */}
       <MediaManager 
         entityType="muscle"
