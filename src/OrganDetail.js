@@ -1,8 +1,16 @@
-// OrganDetail.js
+// OrganDetail.js - исправленная версия
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
 import MediaManager from './MediaManager'; 
+import './App.css';
+
+// Функция для обрезания длинного текста (для мобильной версии)
+const truncateText = (text, maxLength = 200) => {
+  if (!text) return text;
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
 
 function OrganDetail() {
   const { id } = useParams();
@@ -10,13 +18,27 @@ function OrganDetail() {
   const [organ, setOrgan] = useState(null);
   const [muscles, setMuscles] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Определяем мобильное устройство
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
 
       try {
-        // 1. Загружаем данные органа
+        // 1. Сначала загружаем данные органа
         const { data: organData, error: organError } = await supabase
           .from('organs')
           .select('*')
@@ -25,7 +47,10 @@ function OrganDetail() {
 
         if (organError) throw organError;
 
-        // 2. Загружаем мышцы, связанные с этим органом
+        // 2. СРАЗУ устанавливаем орган
+        setOrgan(organData);
+
+        // 3. Загружаем мышцы, связанные с этим органом
         const { data: musclesData, error: musclesError } = await supabase
           .from('muscle_organs')
           .select(`
@@ -37,15 +62,21 @@ function OrganDetail() {
               insertion,
               indicator,
               notes,
-              pain_zones_text
+              pain_zones_text,
+              display_order
             )
           `)
-          .eq('organ_id', id);
+          .eq('organ_id', id)
+          .order('muscles(display_order)', { ascending: true, nullsFirst: false });
 
         if (musclesError) throw musclesError;
 
-        setOrgan(organData);
-        setMuscles(musclesData?.map(item => item.muscle) || []);
+        // 4. Сортируем мышцы и устанавливаем
+        const sortedMuscles = (musclesData?.map(item => item.muscle) || [])
+          .sort((a, b) => (a.display_order ?? 999) - (b.display_order ?? 999));
+        
+        setMuscles(sortedMuscles);
+        
       } catch (error) {
         console.error('Ошибка загрузки данных:', error);
       } finally {
@@ -56,99 +87,116 @@ function OrganDetail() {
     fetchData();
   }, [id]);
 
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
-  if (!organ) return <div style={{ padding: '2rem' }}>Орган не найден</div>;
-
-  const cellStyle = {         
-    paddingTop: '12px',
-    padding: '5px',
-    verticalAlign: 'top'
-  };
+  if (loading) return <div className="detail-container">Загрузка...</div>;
+  if (!organ) return <div className="detail-container">Орган не найден</div>;
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: 'auto' }}>      
-	<div style={{ marginBottom: '20px' }}>
-	  <Link to="/organs">← Назад к списку</Link>
-	  <button 
-		onClick={() => navigate(`/organ/${id}/edit`)}
-		style={{
-		  marginLeft: '15px',
-		  padding: '5px 10px',
-		  backgroundColor: '#007bff',
-		  color: 'white',
-		  border: 'none',
-		  borderRadius: '4px',
-		  cursor: 'pointer'
-		}}
-	  >
-		 ✏️
-	  </button>
-	</div>
+    <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
+      {/* Навигация */}
+      <div className="detail-navigation">
+        <Link to="/organs" className="link-text">← Назад к списку</Link>
+        <button 
+          onClick={() => navigate(`/organ/${id}/edit`)}
+          className="action-btn edit-btn"
+          title="Редактировать"
+        >
+          ✏️
+        </button>
+      </div>
 
-
-      <h1>
+      <h1 className="detail-title">
         <small>Орган : </small>{organ.name}
-        {organ.name_lat && <span style={{ fontWeight: 'normal' }}> ({organ.name_lat})</span>}
-        {organ.code && <span style={{ fontWeight: 'normal', marginLeft: '10px' }}>[{organ.code}]</span>}
+        {organ.name_lat && <span className="detail-subtitle"> ({organ.name_lat})</span>}
+        {organ.code && <span className="detail-subtitle" style={{ marginLeft: '10px' }}>[{organ.code}]</span>}
       </h1>
 
-      <table style={{ width: '100%', marginBottom: '30px' }}>
-        <tbody>
+      {/* ===== АДАПТИВНОЕ ОТОБРАЖЕНИЕ ДАННЫХ ОРГАНА ===== */}
+      <div className="detail-content">
+        {/* Десктопная таблица */}
+        <table className="detail-table">
+          <tbody>
+            {organ.system && (
+              <tr><td className="detail-label">Система:</td><td className="detail-value">{organ.system}</td></tr>
+            )}
+            {organ.description && (
+              <tr><td className="detail-label">Описание:</td><td className="detail-value description-text">{organ.description}</td></tr>
+            )}
+            {organ.functions && (
+              <tr><td className="detail-label">Функции:</td><td className="detail-value description-text">{organ.functions}</td></tr>
+            )}
+            {organ.symptoms && (
+              <tr><td className="detail-label">Симптомы дисфункции:</td><td className="detail-value description-text">{organ.symptoms}</td></tr>
+            )}
+            {organ.diagnostic && (
+              <tr><td className="detail-label">Диагностика:</td><td className="detail-value description-text">{organ.diagnostic}</td></tr>
+            )}
+            {organ.treatment && (
+              <tr><td className="detail-label">Лечение:</td><td className="detail-value description-text">{organ.treatment}</td></tr>
+            )}
+            {organ.notes && (
+              <tr><td className="detail-label">Примечания:</td><td className="detail-value description-text">{organ.notes}</td></tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Мобильная версия - вертикальные блоки */}
+        <div className="mobile-detail">
           {organ.system && (
-            <tr>
-              <td style={cellStyle}><strong>Система:</strong></td>
-              <td style={cellStyle}>{organ.system}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Система:</span>
+              <span className="mobile-detail-value">{organ.system}</span>
+            </div>
           )}
           {organ.description && (
-            <tr>
-              <td style={cellStyle}><strong>Описание:</strong></td>
-              <td style={cellStyle}>{organ.description}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Описание:</span>
+              <span className="mobile-detail-value description-text">{organ.description}</span>
+            </div>
           )}
           {organ.functions && (
-            <tr>
-              <td style={cellStyle}><strong>Функции:</strong></td>
-              <td style={cellStyle}>{organ.functions}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Функции:</span>
+              <span className="mobile-detail-value description-text">{organ.functions}</span>
+            </div>
           )}
           {organ.symptoms && (
-            <tr>
-              <td style={cellStyle}><strong>Симптомы дисфункции:</strong></td>
-              <td style={cellStyle}>{organ.symptoms}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Симптомы дисфункции:</span>
+              <span className="mobile-detail-value description-text">{organ.symptoms}</span>
+            </div>
           )}
           {organ.diagnostic && (
-            <tr>
-              <td style={cellStyle}><strong>Диагностика:</strong></td>
-              <td style={cellStyle}>{organ.diagnostic}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Диагностика:</span>
+              <span className="mobile-detail-value description-text">{organ.diagnostic}</span>
+            </div>
           )}
           {organ.treatment && (
-            <tr>
-              <td style={cellStyle}><strong>Лечение:</strong></td>
-              <td style={cellStyle}>{organ.treatment}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Лечение:</span>
+              <span className="mobile-detail-value description-text">{organ.treatment}</span>
+            </div>
           )}
           {organ.notes && (
-            <tr>
-              <td style={cellStyle}><strong>Примечания:</strong></td>
-              <td style={cellStyle}>{organ.notes}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Примечания:</span>
+              <span className="mobile-detail-value description-text">{organ.notes}</span>
+            </div>
           )}
-        </tbody>
-      </table>
+        </div>
+      </div>
 
-      <div style={{ marginTop: '30px' }}>
-        <h2>
+      {/* Связанные мышцы */}
+      <div className="relationships-section">
+        <h3>
           Связанные мышцы
           <span style={{ fontSize: '14px', color: '#666', marginLeft: '10px' }}>
             ({muscles.length})
           </span>
-        </h2>
+        </h3>
 
         {muscles.length === 0 ? (
-          <p style={{ color: '#666', fontStyle: 'italic' }}>Нет связанных мышц</p>
+          <p className="empty-value" style={{ fontStyle: 'italic' }}>Нет связанных мышц</p>
         ) : (
           <div style={{ 
             display: 'grid', 
@@ -159,67 +207,58 @@ function OrganDetail() {
             {muscles.map(muscle => (
               <div 
                 key={muscle.id}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  padding: '15px',
-                  backgroundColor: '#f9f9f9'
-                }}
+                className="relationship-card"
+                style={{ padding: '15px' }}
               >
-                <h3 style={{ margin: '0 0 10px 0' }}>
-                  <Link 
-                    to={`/muscle/${muscle.id}`}
-                    style={{ 
-                      color: '#1976d2', 
-                      textDecoration: 'none'
-                    }}
-                  >
+                <h4 style={{ margin: '0 0 10px 0' }}>
+                  <Link to={`/muscle/${muscle.id}`} className="link-text">
                     {muscle.name_ru}
                   </Link>
                   {muscle.name_lat && (
                     <span style={{ 
                       fontSize: '14px', 
                       color: '#666',
-                      marginLeft: '5px'
+                      marginLeft: '5px',
+                      fontWeight: 'normal'
                     }}>
                       ({muscle.name_lat})
                     </span>
                   )}
-                </h3>
+                </h4>
 
                 {muscle.origin && (
-                  <div style={{ marginBottom: '5px' }}>
-                    <strong>Начало:</strong> {muscle.origin}
+                  <div className="relationship-group" style={{ marginBottom: '5px' }}>
+                    <strong>Начало:</strong> {truncateText(muscle.origin, isMobile ? 100 : 200)}
                   </div>
                 )}
 
                 {muscle.insertion && (
-                  <div style={{ marginBottom: '5px' }}>
-                    <strong>Прикрепление:</strong> {muscle.insertion}
+                  <div className="relationship-group" style={{ marginBottom: '5px' }}>
+                    <strong>Прикрепление:</strong> {truncateText(muscle.insertion, isMobile ? 100 : 200)}
                   </div>
                 )}
 
                 {muscle.indicator && (
-                  <div style={{ marginBottom: '5px' }}>
+                  <div className="relationship-group" style={{ marginBottom: '5px' }}>
                     <strong>Индикатор:</strong> {muscle.indicator}
                   </div>
                 )}
 
                 {muscle.pain_zones_text && (
-                  <div style={{ marginBottom: '5px' }}>
-                    <strong>Зоны боли:</strong> {muscle.pain_zones_text}
+                  <div className="relationship-group" style={{ marginBottom: '5px' }}>
+                    <strong>Зоны боли:</strong> {truncateText(muscle.pain_zones_text, isMobile ? 100 : 200)}
                   </div>
                 )}
 
                 {muscle.notes && (
-                  <div style={{ 
+                  <div className="relationship-group" style={{ 
                     marginTop: '10px', 
                     padding: '8px',
                     backgroundColor: '#f0f0f0',
                     borderRadius: '4px',
                     fontSize: '14px'
                   }}>
-                    <strong>Примечание:</strong> {muscle.notes}
+                    <strong>Примечание:</strong> {truncateText(muscle.notes, isMobile ? 100 : 200)}
                   </div>
                 )}
               </div>
@@ -228,19 +267,17 @@ function OrganDetail() {
         )}
       </div>
 
-	 {/* ========== ДОБАВЛЯЕМ MEDIA MANAGER ДЛЯ ОРГАНА ========== */}
-	  <MediaManager 
-		entityType="organ"
-		entityId={id}
-		entityName={organ.name}
-		showTitle={true}
-		readonly={true}
-	  />
-	  {/* ========== КОНЕЦ ДОБАВЛЕНИЯ ========== */}
+      {/* Media Manager */}
+      <MediaManager 
+        entityType="organ"
+        entityId={id}
+        entityName={organ.name}
+        showTitle={true}
+        readonly={true}
+      />
 
-
-      <hr style={{ margin: '30px 0' }} />
-      <p><strong>ID органа:</strong> {organ.id}</p>
+      <hr className="separator" />
+      <p className="detail-id"><strong>ID органа:</strong> {organ.id}</p>
     </div>
   );
 }
