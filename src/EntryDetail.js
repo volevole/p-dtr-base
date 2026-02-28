@@ -1,14 +1,29 @@
-// EntryDetail.js
+// EntryDetail.js - адаптивная версия с использованием существующих стилей
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
 import MediaManager from './MediaManager'; 
+import './App.css';
 
 function EntryDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [entry, setEntry] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Определяем мобильное устройство
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -35,109 +50,145 @@ function EntryDetail() {
     fetchData();
   }, [id]);
 
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
-  if (!entry) return <div style={{ padding: '2rem' }}>Заход не найден</div>;
-
-  const cellStyle = {         
-    paddingTop: '12px',
-    padding: '5px',
-    verticalAlign: 'top'
-  };
-
   const formatDate = (dateString) => {
     if (!dateString) return 'Нет данных';
     const date = new Date(dateString);
     return date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU');
   };
 
+  if (loading) return <div className="detail-container">Загрузка...</div>;
+  if (!entry) return <div className="detail-container">Заход не найден</div>;
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: 'auto' }}>      
-      <div style={{ marginBottom: '20px' }}>
-        <Link to="/entries">← Назад к списку</Link>
+    <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
+      {/* Навигация */}
+      <div className="detail-navigation">
+        <Link to="/entries" className="link-text">← Назад к списку</Link>
         <button 
           onClick={() => navigate(`/entry/${id}/edit`)}
-          style={{
-            marginLeft: '15px',
-            padding: '5px 10px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          className="action-btn edit-btn"
+          title="Редактировать"
         >
-           ✏️ Редактировать
+          ✏️ Редактировать
         </button>
       </div>
 
-      <h1>
+      <h1 className="detail-title">
         <small>Заход:</small> {entry.name}
         {!entry.is_active && (
-          <span style={{ 
+          <span className="detail-subtitle inactive-badge" style={{ 
             marginLeft: '10px',
             backgroundColor: '#dc3545',
             color: 'white',
             padding: '2px 8px',
             borderRadius: '12px',
-            fontSize: '14px'
+            fontSize: '14px',
+            fontWeight: 'normal'
           }}>
             Неактивен
           </span>
         )}
       </h1>
 
-      <table style={{ width: '100%', marginBottom: '30px' }}>
-        <tbody>
-          <tr>
-            <td style={cellStyle}><strong>Название:</strong></td>
-            <td style={cellStyle}>{entry.name}</td>
-          </tr>
+      {/* ===== АДАПТИВНОЕ ОТОБРАЖЕНИЕ ДАННЫХ ЗАХОДА ===== */}
+      <div className="detail-content">
+        {/* Десктопная таблица */}
+        <table className="detail-table">
+          <tbody>
+            <tr>
+              <td className="detail-label">Название:</td>
+              <td className="detail-value">{entry.name}</td>
+            </tr>
+            
+            {entry.description && (
+              <tr>
+                <td className="detail-label">Описание:</td>
+                <td className="detail-value description-text">{entry.description}</td>
+              </tr>
+            )}
+            
+            <tr>
+              <td className="detail-label">Статус:</td>
+              <td className="detail-value">
+                {entry.is_active ? (
+                  <span style={{ color: '#28a745', fontWeight: 'bold' }}>Активен</span>
+                ) : (
+                  <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Неактивен</span>
+                )}
+              </td>
+            </tr>
+            
+            <tr>
+              <td className="detail-label">Порядок отображения:</td>
+              <td className="detail-value">{entry.display_order}</td>
+            </tr>
+            
+            <tr>
+              <td className="detail-label">Дата создания:</td>
+              <td className="detail-value">{formatDate(entry.created_at)}</td>
+            </tr>
+            
+            <tr>
+              <td className="detail-label">Дата обновления:</td>
+              <td className="detail-value">{formatDate(entry.updated_at)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Мобильная версия - вертикальные блоки */}
+        <div className="mobile-detail">
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Название:</span>
+            <span className="mobile-detail-value">{entry.name}</span>
+          </div>
           
           {entry.description && (
-            <tr>
-              <td style={cellStyle}><strong>Описание:</strong></td>
-              <td style={cellStyle}>{entry.description}</td>
-            </tr>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Описание:</span>
+              <span className="mobile-detail-value description-text">{entry.description}</span>
+            </div>
           )}
           
-          <tr>
-            <td style={cellStyle}><strong>Статус:</strong></td>
-            <td style={cellStyle}>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Статус:</span>
+            <span className="mobile-detail-value">
               {entry.is_active ? (
                 <span style={{ color: '#28a745', fontWeight: 'bold' }}>Активен</span>
               ) : (
                 <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Неактивен</span>
               )}
-            </td>
-          </tr>
+            </span>
+          </div>
           
-          <tr>
-            <td style={cellStyle}><strong>Порядок отображения:</strong></td>
-            <td style={cellStyle}>{entry.display_order}</td>
-          </tr>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Порядок отображения:</span>
+            <span className="mobile-detail-value">{entry.display_order}</span>
+          </div>
           
-          <tr>
-            <td style={cellStyle}><strong>Дата создания:</strong></td>
-            <td style={cellStyle}>{formatDate(entry.created_at)}</td>
-          </tr>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Дата создания:</span>
+            <span className="mobile-detail-value">{formatDate(entry.created_at)}</span>
+          </div>
           
-          <tr>
-            <td style={cellStyle}><strong>Дата обновления:</strong></td>
-            <td style={cellStyle}>{formatDate(entry.updated_at)}</td>
-          </tr>
-        </tbody>
-      </table>
-
-      {/* Можно добавить связанные сущности, если они появятся в будущем */}
-      <div style={{ marginTop: '30px' }}>
-        <h3>Информация о заходе</h3>
-        <p style={{ color: '#666' }}>
-          Заход — это вариант выбора стартовой точки алгоритма для поиска основных составляющих дисфункции.
-    Например, заход от слабой мышцы или заход от тотального гипертонуса.
-        </p>
+          <div className="mobile-detail-item">
+            <span className="mobile-detail-label">Дата обновления:</span>
+            <span className="mobile-detail-value">{formatDate(entry.updated_at)}</span>
+          </div>
+        </div>
       </div>
 
-      {/* MEDIA MANAGER ДЛЯ ЗАХОДА */}
+      {/* Информация о заходе */}
+      <div className="relationships-section">
+        <h3>Информация о заходе</h3>
+        <div className="relationship-card" style={{ padding: '15px' }}>
+          <p style={{ color: '#666', margin: 0, lineHeight: '1.6' }}>
+            Заход — это вариант выбора стартовой точки алгоритма для поиска основных составляющих дисфункции.
+            Например, заход от слабой мышцы или заход от тотального гипертонуса.
+          </p>
+        </div>
+      </div>
+
+      {/* Media Manager */}
       <MediaManager 
         entityType="entry"
         entityId={id}
@@ -146,8 +197,8 @@ function EntryDetail() {
         readonly={true}
       />
 
-      <hr style={{ margin: '30px 0' }} />
-      <p><strong>ID захода:</strong> {entry.id}</p>
+      <hr className="separator" />
+      <p className="detail-id"><strong>ID захода:</strong> {entry.id}</p>
     </div>
   );
 }

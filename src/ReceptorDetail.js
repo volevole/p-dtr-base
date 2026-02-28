@@ -1,8 +1,16 @@
-// ReceptorDetail.js
+// ReceptorDetail.js - адаптивная версия с использованием существующих стилей
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
 import MediaManager from './MediaManager';
+import './App.css';
+
+// Функция для обрезания длинного текста (для мобильной версии)
+const truncateText = (text, maxLength = 200) => {
+  if (!text) return text;
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
 
 function ReceptorDetail() {
   const { id } = useParams();
@@ -11,6 +19,20 @@ function ReceptorDetail() {
   const [receptorClass, setReceptorClass] = useState(null);
   const [receptorPairs, setReceptorPairs] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Определяем мобильное устройство
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -18,7 +40,7 @@ function ReceptorDetail() {
 
   const fetchData = async () => {
     try {
-      // Loading receptor data
+      // Сначала устанавливаем receptor
       const { data: receptorData, error: receptorError } = await supabase
         .from('receptors')
         .select('*')
@@ -27,7 +49,9 @@ function ReceptorDetail() {
 
       if (receptorError) throw receptorError;
 
-      // Loading receptor class data
+      setReceptor(receptorData);
+
+      // Загружаем класс рецептора
       let classData = null;
       if (receptorData.class_id) {
         const { data: classDataResponse, error: classError } = await supabase
@@ -41,7 +65,7 @@ function ReceptorDetail() {
         }
       }
 
-      // Loading receptor pairs
+      // Загружаем парные рецепторы
       const { data: pairsData, error: pairsError } = await supabase
         .from('receptor_pairs')
         .select(`
@@ -54,7 +78,6 @@ function ReceptorDetail() {
 
       if (pairsError) throw pairsError;
 
-      setReceptor(receptorData);
       setReceptorClass(classData);
       setReceptorPairs(pairsData || []);
     } catch (error) {
@@ -63,9 +86,6 @@ function ReceptorDetail() {
       setLoading(false);
     }
   };
-
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
-  if (!receptor) return <div style={{ padding: '2rem' }}>Рецептор не найден</div>;
 
   const getPairDisplayName = (pair) => {
     if (pair.paired_receptor) {
@@ -84,249 +104,170 @@ function ReceptorDetail() {
     }
   };
 
+  if (loading) return <div className="detail-container">Загрузка...</div>;
+  if (!receptor) return <div className="detail-container">Рецептор не найден</div>;
+
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: 'auto' }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px' 
-      }}>
-        <Link to="/receptors">← Назад к списку</Link>
+    <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
+      {/* Навигация */}
+      <div className="detail-navigation">
+        <Link to="/receptors" className="link-text">← Назад к списку</Link>
         <button 
           onClick={() => navigate(`/receptor/${id}/edit`)}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px'
-          }}
+          className="action-btn edit-btn"
+          title="Редактировать"
         >
           ✏️ Редактировать
         </button>
       </div>
 
-      <h1 style={{ marginBottom: '20px' }}>{receptor.name}</h1>
+      <h1 className="detail-title">{receptor.name}</h1>
 
-      <div style={{ 
-        backgroundColor: '#f8f9fa',
-        padding: '20px',
-        borderRadius: '8px',
-        marginBottom: '30px',
-        border: '1px solid #dee2e6'
-      }}>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '180px 1fr',
-          gap: '15px',
-          alignItems: 'start'
-        }}>
+      {/* ===== АДАПТИВНОЕ ОТОБРАЖЕНИЕ ДАННЫХ РЕЦЕПТОРА ===== */}
+      <div className="detail-content">
+        {/* Десктопная таблица */}
+        <table className="detail-table">
+          <tbody>
+            {receptorClass && (
+              <tr>
+                <td className="detail-label">Класс рецепторов:</td>
+                <td className="detail-value">
+                  <Link to={`/receptor-class/${receptorClass.id}`} className="link-text">
+                    {receptorClass.name}
+                  </Link>
+                </td>
+              </tr>
+            )}
+
+            {receptor.location && (
+              <tr>
+                <td className="detail-label">Место нахождения:</td>
+                <td className="detail-value">{receptor.location}</td>
+              </tr>
+            )}
+
+            {receptor.own_stimulus && (
+              <tr>
+                <td className="detail-label">Собственный стимул:</td>
+                <td className="detail-value">{receptor.own_stimulus}</td>
+              </tr>
+            )}
+
+            {receptor.antistimulus && (
+              <tr>
+                <td className="detail-label">Антистимул:</td>
+                <td className="detail-value">{receptor.antistimulus}</td>
+              </tr>
+            )}
+
+            {receptor.inhibition_pattern && (
+              <tr>
+                <td className="detail-label">Паттерн ингибиции:</td>
+                <td className="detail-value description-text">{receptor.inhibition_pattern}</td>
+              </tr>
+            )}
+
+            {receptor.display_order > 0 && (
+              <tr>
+                <td className="detail-label">Порядок отображения:</td>
+                <td className="detail-value">{receptor.display_order}</td>
+              </tr>
+            )}
+
+            {receptor.description && (
+              <tr>
+                <td className="detail-label">Описание:</td>
+                <td className="detail-value description-text">{receptor.description}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {/* Мобильная версия - вертикальные блоки */}
+        <div className="mobile-detail">
           {receptorClass && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Класс рецепторов:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                textAlign: 'left'
-              }}>
-                <Link 
-                  to={`/receptor-class/${receptorClass.id}`}
-                  style={{ 
-                    color: '#1976d2', 
-                    textDecoration: 'none'
-                  }}
-                >
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Класс рецепторов:</span>
+              <span className="mobile-detail-value">
+                <Link to={`/receptor-class/${receptorClass.id}`} className="link-text">
                   {receptorClass.name}
                 </Link>
-              </div>
-            </>
+              </span>
+            </div>
           )}
 
           {receptor.location && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Место нахождения:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                textAlign: 'left'
-              }}>
-                {receptor.location}
-              </div>
-            </>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Место нахождения:</span>
+              <span className="mobile-detail-value">{receptor.location}</span>
+            </div>
           )}
 
           {receptor.own_stimulus && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Собственный стимул:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                textAlign: 'left'
-              }}>
-                {receptor.own_stimulus}
-              </div>
-            </>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Собственный стимул:</span>
+              <span className="mobile-detail-value">{receptor.own_stimulus}</span>
+            </div>
           )}
 
           {receptor.antistimulus && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Антистимул:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                textAlign: 'left'
-              }}>
-                {receptor.antistimulus}
-              </div>
-            </>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Антистимул:</span>
+              <span className="mobile-detail-value">{receptor.antistimulus}</span>
+            </div>
           )}
 
           {receptor.inhibition_pattern && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'flex-start',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Паттерн ингибиции:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap',
-                textAlign: 'left'
-              }}>
-                {receptor.inhibition_pattern}
-              </div>
-            </>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Паттерн ингибиции:</span>
+              <span className="mobile-detail-value description-text">{receptor.inhibition_pattern}</span>
+            </div>
           )}
 
           {receptor.display_order > 0 && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Порядок отображения:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                textAlign: 'left'
-              }}>
-                {receptor.display_order}
-              </div>
-            </>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Порядок отображения:</span>
+              <span className="mobile-detail-value">{receptor.display_order}</span>
+            </div>
           )}
 
           {receptor.description && (
-            <>
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'flex-start',
-                height: '100%',
-                fontWeight: 'bold', 
-                color: '#495057',
-                textAlign: 'left'
-              }}>
-                Описание:
-              </div>
-              <div style={{ 
-                color: '#212529',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap',
-                textAlign: 'left'
-              }}>
-                {receptor.description}
-              </div>
-            </>
+            <div className="mobile-detail-item">
+              <span className="mobile-detail-label">Описание:</span>
+              <span className="mobile-detail-value description-text">{receptor.description}</span>
+            </div>
           )}
         </div>
       </div>
 
       {/* Парные рецепторы */}
       {receptorPairs.length > 0 && (
-        <div style={{ marginBottom: '30px' }}>
-          <h2 style={{ marginBottom: '15px' }}>
+        <div className="relationships-section">
+          <h3>
             Парные рецепторы и классы
             <span style={{ fontSize: '14px', color: '#666', marginLeft: '10px' }}>
               ({receptorPairs.length})
             </span>
-          </h2>
+          </h3>
           
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-            gap: '15px',
-            marginTop: '15px'
-          }}>
+          <div className="muscle-grid">
             {receptorPairs.map(pair => (
               <div 
                 key={pair.id}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  padding: '15px',
-                  backgroundColor: '#f9f9f9'
-                }}
+                className="relationship-card"
+                style={{ padding: '15px' }}
               >
-                <div style={{ marginBottom: '10px' }}>
+                <div className="relationship-group" style={{ marginBottom: '10px' }}>
                   <strong>Тип пары:</strong> {getPairTypeLabel(pair.pair_type)}
                 </div>
                 
-                <div style={{ marginBottom: '10px' }}>
+                <div className="relationship-group" style={{ marginBottom: '10px' }}>
                   <strong>Парная сущность:</strong> {getPairDisplayName(pair)}
                   {pair.paired_receptor && (
                     <Link 
                       to={`/receptor/${pair.paired_receptor.id}`}
-                      style={{ 
-                        marginLeft: '5px',
-                        color: '#1976d2', 
-                        textDecoration: 'none'
-                      }}
+                      className="link-text"
+                      style={{ marginLeft: '5px' }}
                     >
                       (перейти)
                     </Link>
@@ -334,11 +275,8 @@ function ReceptorDetail() {
                   {pair.paired_class && (
                     <Link 
                       to={`/receptor-class/${pair.paired_class.id}`}
-                      style={{ 
-                        marginLeft: '5px',
-                        color: '#1976d2', 
-                        textDecoration: 'none'
-                      }}
+                      className="link-text"
+                      style={{ marginLeft: '5px' }}
                     >
                       (перейти)
                     </Link>
@@ -346,15 +284,8 @@ function ReceptorDetail() {
                 </div>
                 
                 {pair.notes && (
-                  <div style={{ 
-                    marginTop: '10px', 
-                    padding: '8px',
-                    backgroundColor: '#f0f0f0',
-                    borderRadius: '4px',
-                    fontSize: '13px',
-                    lineHeight: '1.4'
-                  }}>
-                    <strong>Примечания:</strong> {pair.notes}
+                  <div className="muscle-card-notes">
+                    <strong>Примечания:</strong> {truncateText(pair.notes, isMobile ? 100 : 200)}
                   </div>
                 )}
               </div>
@@ -363,6 +294,7 @@ function ReceptorDetail() {
         </div>
       )}
 
+      {/* Media Manager */}
       <MediaManager 
         entityType="receptor"
         entityId={id}
@@ -371,13 +303,9 @@ function ReceptorDetail() {
         readonly={true}
       />
 
-      <div style={{ 
-        marginTop: '30px', 
-        paddingTop: '20px',
-        borderTop: '1px solid #dee2e6',
-        fontSize: '14px',
-        color: '#6c757d'
-      }}>
+      {/* Дополнительная информация */}
+      <div className="separator" style={{ marginTop: '30px' }} />
+      <div className="detail-id">
         <p><strong>ID рецептора:</strong> {receptor.id}</p>
         <p><strong>Создан:</strong> {new Date(receptor.created_at).toLocaleString('ru-RU')}</p>
         {receptor.updated_at && (

@@ -1,4 +1,4 @@
-// EntriesPage.js
+// EntriesPage.js - адаптивная версия
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
@@ -10,11 +10,26 @@ import {
   FaArrowDown 
 } from 'react-icons/fa';
 import { HiDuplicate } from 'react-icons/hi';
+import './App.css';
 
 function EntriesPage() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
+  // Определяем мобильное устройство
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchEntries();
@@ -24,7 +39,6 @@ function EntriesPage() {
     try {
       setLoading(true);
       
-      // Получаем заходы
       const { data: entriesData, error } = await supabase
         .from('entries')
         .select('*')
@@ -46,7 +60,6 @@ function EntriesPage() {
   };
 
   const handleDelete = async (id) => {
-    // Находим заход в массиве по ID
     const entryToDelete = entries.find(e => e.id === id);
     
     if (!entryToDelete) {
@@ -54,7 +67,6 @@ function EntriesPage() {
       return;
     }
 
-    // Используем имя захода в confirm
     if (!window.confirm(`Удалить заход "${entryToDelete.name}"?`)) return;
 
     try {
@@ -74,7 +86,6 @@ function EntriesPage() {
 
   const handleAdd = async () => {
     try {
-      // Получаем максимальный порядок
       const { data: maxOrderData } = await supabase
         .from('entries')
         .select('display_order')
@@ -103,7 +114,6 @@ function EntriesPage() {
 
   const handleCopy = async (id) => {
     try {
-      // Явно выбираем только нужные поля
       const { data: original, error: fetchError } = await supabase
         .from('entries')
         .select('name, description')
@@ -113,7 +123,6 @@ function EntriesPage() {
       if (fetchError) throw fetchError;
       if (!original) throw new Error('Заход не найден');
 
-      // Получаем максимальный порядок
       const { data: maxOrderData, error: orderError } = await supabase
         .from('entries')
         .select('display_order')
@@ -135,7 +144,6 @@ function EntriesPage() {
 
       if (insertError) throw insertError;
 
-      // Обновляем список
       await fetchEntries();
       
     } catch (error) {
@@ -174,164 +182,90 @@ function EntriesPage() {
       await Promise.all(updatePromises);
     } catch (error) {
       console.error('Ошибка сохранения в БД:', error);
-      setEntries(entries); // Откат
+      setEntries(entries);
       alert('Ошибка сохранения изменений: ' + error.message);
     }
   };
 
-  // Кастомная карточка для заходов
+  // Адаптивная карточка для заходов
   const renderEntryCard = (entry, index, actions) => {
     const totalCount = entries.length;
+    
     return (  
       <div 
         key={entry.id} 
-        style={{ 
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          padding: '15px',
-          backgroundColor: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '10px'
-        }}
+        className="entry-card"
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ margin: '0 0 5px 0' }}>
+        {/* Верхняя часть с заголовком и кнопками */}
+        <div className="entry-card-header">
+          <div className="entry-card-title-section">
+            <h3 className="entry-card-title">
               <Link 
                 to={`/entry/${entry.id}`}
-                style={{ 
-                  color: '#007bff',
-                  textDecoration: 'none',
-                  fontSize: '18px'
-                }}
+                className="link-text"
               >
                 {entry.name}
               </Link>
             </h3>
             {!entry.is_active && (
-              <div style={{ 
-                display: 'inline-block',
-                backgroundColor: '#dc3545',
-                color: 'white',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                marginTop: '5px'
-              }}>
-                Неактивен
-              </div>
+              <span className="entry-card-inactive">Неактивен</span>
             )}
           </div>
           
-          <div style={{ display: 'flex', gap: '5px' }}>
+          <div className="entry-card-actions">
             <button 
               onClick={actions.onCopy} 
-              title="Копировать" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
+              className="entry-card-action-btn"
+              title="Копировать"
             >
               <HiDuplicate size={14} />
             </button>
             <button 
               onClick={actions.onEdit} 
-              title="Редактировать" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
+              className="entry-card-action-btn"
+              title="Редактировать"
             >
               <FaEdit size={14} />
             </button>
             <button 
               onClick={actions.onDelete} 
-              title="Удалить" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                color: '#dc3545'
-              }}
+              className="entry-card-action-btn delete-btn"
+              title="Удалить"
             >
               <FaTrash size={14} />
             </button>
           </div>
         </div>
 
-        {/* Примечание */}
+        {/* Описание */}
         {entry.description && (
-          <div style={{ 
-            fontSize: '14px', 
-            color: '#495057',
-            marginBottom: '10px',
-            lineHeight: '1.4'
-          }}>
-            {entry.description.length > 150 
-              ? `${entry.description.substring(0, 150)}...` 
+          <div className="entry-card-description">
+            {entry.description.length > (isMobile ? 100 : 200) 
+              ? `${entry.description.substring(0, isMobile ? 100 : 200)}...` 
               : entry.description}
           </div>
         )}
 
         {/* Дата создания */}
-        <div style={{ 
-          fontSize: '12px', 
-          color: '#6c757d',
-          marginBottom: '10px'
-        }}>
+        <div className="entry-card-date">
           Создан: {new Date(entry.created_at).toLocaleDateString('ru-RU')}
         </div>
 
         {/* Кнопки перемещения */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          gap: '5px',
-          marginTop: '15px',
-          borderTop: '1px solid #f0f0f0',
-          paddingTop: '10px'
-        }}>
+        <div className="entry-card-move-buttons">
           <button 
             onClick={actions.onMoveUp} 
             disabled={index === 0}
+            className={`entry-card-move-btn ${index === 0 ? 'disabled' : ''}`}
             title="Переместить выше"
-            style={{
-              padding: '4px 8px',
-              backgroundColor: index === 0 ? '#f8f9fa' : '#007bff',
-              color: index === 0 ? '#6c757d' : 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: index === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
           >
             <FaArrowUp size={10} />
           </button>
           <button 
             onClick={actions.onMoveDown} 
             disabled={index === totalCount - 1}
+            className={`entry-card-move-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
             title="Переместить ниже"
-            style={{
-              padding: '4px 8px',
-              backgroundColor: index === totalCount - 1 ? '#f8f9fa' : '#007bff',
-              color: index === totalCount - 1 ? '#6c757d' : 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: index === totalCount - 1 ? 'not-allowed' : 'pointer',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
           >
             <FaArrowDown size={10} />
           </button>
@@ -340,7 +274,7 @@ function EntriesPage() {
     );
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
+  if (loading) return <div className="detail-container">Загрузка...</div>;
 
   const stats = {
     total: entries.length,

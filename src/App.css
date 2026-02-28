@@ -1084,3 +1084,190 @@
 .detail-table tr:hover td:not(:first-child) {
   background-color: #e6f3ff;
 }
+
+/* Добавить в App.css */
+
+/* Карточка захода */
+.entry-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+}
+
+.entry-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.entry-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.entry-card-title-section {
+  flex: 1;
+}
+
+.entry-card-title {
+  margin: 0 0 5px 0;
+  font-size: 1.1rem;
+}
+
+.entry-card-title a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.entry-card-title a:hover {
+  text-decoration: underline;
+}
+
+.entry-card-inactive {
+  display: inline-block;
+  background-color: #dc3545;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.entry-card-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.entry-card-action-btn {
+  padding: 6px 8px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.entry-card-action-btn:hover {
+  background-color: #e9ecef;
+  transform: scale(1.05);
+}
+
+.entry-card-action-btn.delete-btn {
+  color: #dc3545;
+}
+
+.entry-card-action-btn.delete-btn:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.entry-card-description {
+  font-size: 14px;
+  color: #495057;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.entry-card-date {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.entry-card-move-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.entry-card-move-btn {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  min-width: 70px;
+  justify-content: center;
+}
+
+.entry-card-move-btn:hover:not(.disabled) {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.entry-card-move-btn.disabled {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Мобильные стили для карточек заходов */
+@media (max-width: 768px) {
+  .entry-card {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .entry-card-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .entry-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .entry-card-title {
+    font-size: 1rem;
+  }
+  
+  .entry-card-description {
+    font-size: 13px;
+  }
+  
+  .entry-card-move-btn {
+    min-width: 60px;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .entry-card {
+    padding: 10px;
+  }
+  
+  .entry-card-actions {
+    gap: 3px;
+  }
+  
+  .entry-card-action-btn {
+    padding: 5px 7px;
+  }
+  
+  .entry-card-move-buttons {
+    gap: 5px;
+  }
+  
+  .entry-card-move-btn {
+    min-width: 50px;
+    padding: 4px 8px;
+  }
+}
