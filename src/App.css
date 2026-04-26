@@ -1271,3 +1271,264 @@
     padding: 4px 8px;
   }
 }
+
+
+/* ===== УНИВЕРСАЛЬНЫЕ СТИЛИ ДЛЯ КАРТОЧЕК СПИСКОВ ===== */
+
+/* Базовая карточка для любой сущности */
+.entity-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 10px;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.entity-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Шапка карточки (заголовок + кнопки) */
+.entity-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.entity-card-title-section {
+  flex: 1;
+  min-width: 0; /* Позволяет тексту переноситься */
+}
+
+.entity-card-title {
+  margin: 0 0 5px 0;
+  font-size: 1.1rem;
+  word-wrap: break-word;
+}
+
+.entity-card-title a {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.entity-card-title a:hover {
+  text-decoration: underline;
+}
+
+/* Контейнер для бейджей/тегов */
+.entity-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+/* Базовый бейдж */
+.entity-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  white-space: normal;
+  word-wrap: break-word;
+  max-width: 100%;
+}
+
+/* Варианты цветов бейджей (можно использовать по необходимости) */
+.badge-primary {
+  background-color: #e3f2fd;
+  color: #007bff;
+}
+
+.badge-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.badge-warning {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.badge-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.badge-info {
+  background-color: #e9f7fe;
+  color: #17a2b8;
+}
+
+/* Кнопки действий */
+.entity-card-actions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.entity-action-btn {
+  padding: 6px 8px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.entity-action-btn:hover {
+  background-color: #e9ecef;
+  transform: scale(1.05);
+}
+
+.entity-action-btn.delete-btn {
+  color: #dc3545;
+}
+
+.entity-action-btn.delete-btn:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* Описание в карточке */
+.entity-card-description {
+  font-size: 14px;
+  color: #495057;
+  margin-bottom: 10px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+/* Дополнительная информация (дата и т.д.) */
+.entity-card-meta {
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* Кнопки перемещения */
+.entity-move-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 15px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 10px;
+}
+
+.entity-move-btn {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  min-width: 70px;
+  justify-content: center;
+}
+
+.entity-move-btn:hover:not(.disabled) {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.entity-move-btn.disabled {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ===== МОБИЛЬНАЯ АДАПТАЦИЯ ДЛЯ КАРТОЧЕК ===== */
+@media (max-width: 768px) {
+  .entity-card {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .entity-card-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .entity-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .entity-card-title {
+    font-size: 1rem;
+  }
+  
+  .entity-card-description {
+    font-size: 13px;
+  }
+  
+  .entity-move-buttons {
+    gap: 6px;
+  }
+  
+  .entity-move-btn {
+    min-width: 60px;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  
+  .entity-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .entity-card {
+    padding: 10px;
+  }
+  
+  .entity-card-actions {
+    gap: 3px;
+  }
+  
+  .entity-action-btn {
+    padding: 5px 7px;
+  }
+  
+  .entity-move-buttons {
+    gap: 5px;
+  }
+  
+  .entity-move-btn {
+    min-width: 50px;
+    padding: 4px 8px;
+  }
+}
+
+/* Для очень маленьких экранов - скрываем текст на кнопках перемещения */
+@media (max-width: 360px) {
+  .entity-move-btn span {
+    display: none;
+  }
+  
+  .entity-move-btn {
+    min-width: 40px;
+    padding: 4px 6px;
+  }
+}

@@ -1,6 +1,6 @@
-// MusclesPage.js
+// MusclesPage.js - с использованием универсальных классов
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Добавили Link
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
 import EntityList from './EntityList';
 import { 
@@ -8,14 +8,13 @@ import {
   FaTrash,
   FaArrowUp,
   FaArrowDown 
-} from 'react-icons/fa'; // Добавили иконки
-import { HiDuplicate } from 'react-icons/hi'; // Добавили HiDuplicate
-
+} from 'react-icons/fa';
+import { HiDuplicate } from 'react-icons/hi';
+import './App.css';
 
 function MusclesPage() {
   const [muscles, setMuscles] = useState([]);
   const [loading, setLoading] = useState(true);
-  //const [renderKey, setRenderKey] = useState(0); // ПЕРЕМЕСТИТЬ СЮДА!
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,11 +25,10 @@ function MusclesPage() {
     try {
       setLoading(true);      
 
-      // Получаем мышцы со всеми связями
       const { data: muscleList, error: muscleError } = await supabase
         .from('muscles')
         .select('*')
-        .order('display_order')  // Проверяем что сортировка по display_order
+        .order('display_order')
         .order('name_ru');
 
       if (muscleError) {
@@ -38,13 +36,6 @@ function MusclesPage() {
         throw muscleError;
       }
 
-      // Проверяем есть ли display_order
-      if (muscleList && muscleList.length > 0) {
-        const firstMuscle = muscleList[0];
-        
-      }
-
-      // Параллельно загружаем все связанные данные
       const [
         { data: merLinks },
         { data: orgLinks },
@@ -59,7 +50,6 @@ function MusclesPage() {
         supabase.from('muscle_group_dysfunctions').select('group_id, dysfunctions(id)')
       ]);
 
-      // Создаем карты для быстрого доступа
       const muscleDysfunctionsMap = {};
       dysfunctionsData?.forEach(item => {
         muscleDysfunctionsMap[item.muscle_id] = (muscleDysfunctionsMap[item.muscle_id] || 0) + 1;
@@ -78,7 +68,6 @@ function MusclesPage() {
         muscleGroupsMap[item.muscle_id].push(item.muscle_groups.id);
       });
 
-      // Обогащаем данные мышц
       const enriched = muscleList.map((m) => {
         const groupDysfunctionsCount = (muscleGroupsMap[m.id] || []).reduce((sum, groupId) => {
           return sum + (groupDysfunctionsMap[groupId] || 0);
@@ -129,7 +118,6 @@ function MusclesPage() {
 
   const handleAdd = async () => {
     try {
-      // Получаем максимальный порядок
       const { data: maxOrderData } = await supabase
         .from('muscles')
         .select('display_order')
@@ -166,7 +154,6 @@ function MusclesPage() {
 
       const { id: originalId, created_at, ...copyData } = original;
 
-      // Получаем максимальный порядок
       const { data: maxOrderData } = await supabase
         .from('muscles')
         .select('display_order')
@@ -187,7 +174,6 @@ function MusclesPage() {
 
       if (error) throw error;
 
-      // Копируем связи (ваша существующая функция copyMuscleRelations)
       await copyMuscleRelations(id, copied.id);
 
       navigate(`/muscle/${copied.id}/edit`);
@@ -197,7 +183,6 @@ function MusclesPage() {
     }
   };
 
-  // Ваша существующая функция
   const copyMuscleRelations = async (sourceId, targetId) => {
     const relations = [
       'muscle_group_membership',
@@ -226,250 +211,144 @@ function MusclesPage() {
     }
   };
 
-	const handleMove = async (id, direction) => {
-	  const currentIndex = muscles.findIndex(m => m.id === id);
-	  const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-	  
-	  if (newIndex < 0 || newIndex >= muscles.length) {
-		alert('Невозможно переместить - достигнут край списка');
-		return;
-	  }
-	  
-	  const newMuscles = [...muscles];
-	  const [removed] = newMuscles.splice(currentIndex, 1);
-	  newMuscles.splice(newIndex, 0, removed);
+  const handleMove = async (id, direction) => {
+    const currentIndex = muscles.findIndex(m => m.id === id);
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    if (newIndex < 0 || newIndex >= muscles.length) {
+      alert('Невозможно переместить - достигнут край списка');
+      return;
+    }
+    
+    const newMuscles = [...muscles];
+    const [removed] = newMuscles.splice(currentIndex, 1);
+    newMuscles.splice(newIndex, 0, removed);
 
-	  const updatedMuscles = newMuscles.map((muscle, index) => ({
-		...muscle,
-		display_order: index
-	  }));
+    const updatedMuscles = newMuscles.map((muscle, index) => ({
+      ...muscle,
+      display_order: index
+    }));
 
-	  setMuscles(updatedMuscles);
+    setMuscles(updatedMuscles);
 
-	  try {
-		const updatePromises = updatedMuscles.map(muscle =>
-		  supabase
-			.from('muscles')
-			.update({ display_order: muscle.display_order })
-			.eq('id', muscle.id)
-		);
-		await Promise.all(updatePromises);
-	  } catch (error) {
-		console.error('Ошибка сохранения в БД:', error);
-		setMuscles(muscles); // Откат
-		alert('Ошибка сохранения изменений: ' + error.message);
-	  }
-	};
+    try {
+      const updatePromises = updatedMuscles.map(muscle =>
+        supabase
+          .from('muscles')
+          .update({ display_order: muscle.display_order })
+          .eq('id', muscle.id)
+      );
+      await Promise.all(updatePromises);
+    } catch (error) {
+      console.error('Ошибка сохранения в БД:', error);
+      setMuscles(muscles);
+      alert('Ошибка сохранения изменений: ' + error.message);
+    }
+  };
 
-  // Кастомная карточка для мышц
+  // Кастомная карточка для мышц с универсальными классами
   const renderMuscleCard = (muscle, index, actions) => {
-    return (
-      <div 
-        key={muscle.id} 
-        style={{ 
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          padding: '15px',
-          backgroundColor: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ margin: '0 0 5px 0' }}>
-              <Link 
-                to={`/muscle/${muscle.id}`}
-                style={{ 
-                  color: '#007bff',
-                  textDecoration: 'none',
-                  fontSize: '18px'
-                }}
-              >
+    const totalCount = muscles.length;
+    
+    return (  
+      <div key={muscle.id} className="entity-card">
+        <div className="entity-card-header">
+          <div className="entity-card-title-section">
+            <h3 className="entity-card-title">
+              <Link to={`/muscle/${muscle.id}`} className="link-text">
                 {muscle.name_ru}
               </Link>
             </h3>
-            <div style={{ color: '#6c757d', fontSize: '14px' }}>
+            <div className="entity-card-description" style={{ color: '#6c757d', fontSize: '14px', marginTop: '4px' }}>
               {muscle.name_lat}
+            </div>
+            
+            <div className="entity-card-badges">
+              {muscle.meridians?.length > 0 && (
+                <span className="entity-badge badge-primary">
+                  Меридианы: {muscle.meridians.join(', ')}
+                </span>
+              )}
+
+              {muscle.organs?.length > 0 && (
+                <span className="entity-badge" style={{ backgroundColor: '#f3e5f5', color: '#6a1b9a' }}>
+                  Органы: {muscle.organs.join(', ')}
+                </span>
+              )}
             </div>
           </div>
           
-          <div style={{ display: 'flex', gap: '5px' }}>
-            <button 
-              onClick={actions.onCopy} 
-              title="Копировать" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
+          <div className="entity-card-actions">
+            <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
               <HiDuplicate size={14} />
             </button>
-            <button 
-              onClick={actions.onEdit} 
-              title="Редактировать" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
+            <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
               <FaEdit size={14} />
             </button>
-            <button 
-              onClick={actions.onDelete} 
-              title="Удалить" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                color: '#dc3545'
-              }}
-            >
+            <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
               <FaTrash size={14} />
             </button>
           </div>
         </div>
 
-        {/* Детали мышцы */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
-          <div style={{ flex: 1 }}>
-            {muscle.meridians?.length > 0 && (
-              <div style={{ marginBottom: '8px' }}>
-                <strong style={{ fontSize: '12px', color: '#6c757d' }}>Меридианы:</strong>
-                <div style={{ fontSize: '14px' }}>
-                  {muscle.meridians.map((name, idx) => (
-                    <span key={idx} style={{
-                      display: 'inline-block',
-                      backgroundColor: '#e3f2fd',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      marginRight: '5px',
-                      marginTop: '3px'
-                    }}>
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {muscle.organs?.length > 0 && (
-              <div>
-                <strong style={{ fontSize: '12px', color: '#6c757d' }}>Органы:</strong>
-                <div style={{ fontSize: '14px' }}>
-                  {muscle.organs.map((name, idx) => (
-                    <span key={idx} style={{
-                      display: 'inline-block',
-                      backgroundColor: '#f3e5f5',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      marginRight: '5px',
-                      marginTop: '3px'
-                    }}>
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+        <div className="entity-move-buttons" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          {muscle.dysfunctionsCount > 0 && (
+            <Link 
+              to={`/muscle/${muscle.id}/dysfunctions`}
+              style={{
+                display: 'inline-block',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '4px',
+                textDecoration: 'none',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              Дисфункций: {muscle.dysfunctionsCount}
+            </Link>
+          )}
+          
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={actions.onMoveUp} 
+              disabled={index === 0}
+              className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
+              title="Переместить выше"
+            >
+              <FaArrowUp size={10} />
+              <span>Вверх</span>
+            </button>
+            <button 
+              onClick={actions.onMoveDown} 
+              disabled={index === totalCount - 1}
+              className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
+              title="Переместить ниже"
+            >
+              <FaArrowDown size={10} />
+              <span>Вниз</span>
+            </button>
           </div>
-
-          <div style={{ width: '120px', textAlign: 'right' }}>
-            {muscle.dysfunctionsCount > 0 && (
-              <div style={{ marginBottom: '10px' }}>
-                <Link 
-                  to={`/muscle/${muscle.id}/dysfunctions`}
-                  style={{
-                    display: 'inline-block',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    padding: '4px 12px',
-                    borderRadius: '4px',
-                    textDecoration: 'none',
-                    fontSize: '12px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  Дисфункций: {muscle.dysfunctionsCount}
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Кнопки перемещения */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          gap: '5px',
-          marginTop: '15px',
-          borderTop: '1px solid #f0f0f0',
-          paddingTop: '10px'
-        }}>
-          <button 
-            onClick={actions.onMoveUp} 
-            disabled={index === 0}
-            title="Переместить выше"
-            style={{
-              padding: '4px 8px',
-              backgroundColor: index === 0 ? '#f8f9fa' : '#007bff',
-              color: index === 0 ? '#6c757d' : 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: index === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <FaArrowUp size={10} />
-          </button>
-          <button 
-            onClick={actions.onMoveDown} 
-            disabled={index === muscles.length - 1}
-            title="Переместить ниже"
-            style={{
-              padding: '4px 8px',
-              backgroundColor: index === muscles.length - 1 ? '#f8f9fa' : '#007bff',
-              color: index === muscles.length - 1 ? '#6c757d' : 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: index === muscles.length - 1 ? 'not-allowed' : 'pointer',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <FaArrowDown size={10} />
-          </button>
         </div>
       </div>
     );
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
+  if (loading) return <div className="detail-container">Загрузка...</div>;
 
   const stats = {
-	  total: muscles.length,
-	  withRelations: muscles.filter(m => 
-		(m.meridians?.length > 0) || 
-		(m.organs?.length > 0) || 
-		(m.dysfunctionsCount > 0) ||
-		(m.relatedCount > 0)
-	  ).length,
-	  withMeridians: muscles.filter(m => m.meridians?.length > 0).length,
-	  withOrgans: muscles.filter(m => m.organs?.length > 0).length,
-	  withDysfunctions: muscles.filter(m => m.dysfunctionsCount > 0).length
-	};
+    total: muscles.length,
+    withRelations: muscles.filter(m => 
+      (m.meridians?.length > 0) || 
+      (m.organs?.length > 0) || 
+      (m.dysfunctionsCount > 0) ||
+      (m.relatedCount > 0)
+    ).length,
+    withMeridians: muscles.filter(m => m.meridians?.length > 0).length,
+    withOrgans: muscles.filter(m => m.organs?.length > 0).length,
+    withDysfunctions: muscles.filter(m => m.dysfunctionsCount > 0).length
+  };
 
   const columns = [
     { field: 'name_ru', label: 'Название (рус)', searchable: true },
@@ -478,7 +357,6 @@ function MusclesPage() {
 
   return (
     <EntityList
-      //key={`muscles_list_${renderKey}`} // Используем renderKey здесь
       entities={muscles}
       entityType="muscle"
       entityName="Мышцы"
@@ -491,7 +369,7 @@ function MusclesPage() {
       columns={columns}
       searchPlaceholder="Поиск по названию мышцы..."
       renderCard={renderMuscleCard}
-	  defaultSort="display_order" 
+      defaultSort="display_order" 
     />
   );
 }
