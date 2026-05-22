@@ -1,7 +1,6 @@
-﻿// MuscleEditPage.js
+﻿// MuscleEditPage.js — полностью на новой БД
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
 import MuscleForm from './MuscleForm';
 import MuscleRelationships from './MuscleRelationships';
 import MediaManager from './MediaManager';
@@ -13,22 +12,19 @@ function MuscleEditPage() {
   const [muscle, setMuscle] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  
-
-  // Загрузка данных мышцы
+  // Загрузка данных мышцы через ваш API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const { data: muscleData, error } = await supabase
-          .from('muscles')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const response = await fetch(`${API_URL}/api/muscle/${id}`);
+        const result = await response.json();
 
-        if (error) throw error;
-        setMuscle(muscleData);
-        
+        if (result.success) {
+          setMuscle(result.data);
+        } else {
+          throw new Error(result.error || 'Ошибка загрузки мышцы');
+        }
       } catch (error) {
         console.error('Error loading muscle:', error);
         alert('Ошибка загрузки данных: ' + error.message);
@@ -40,10 +36,26 @@ function MuscleEditPage() {
     fetchData();
   }, [id]);
 
-  const handleSave = (updatedMuscle) => {
-    console.log('Muscle data saved:', updatedMuscle);
-    // Обновляем локальные данные
-    setMuscle(updatedMuscle);
+  const handleSave = async (updatedMuscle) => {
+    try {
+      const response = await fetch(`${API_URL}/api/muscle/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedMuscle)
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('Muscle data saved:', updatedMuscle);
+        setMuscle(updatedMuscle);
+        // alert('Данные сохранены успешно');  // можно раскомментировать
+      } else {
+        throw new Error(result.error || 'Ошибка сохранения');
+      }
+    } catch (error) {
+      console.error('Error saving muscle:', error);
+      alert('Ошибка сохранения: ' + error.message);
+    }
   };
 
   if (loading) {
@@ -81,7 +93,6 @@ function MuscleEditPage() {
         muscleName={muscle.name_ru || ''} 
       />
 
-      {/* Используем универсальный MediaManager */}
       <MediaManager 
         entityType="muscle"
         entityId={id}

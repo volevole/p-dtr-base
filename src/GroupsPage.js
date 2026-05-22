@@ -1,4 +1,4 @@
-// GroupsPage.js
+// GroupsPage.js - с использованием универсальных классов
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from './utils/supabaseClient';
@@ -10,6 +10,7 @@ import {
   FaArrowDown 
 } from 'react-icons/fa';
 import { HiDuplicate } from 'react-icons/hi';
+import './App.css';
 
 function GroupsPage() {
   const [groups, setGroups] = useState([]);
@@ -24,7 +25,6 @@ function GroupsPage() {
     try {
       setLoading(true);
       
-      // Получаем группы с подсчетом мышц и дисфункций
       const { data: groupsData, error } = await supabase
         .from('muscle_groups')
         .select(`
@@ -32,11 +32,11 @@ function GroupsPage() {
           muscle_group_membership(muscle_id),
           muscle_group_dysfunctions(dysfunction_id)
         `)
+        .order('display_order', { ascending: true, nullsFirst: false })
         .order('name');
 
       if (error) throw error;
 
-      // Обрабатываем данные
       const processedGroups = groupsData.map(group => ({
         ...group,
         muscleCount: group.muscle_group_membership?.length || 0,
@@ -56,7 +56,6 @@ function GroupsPage() {
   };
 
   const handleDelete = async (id) => {
-    // Находим группу в массиве по ID
     const groupToDelete = groups.find(g => g.id === id);
     
     if (!groupToDelete) {
@@ -64,7 +63,6 @@ function GroupsPage() {
       return;
     }
 
-    // Проверяем наличие связей
     if (groupToDelete.muscleCount > 0) {
       if (!window.confirm(`Группа "${groupToDelete.name}" содержит ${groupToDelete.muscleCount} мышц. Удалить вместе с ними?`)) return;
     } else {
@@ -88,11 +86,21 @@ function GroupsPage() {
 
   const handleAdd = async () => {
     try {
+      // Получаем максимальный порядок
+      const { data: maxOrderData } = await supabase
+        .from('muscle_groups')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1);
+
+      const maxOrder = maxOrderData?.[0]?.display_order || 0;
+
       const { data, error } = await supabase
         .from('muscle_groups')
         .insert([{
           name: 'Новая группа',
-          description: ''
+          description: '',
+          display_order: maxOrder + 1
         }])
         .select()
         .single();
@@ -108,191 +116,157 @@ function GroupsPage() {
 
   const handleCopy = async (id) => {
     try {
-      // Явно выбираем только нужные поля
       const { data: original, error: fetchError } = await supabase
         .from('muscle_groups')
-        .select('name, description')
+        .select('name, description, display_order')
         .eq('id', id)
         .single();
 
       if (fetchError) throw fetchError;
       if (!original) throw new Error('Группа не найдена');
 
+      // Получаем максимальный порядок
+      const { data: maxOrderData } = await supabase
+        .from('muscle_groups')
+        .select('display_order')
+        .order('display_order', { ascending: false })
+        .limit(1);
+
+      const maxOrder = maxOrderData?.[0]?.display_order || 0;
+
       const { data: copied, error: insertError } = await supabase
         .from('muscle_groups')
         .insert([{
-          ...original,
-          name: `${original.name} (копия)`
+          name: `${original.name} (копия)`,
+          description: original.description,
+          display_order: maxOrder + 1
         }])
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // Обновляем список
       await fetchGroups();
-      
     } catch (error) {
       console.error('Ошибка копирования:', error);
       alert('Не удалось создать копию: ' + error.message);
     }
   };
 
-  // Кастомная карточка для групп
-  const renderGroupCard = (group, index, actions) => {
-    return (  
-      <div 
-        key={group.id} 
-        style={{ 
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          padding: '15px',
-          backgroundColor: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '10px'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ margin: '0 0 5px 0' }}>
-              <Link 
-                to={`/group/${group.id}`}
-                style={{ 
-                  color: '#007bff',
-                  textDecoration: 'none',
-                  fontSize: '18px'
-                }}
-              >
-                {group.name}
-              </Link>
-            </h3>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '5px' }}>
-            <button 
-              onClick={actions.onCopy} 
-              title="Копировать" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              <HiDuplicate size={14} />
-            </button>
-            <button 
-              onClick={actions.onEdit} 
-              title="Редактировать" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              <FaEdit size={14} />
-            </button>
-            <button 
-              onClick={actions.onDelete} 
-              title="Удалить" 
-              style={{
-                padding: '4px 8px',
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #dee2e6',
-                borderRadius: '4px',
-                cursor: 'pointer',
-                color: '#dc3545'
-              }}
-            >
-              <FaTrash size={14} />
-            </button>
-          </div>
-        </div>
+  const handleMove = async (id, direction) => {
+    const currentIndex = groups.findIndex(g => g.id === id);
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    if (newIndex < 0 || newIndex >= groups.length) {
+      alert('Невозможно переместить - достигнут край списка');
+      return;
+    }
+    
+    const newGroups = [...groups];
+    const [removed] = newGroups.splice(currentIndex, 1);
+    newGroups.splice(newIndex, 0, removed);
 
-        {/* Описание */}
-        {group.description && (
-          <div style={{ 
-            fontSize: '14px', 
-            color: '#495057',
-            marginBottom: '15px',
-            lineHeight: '1.4'
-          }}>
-            {group.description.length > 200 
-              ? `${group.description.substring(0, 200)}...` 
-              : group.description}
-          </div>
-        )}
+    const updatedGroups = newGroups.map((group, index) => ({
+      ...group,
+      display_order: index
+    }));
 
-        {/* Статистика */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '15px',
-          marginBottom: '15px'
-        }}>
-          {group.muscleCount > 0 && (
-            <div style={{ 
-              display: 'inline-block',
-              backgroundColor: '#e3f2fd',
-              color: '#0d6efd',
-              padding: '4px 10px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}>
-              Мышцы: {group.muscleCount}
-            </div>
-          )}
-          {group.dysfunctionCount > 0 && (
-            <div style={{ 
-              display: 'inline-block',
-              backgroundColor: '#d1ecf1',
-              color: '#0c5460',
-              padding: '4px 10px',
-              borderRadius: '12px',
-              fontSize: '12px',
-              fontWeight: 'bold'
-            }}>
-              Дисфункции: {group.dysfunctionCount}
-            </div>
-          )}
-        </div>
+    setGroups(updatedGroups);
 
-        {/* Кнопки действий */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          borderTop: '1px solid #f0f0f0',
-          paddingTop: '10px'
-        }}>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {group.muscleCount > 0 && (
-              <Link 
-                to={`/group/${group.id}`}
-                style={{
-                  display: 'inline-block',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '4px',
-                  textDecoration: 'none',
-                  fontSize: '12px',
-                  fontWeight: 'bold'
-                }}
-              >
-                Просмотр мышц
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+    try {
+      const updatePromises = updatedGroups.map(group =>
+        supabase
+          .from('muscle_groups')
+          .update({ display_order: group.display_order })
+          .eq('id', group.id)
+      );
+      await Promise.all(updatePromises);
+    } catch (error) {
+      console.error('Ошибка сохранения в БД:', error);
+      setGroups(groups);
+      alert('Ошибка сохранения изменений: ' + error.message);
+    }
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
+// Кастомная карточка для групп с универсальными классами (без дублирующей кнопки)
+const renderGroupCard = (group, index, actions) => {
+  const totalCount = groups.length;
+  
+  return (  
+    <div key={group.id} className="entity-card">
+      <div className="entity-card-header">
+        <div className="entity-card-title-section">
+          <h3 className="entity-card-title">
+            <Link to={`/group/${group.id}`} className="link-text">
+              {group.name}
+            </Link>
+          </h3>
+        </div>
+        
+        <div className="entity-card-actions">
+          <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
+            <HiDuplicate size={14} />
+          </button>
+          <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
+            <FaEdit size={14} />
+          </button>
+          <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
+            <FaTrash size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Описание */}
+      {group.description && (
+        <div className="entity-card-description">
+          {group.description.length > 200 
+            ? `${group.description.substring(0, 200)}...` 
+            : group.description}
+        </div>
+      )}
+
+      {/* Статистика в виде бейджей */}
+      <div className="entity-card-badges">
+        {group.muscleCount > 0 && (
+          <span className="entity-badge badge-primary">
+            Мышцы: {group.muscleCount}
+          </span>
+        )}
+        {group.dysfunctionCount > 0 && (
+          <span className="entity-badge badge-info">
+            Дисфункции: {group.dysfunctionCount}
+          </span>
+        )}
+      </div>
+
+      {/* Кнопки перемещения */}
+      <div className="entity-move-buttons">
+        <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+          <button 
+            onClick={actions.onMoveUp} 
+            disabled={index === 0}
+            className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
+            title="Переместить выше"
+          >
+            <FaArrowUp size={10} />
+            <span>Вверх</span>
+          </button>
+          <button 
+            onClick={actions.onMoveDown} 
+            disabled={index === totalCount - 1}
+            className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
+            title="Переместить ниже"
+          >
+            <FaArrowDown size={10} />
+            <span>Вниз</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+  if (loading) return <div className="detail-container">Загрузка...</div>;
 
   const stats = {
     total: groups.length,
@@ -314,10 +288,12 @@ function GroupsPage() {
       onDelete={handleDelete}
       onAdd={handleAdd}
       onCopy={handleCopy}
+      onMove={handleMove}
       stats={stats}
       columns={columns}
       searchPlaceholder="Поиск по названию группы..."
       renderCard={renderGroupCard}
+      defaultSort="display_order"
     />
   );
 }

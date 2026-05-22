@@ -1,5 +1,5 @@
 // server.js
-// 1. €мпорты
+// 1. РРјРїРѕСЂС‚С‹
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const express = require('express');
@@ -7,35 +7,56 @@ const multer = require('multer');
 const fetch = require('node-fetch').default;
 const cors = require('cors');
 
-// 2. €нициализациЯ
+// 2. РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ
 const app = express();
 const supabaseUrl = 'https://btqttycwerqqbvfzmqlo.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0cXR0eWN3ZXJxcWJ2ZnptcWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODEwMjgsImV4cCI6MjA2ODE1NzAyOH0.Y5btj0hHvC2fUK2oxjWyQHfAno75KlNAvRytTWVgfX8';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ========== РќРћР’Р«Р™ РљРћР” Р”Р›РЇ Р РђР‘РћРўР« РЎ POSTGRESQL РќРђ REG.RU ==========
+const { Client } = require('pg');
+let db = null;
+
+async function connectDB() {
+  if (!db) {
+    db = new Client({
+      host: '194.226.165.244',
+      port: 5432,
+      database: 'p-dtr-db',
+      user: 'pdtr_admin',
+      password: process.env.REGRU_DB_PASSWORD
+    });
+    await db.connect();
+    console.log('Connected to PostgreSQL at Reg.ru');
+  }
+  return db;
+}
+// ========== РљРћРќР•Р¦ РќРћР’РћР“Рћ РљРћР”Рђ ==========
+
+
 // 3. Middleware
 app.use(express.json());
 
-// Ќастройка CORS
+// РќР°СЃС‚СЂРѕР№РєР° CORS
 const corsOptions = {
   origin: [
     'http://localhost:3000',
     'https://p-dtr-base.onrender.com',
-    'https://larchik-p-dtr.vercel.app',         // ‚аш основной фронтенд
-    'https://*.vercel.app',                     // ‚се Vercel домены
-    /\.vercel\.app$/,                           // ђегулЯрка длЯ всех vercel.app поддоменов
+    'https://larchik-p-dtr.vercel.app',         // Р’Р°С€ РѕСЃРЅРѕРІРЅРѕР№ С„СЂРѕРЅС‚РµРЅРґ
+    'https://*.vercel.app',                     // Р’СЃРµ Vercel РґРѕРјРµРЅС‹
+    /\.vercel\.app$/,                           // Р РµРіСѓР»СЏСЂРєР° РґР»СЏ РІСЃРµС… vercel.app РїРѕРґРґРѕРјРµРЅРѕРІ
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
-  maxAge: 86400 // 24 часа кэшированиЯ preflight
+  maxAge: 86400 // 24 С‡Р°СЃР° РєСЌС€РёСЂРѕРІР°РЅРёСЏ preflight
 };
 
 app.use(cors(corsOptions));
 
-// Ћбработка preflight запросов длЯ всех API endpoints
-//app.options('*', cors(corsOptions));  // ? ќто обработает ‚‘… OPTIONS запросы
+// РћР±СЂР°Р±РѕС‚РєР° preflight Р·Р°РїСЂРѕСЃРѕРІ РґР»СЏ РІСЃРµС… API endpoints
+//app.options('*', cors(corsOptions));  // ? Р­С‚Рѕ РѕР±СЂР°Р±РѕС‚Р°РµС‚ Р’РЎР• OPTIONS Р·Р°РїСЂРѕСЃС‹
 
 app.use(express.urlencoded({ extended: true }));
 
@@ -44,14 +65,466 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 
  
-// Љэш длЯ прЯмых ссылок (храним public_url -> { direct_url, expires }
+// РљСЌС€ РґР»СЏ РїСЂСЏРјС‹С… СЃСЃС‹Р»РѕРє (С…СЂР°РЅРёРј public_url -> { direct_url, expires }
 const linkCache = new Map();
 
 // ============================================
-// “Ќ€‚…ђ‘Ђ‹њЌ›… ќЌ„ЏЋ€Ќ’› Њ…„€Ђ (ЌЋ‚Ђџ ‘€‘’…ЊЂ)
+// РЈРќРР’Р•Р РЎРђР›Р¬РќР«Р• Р­РќР”РџРћРРќРўР« РњР•Р”РРђ (РќРћР’РђРЇ РЎРРЎРўР•РњРђ)
 // ============================================
 
-// 1. “ниверсальнаЯ загрузка медиа длЯ любой сущности
+// server.js вЂ” РґРѕР±Р°РІСЊС‚Рµ РіРґРµ-РЅРёР±СѓРґСЊ РІ РЅР°С‡Р°Р»Рµ, РїРѕСЃР»Рµ РѕСЃС‚Р°Р»СЊРЅС‹С… app.use()
+app.get('/api/test-reg-db', async (req, res) => {
+  try {
+    console.log('DB_PASSWORD type:', typeof process.env.REGRU_DB_PASSWORD);
+    console.log('DB_PASSWORD value:', process.env.REGRU_DB_PASSWORD);
+    const client = await connectDB();
+    const result = await client.query('SELECT COUNT(*) FROM muscles');
+    res.json({ 
+      success: true, 
+      message: 'Connected to Reg.ru DB', 
+      muscleCount: result.rows[0].count 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// Р­РЅРґРїРѕРёРЅС‚ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ СЃРїРёСЃРєР° РјС‹С€С† СЃ РѕР±РѕРіР°С‰С‘РЅРЅС‹РјРё РґР°РЅРЅС‹РјРё
+app.get('/api/muscles', async (req, res) => {
+  try {
+    const client = await connectDB();
+
+    // 1. РџРѕР»СѓС‡Р°РµРј СЃРїРёСЃРѕРє РјС‹С€С† (СЃРѕСЂС‚РёСЂРѕРІРєР° РїРѕ display_order)
+    const musclesQuery = `
+      SELECT * FROM muscles ORDER BY display_order NULLS LAST, name_ru
+    `;
+    const musclesResult = await client.query(musclesQuery);
+    const muscles = musclesResult.rows;
+
+    if (muscles.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const muscleIds = muscles.map(m => m.id);
+
+    // 2. Р—Р°РіСЂСѓР¶Р°РµРј РІСЃРµ СЃРІСЏР·Р°РЅРЅС‹Рµ РґР°РЅРЅС‹Рµ РѕРґРЅРёРј Р·Р°РїСЂРѕСЃРѕРј
+    const [
+      merLinks,
+      orgLinks,
+      dysfunctionsData,
+      groupMemberships,
+      groupDysfunctions
+    ] = await Promise.all([
+      client.query(`SELECT muscle_id, meridians.name FROM muscle_meridians JOIN meridians ON muscle_meridians.meridian_id = meridians.id`),
+      client.query(`SELECT muscle_id, organs.name FROM muscle_organs JOIN organs ON muscle_organs.organ_id = organs.id`),
+      client.query(`SELECT muscle_id, dysfunction_id FROM muscle_dysfunctions`),
+      client.query(`SELECT muscle_id, muscle_groups.id FROM muscle_group_membership JOIN muscle_groups ON muscle_group_membership.group_id = muscle_groups.id`),
+      client.query(`SELECT group_id, dysfunction_id FROM muscle_group_dysfunctions`)
+    ]);
+
+    // 3. РџСЂРµРѕР±СЂР°Р·СѓРµРј СЂРµР·СѓР»СЊС‚Р°С‚С‹ РІ СѓРґРѕР±РЅС‹Рµ РґР»СЏ JS РєР°СЂС‚С‹ (РґРµР»Р°РµРј РЅР° Р±СЌРєРµРЅРґРµ)
+    const muscleDysfunctionsMap = {};
+    dysfunctionsData.rows.forEach(row => {
+      muscleDysfunctionsMap[row.muscle_id] = (muscleDysfunctionsMap[row.muscle_id] || 0) + 1;
+    });
+
+    const groupDysfunctionsMap = {};
+    groupDysfunctions.rows.forEach(row => {
+      groupDysfunctionsMap[row.group_id] = (groupDysfunctionsMap[row.group_id] || 0) + 1;
+    });
+
+    const muscleGroupsMap = {};
+    groupMemberships.rows.forEach(row => {
+      if (!muscleGroupsMap[row.muscle_id]) {
+        muscleGroupsMap[row.muscle_id] = [];
+      }
+      muscleGroupsMap[row.muscle_id].push(row.id);
+    });
+
+    // 4. РћР±РѕРіР°С‰Р°РµРј РјС‹С€С†С‹ (РІСЃС‘ С‚Р° Р¶Рµ Р»РѕРіРёРєР°, РЅРѕ РЅР° СЃРµСЂРІРµСЂРµ)
+    const enriched = muscles.map(muscle => {
+      const groupDysfunctionsCount = (muscleGroupsMap[muscle.id] || []).reduce((sum, groupId) => {
+        return sum + (groupDysfunctionsMap[groupId] || 0);
+      }, 0);
+
+      return {
+        ...muscle,
+        meridians: merLinks.rows.filter(r => r.muscle_id === muscle.id).map(r => r.name),
+        organs: orgLinks.rows.filter(r => r.muscle_id === muscle.id).map(r => r.name),
+        dysfunctionsCount: (muscleDysfunctionsMap[muscle.id] || 0) + groupDysfunctionsCount,
+        relatedCount: (
+          (merLinks.rows.filter(r => r.muscle_id === muscle.id).length) +
+          (orgLinks.rows.filter(r => r.muscle_id === muscle.id).length) +
+          ((muscleDysfunctionsMap[muscle.id] || 0) + groupDysfunctionsCount)
+        )
+      };
+    });
+
+    res.json({ success: true, data: enriched });
+  } catch (error) {
+    console.error('РћС€РёР±РєР° РІ /api/muscles:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+//  DELETE СЌРЅРґРїРѕРёРЅС‚
+app.delete('/api/muscle/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    // РќР°С‡РёРЅР°РµРј С‚СЂР°РЅР·Р°РєС†РёСЋ (С‡С‚РѕР±С‹ РѕС‚РєР°С‚РёС‚СЊ РїСЂРё РѕС€РёР±РєРµ)
+    await client.query('BEGIN');
+
+    // 1. РЈРґР°Р»СЏРµРј СЃРІСЏР·Рё РёР· РІСЃРµС… Р·Р°РІРёСЃРёРјС‹С… С‚Р°Р±Р»РёС†
+    const relationTables = [
+      'muscle_group_membership',
+      'muscle_dysfunctions',
+      'muscle_meridians',
+      'muscle_organs',
+      'muscle_nerves',
+      'muscle_vertebrae',
+      'muscle_functions'
+    ];
+
+    for (const table of relationTables) {
+      await client.query(`DELETE FROM ${table} WHERE muscle_id = $1`, [id]);
+    }
+
+    // 2. РЈРґР°Р»СЏРµРј СЃР°РјСѓ РјС‹С€С†Сѓ
+    const result = await client.query('DELETE FROM muscles WHERE id = $1 RETURNING id', [id]);
+
+    if (result.rowCount === 0) {
+      throw new Error('Muscle not found');
+    }
+
+    // РџРѕРґС‚РІРµСЂР¶РґР°РµРј С‚СЂР°РЅР·Р°РєС†РёСЋ
+    await client.query('COMMIT');
+
+    res.json({ success: true, message: 'Muscle deleted successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting muscle:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST СЌРЅРґРїРѕРёРЅС‚ РґР»СЏ СЃРѕР·РґР°РЅРёСЏ РЅРѕРІРѕР№ РјС‹С€С†С‹
+app.post('/api/muscles', async (req, res) => {
+  const client = await connectDB();
+  const { name_ru, name_lat, origin, insertion, indicator, pain_zones_text, notes } = req.body;
+
+  try {
+    // РџРѕР»СѓС‡Р°РµРј РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ display_order
+    const maxOrderResult = await client.query(
+      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM muscles'
+    );
+    const nextOrder = maxOrderResult.rows[0].next_order;
+
+    // Р’СЃС‚Р°РІР»СЏРµРј РЅРѕРІСѓСЋ РјС‹С€С†Сѓ
+    const result = await client.query(
+      `INSERT INTO muscles 
+       (name_ru, name_lat, origin, insertion, indicator, pain_zones_text, notes, display_order) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+       RETURNING id`,
+      [name_ru || 'РќРѕРІР°СЏ РјС‹С€С†Р°', name_lat || '', origin || '', insertion || '', 
+       indicator || '', pain_zones_text || '', notes || '', nextOrder]
+    );
+
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('Error creating muscle:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET СЌРЅРґРїРѕРёРЅС‚ РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РѕРґРЅРѕР№ РјС‹С€С†С‹
+app.get('/api/muscle/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    const result = await client.query('SELECT * FROM muscles WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Muscle not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching muscle:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT СЌРЅРґРїРѕРёРЅС‚ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ РјС‹С€С†С‹
+app.put('/api/muscle/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  const { name_ru, name_lat, origin, insertion, indicator, pain_zones_text, notes } = req.body;
+
+  try {
+    const result = await client.query(
+      `UPDATE muscles 
+       SET name_ru = $1, name_lat = $2, origin = $3, insertion = $4, 
+           indicator = $5, pain_zones_text = $6, notes = $7, updated_at = NOW()
+       WHERE id = $8
+       RETURNING id`,
+      [name_ru, name_lat, origin, insertion, indicator, pain_zones_text, notes, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Muscle not found' });
+    }
+
+    res.json({ success: true, message: 'Muscle updated successfully' });
+  } catch (error) {
+    console.error('Error updating muscle:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/muscles/reorder вЂ” РѕР±РЅРѕРІР»РµРЅРёРµ РїРѕСЂСЏРґРєР° РјС‹С€С†
+app.put('/api/muscles/reorder', async (req, res) => {
+  const client = await connectDB();
+  const { orderedIds } = req.body;
+
+  if (!orderedIds || !Array.isArray(orderedIds)) {
+    return res.status(400).json({ success: false, error: 'orderedIds array is required' });
+  }
+
+  try {
+    await client.query('BEGIN');
+    for (let i = 0; i < orderedIds.length; i++) {
+      await client.query('UPDATE muscles SET display_order = $1 WHERE id = $2', [i, orderedIds[i]]);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Order updated successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error reordering muscles:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/muscle/:id/copy вЂ” РєРѕРїРёСЂРѕРІР°РЅРёРµ РјС‹С€С†С‹
+app.post('/api/muscle/:id/copy', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. РџРѕР»СѓС‡Р°РµРј РѕСЂРёРіРёРЅР°Р»СЊРЅСѓСЋ РјС‹С€С†Сѓ
+    const originalResult = await client.query('SELECT * FROM muscles WHERE id = $1', [id]);
+    if (originalResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Muscle not found' });
+    }
+    const original = originalResult.rows[0];
+
+    // 2. РџРѕР»СѓС‡Р°РµРј СЃР»РµРґСѓСЋС‰РёР№ display_order
+    const maxOrderResult = await client.query(
+      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM muscles'
+    );
+    const nextOrder = maxOrderResult.rows[0].next_order;
+
+    // 3. Р’СЃС‚Р°РІР»СЏРµРј РєРѕРїРёСЋ
+    const copyResult = await client.query(
+      `INSERT INTO muscles 
+       (name_ru, name_lat, origin, insertion, indicator, pain_zones_text, notes, display_order) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+       RETURNING id`,
+      [`${original.name_ru} (РєРѕРїРёСЏ)`, original.name_lat, original.origin, original.insertion,
+       original.indicator, original.pain_zones_text, original.notes, nextOrder]
+    );
+    const newId = copyResult.rows[0].id;
+
+    // 4. РљРѕРїРёСЂСѓРµРј СЃРІСЏР·Рё
+    const relationTables = [
+      { table: 'muscle_group_membership', foreignKey: 'group_id', hasNote: false },
+      { table: 'muscle_dysfunctions', foreignKey: 'dysfunction_id', hasNote: false },
+      { table: 'muscle_meridians', foreignKey: 'meridian_id', hasNote: false },
+      { table: 'muscle_organs', foreignKey: 'organ_id', hasNote: false },
+      { table: 'muscle_nerves', foreignKey: 'nerve_id', hasNote: false },
+      { table: 'muscle_vertebrae', foreignKey: 'vertebra_id', hasNote: false },
+      { table: 'muscle_functions', foreignKey: 'function_id', hasNote: true }
+    ];
+
+    for (const { table, foreignKey, hasNote } of relationTables) {
+      const query = hasNote 
+        ? `SELECT ${foreignKey}, note FROM ${table} WHERE muscle_id = $1`
+        : `SELECT ${foreignKey} FROM ${table} WHERE muscle_id = $1`;
+      
+      const linksResult = await client.query(query, [id]);
+      
+      for (const link of linksResult.rows) {
+        if (hasNote) {
+          await client.query(
+            `INSERT INTO ${table} (muscle_id, ${foreignKey}, note) VALUES ($1, $2, $3)`,
+            [newId, link[foreignKey], link.note]
+          );
+        } else {
+          await client.query(
+            `INSERT INTO ${table} (muscle_id, ${foreignKey}) VALUES ($1, $2)`,
+            [newId, link[foreignKey]]
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, id: newId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error copying muscle:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// ========== РЎРџР РђР’РћР§РќРРљР ==========
+app.get('/api/dictionaries/groups', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, name FROM muscle_groups ORDER BY name');
+  res.json({ success: true, data: result.rows });
+});
+
+app.get('/api/dictionaries/dysfunctions', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, name FROM dysfunctions ORDER BY name');
+  res.json({ success: true, data: result.rows });
+});
+
+app.get('/api/dictionaries/meridians', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, name, code FROM meridians ORDER BY name');
+  res.json({ success: true, data: result.rows });
+});
+
+app.get('/api/dictionaries/organs', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, name FROM organs ORDER BY name');
+  res.json({ success: true, data: result.rows });
+});
+
+app.get('/api/dictionaries/nerves', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, name, type FROM nerves ORDER BY name');
+  res.json({ success: true, data: result.rows });
+});
+
+app.get('/api/dictionaries/functions', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, name FROM functions ORDER BY name');
+  res.json({ success: true, data: result.rows });
+});
+
+app.get('/api/dictionaries/vertebrae', async (req, res) => {
+  const client = await connectDB();
+  const result = await client.query('SELECT id, code FROM vertebrae ORDER BY code');
+  res.json({ success: true, data: result.rows });
+});
+
+// ========== РЎР’РЇР—Р Р”Р›РЇ РњР«РЁР¦Р« ==========
+app.get('/api/muscle/:id/relations', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    const groups = await client.query('SELECT group_id FROM muscle_group_membership WHERE muscle_id = $1', [id]);
+    const dysfunctions = await client.query('SELECT dysfunction_id FROM muscle_dysfunctions WHERE muscle_id = $1', [id]);
+    const meridians = await client.query('SELECT meridian_id FROM muscle_meridians WHERE muscle_id = $1', [id]);
+    const organs = await client.query('SELECT organ_id FROM muscle_organs WHERE muscle_id = $1', [id]);
+    const nerves = await client.query('SELECT nerve_id FROM muscle_nerves WHERE muscle_id = $1', [id]);
+    const functions = await client.query('SELECT function_id, note FROM muscle_functions WHERE muscle_id = $1', [id]);
+    const vertebrae = await client.query('SELECT vertebra_id FROM muscle_vertebrae WHERE muscle_id = $1', [id]);
+
+    res.json({
+      success: true,
+      data: {
+        groups: groups.rows.map(r => r.group_id),
+        dysfunctions: dysfunctions.rows.map(r => r.dysfunction_id),
+        meridians: meridians.rows.map(r => r.meridian_id),
+        organs: organs.rows.map(r => r.organ_id),
+        nerves: nerves.rows.map(r => r.nerve_id),
+        functions: functions.rows.map(r => ({ id: r.function_id, note: r.note })),
+        vertebrae: vertebrae.rows.map(r => r.vertebra_id)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching relations:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/muscle/:id/relations', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  const { groups, dysfunctions, meridians, organs, nerves, functions, vertebrae } = req.body;
+
+  try {
+    await client.query('BEGIN');
+
+    // РЈРґР°Р»СЏРµРј СЃС‚Р°СЂС‹Рµ СЃРІСЏР·Рё
+    await client.query('DELETE FROM muscle_group_membership WHERE muscle_id = $1', [id]);
+    await client.query('DELETE FROM muscle_dysfunctions WHERE muscle_id = $1', [id]);
+    await client.query('DELETE FROM muscle_meridians WHERE muscle_id = $1', [id]);
+    await client.query('DELETE FROM muscle_organs WHERE muscle_id = $1', [id]);
+    await client.query('DELETE FROM muscle_nerves WHERE muscle_id = $1', [id]);
+    await client.query('DELETE FROM muscle_functions WHERE muscle_id = $1', [id]);
+    await client.query('DELETE FROM muscle_vertebrae WHERE muscle_id = $1', [id]);
+
+    // Р”РѕР±Р°РІР»СЏРµРј РЅРѕРІС‹Рµ СЃРІСЏР·Рё
+    if (groups?.length) {
+      for (const groupId of groups) {
+        await client.query('INSERT INTO muscle_group_membership (muscle_id, group_id) VALUES ($1, $2)', [id, groupId]);
+      }
+    }
+    if (dysfunctions?.length) {
+      for (const dysfunctionId of dysfunctions) {
+        await client.query('INSERT INTO muscle_dysfunctions (muscle_id, dysfunction_id) VALUES ($1, $2)', [id, dysfunctionId]);
+      }
+    }
+    if (meridians?.length) {
+      for (const meridianId of meridians) {
+        await client.query('INSERT INTO muscle_meridians (muscle_id, meridian_id) VALUES ($1, $2)', [id, meridianId]);
+      }
+    }
+    if (organs?.length) {
+      for (const organId of organs) {
+        await client.query('INSERT INTO muscle_organs (muscle_id, organ_id) VALUES ($1, $2)', [id, organId]);
+      }
+    }
+    if (nerves?.length) {
+      for (const nerveId of nerves) {
+        await client.query('INSERT INTO muscle_nerves (muscle_id, nerve_id) VALUES ($1, $2)', [id, nerveId]);
+      }
+    }
+    if (functions?.length) {
+      for (const func of functions) {
+        await client.query('INSERT INTO muscle_functions (muscle_id, function_id, note) VALUES ($1, $2, $3)', [id, func.id, func.note]);
+      }
+    }
+    if (vertebrae?.length) {
+      for (const vertebraId of vertebrae) {
+        await client.query('INSERT INTO muscle_vertebrae (muscle_id, vertebra_id) VALUES ($1, $2)', [id, vertebraId]);
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Relations updated successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error updating relations:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+/////    РЅРёР¶Рµ СЃС‚Р°СЂС‹Рµ СЌРЅРґРїРѕРёРЅС‚С‹, Р° РІС‹С€Рµ РЅРѕРІС‹Рµ С‡РµСЂРµР· СЂРµРі.СЂСѓ
+
+// 1. РЈРЅРёРІРµСЂСЃР°Р»СЊРЅР°СЏ Р·Р°РіСЂСѓР·РєР° РјРµРґРёР° РґР»СЏ Р»СЋР±РѕР№ СЃСѓС‰РЅРѕСЃС‚Рё
 app.post('/api/media/upload', upload.fields([
   { name: 'file', maxCount: 1 },
   { name: 'thumbnail', maxCount: 1 }
@@ -59,7 +532,7 @@ app.post('/api/media/upload', upload.fields([
   try {
     console.log('[UNIVERSAL UPLOAD] Called with files:', req.files);
     
-    // Ћсновной файл
+    // РћСЃРЅРѕРІРЅРѕР№ С„Р°Р№Р»
     const mainFile = req.files?.file?.[0];
     if (!mainFile) throw new Error('Main file not received');
     
@@ -71,18 +544,18 @@ app.post('/api/media/upload', upload.fields([
 
     console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
 
-    // Џоддерживаемые типы сущностей
+    // РџРѕРґРґРµСЂР¶РёРІР°РµРјС‹Рµ С‚РёРїС‹ СЃСѓС‰РЅРѕСЃС‚РµР№
     const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group' , 'receptor_class', 'tool', 'entry' ];
     if (!supportedEntities.includes(entityType)) {
       throw new Error(`Unsupported entity type: ${entityType}`);
     }
 
-    // ЋпределЯем тип файла по расширению
+    // РћРїСЂРµРґРµР»СЏРµРј С‚РёРї С„Р°Р№Р»Р° РїРѕ СЂР°СЃС€РёСЂРµРЅРёСЋ
     const fileExt = file.originalname.split('.').pop();
     const fileName = `${entityType}_${entityId}_${Date.now()}.${fileExt}`;
     const remotePath = `app:/${entityType}-app/${fileName}`;
 
-    // 1. ‘оздаем папку длЯ сущности (если не существует)
+    // 1. РЎРѕР·РґР°РµРј РїР°РїРєСѓ РґР»СЏ СЃСѓС‰РЅРѕСЃС‚Рё (РµСЃР»Рё РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚)
     const folderRes = await fetch(
       `https://cloud-api.yandex.net/v1/disk/resources?path=app:/${entityType}-app`,
       {
@@ -91,13 +564,13 @@ app.post('/api/media/upload', upload.fields([
       }
     );
     
-    // 409 - папка уже существует, это нормально
+    // 409 - РїР°РїРєР° СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚, СЌС‚Рѕ РЅРѕСЂРјР°Р»СЊРЅРѕ
     if (!folderRes.ok && folderRes.status !== 409) {
       const error = await folderRes.json();
       throw new Error(`Folder creation error: ${error.message || error.description}`);
     }
 
-    // 2. Џолучаем URL длЯ загрузки основного файла
+    // 2. РџРѕР»СѓС‡Р°РµРј URL РґР»СЏ Р·Р°РіСЂСѓР·РєРё РѕСЃРЅРѕРІРЅРѕРіРѕ С„Р°Р№Р»Р°
     const uploadUrlRes = await fetch(
       `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(remotePath)}`,
       {
@@ -110,7 +583,7 @@ app.post('/api/media/upload', upload.fields([
       throw new Error(`Error getting upload URL: ${error.message || error.description}`);
     }
 
-    // 3. ‡агружаем основной файл
+    // 3. Р—Р°РіСЂСѓР¶Р°РµРј РѕСЃРЅРѕРІРЅРѕР№ С„Р°Р№Р»
     const { href: uploadUrl } = await uploadUrlRes.json();
     const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
@@ -120,7 +593,7 @@ app.post('/api/media/upload', upload.fields([
     
     if (!uploadRes.ok) throw new Error('File upload error');
 
-    // 4. Џубликуем основной файл
+    // 4. РџСѓР±Р»РёРєСѓРµРј РѕСЃРЅРѕРІРЅРѕР№ С„Р°Р№Р»
     const publishRes = await fetch(
       `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(remotePath)}`,
       {
@@ -134,7 +607,7 @@ app.post('/api/media/upload', upload.fields([
       throw new Error(`Publishing error: ${error.message || error.description}`);
     }
 
-    // 5. Џолучаем метаданные с public_url
+    // 5. РџРѕР»СѓС‡Р°РµРј РјРµС‚Р°РґР°РЅРЅС‹Рµ СЃ public_url
     const metaRes = await fetch(
       `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(remotePath)}`,
       {
@@ -152,18 +625,18 @@ app.post('/api/media/upload', upload.fields([
 
     console.log(`[UNIVERSAL UPLOAD] Main file uploaded. Public URL: ${publicPageUrl}`);
 
-    // ЋпределЯем тип файла
+    // РћРїСЂРµРґРµР»СЏРµРј С‚РёРї С„Р°Р№Р»Р°
     const fileType = fileExt.match(/(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' :
                     fileExt.match(/(mp4|webm|mov|avi|mkv)$/i) ? 'video' :
                     fileExt.match(/(mp3|wav|ogg|m4a|flac)$/i) ? 'audio' : 'document';
 
-    // 6. Џолучаем превью и метаданные от џндекс.„иска
+    // 6. РџРѕР»СѓС‡Р°РµРј РїСЂРµРІСЊСЋ Рё РјРµС‚Р°РґР°РЅРЅС‹Рµ РѕС‚ РЇРЅРґРµРєСЃ.Р”РёСЃРєР°
     let thumbnailUrl = null;
     let durationSeconds = null;
     let width = null;
     let height = null;
 
-    // ’ипы файлов, длЯ которых џндекс может дать превью
+    // РўРёРїС‹ С„Р°Р№Р»РѕРІ, РґР»СЏ РєРѕС‚РѕСЂС‹С… РЇРЅРґРµРєСЃ РјРѕР¶РµС‚ РґР°С‚СЊ РїСЂРµРІСЊСЋ
     const yandexPreviewTypes = ['video', 'document', 'image'];
 
     if (yandexPreviewTypes.includes(fileType)) {
@@ -186,26 +659,26 @@ app.post('/api/media/upload', upload.fields([
           const previewData = await previewRes.json();
           console.log(`[UNIVERSAL UPLOAD] Yandex preview response received`);
           
-          // Ћбрабатываем превью
+          // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РїСЂРµРІСЊСЋ
           if (previewData.preview) {
-            // Џревью может быть строкой или объектом с размерами
+            // РџСЂРµРІСЊСЋ РјРѕР¶РµС‚ Р±С‹С‚СЊ СЃС‚СЂРѕРєРѕР№ РёР»Рё РѕР±СЉРµРєС‚РѕРј СЃ СЂР°Р·РјРµСЂР°РјРё
             if (typeof previewData.preview === 'string') {
               thumbnailUrl = previewData.preview;
               console.log(`[UNIVERSAL UPLOAD] Got string preview`);
             } 
-            // џндекс обычно возвращает объект с размерами: S, M, L, XL, XXL, XXXL
+            // РЇРЅРґРµРєСЃ РѕР±С‹С‡РЅРѕ РІРѕР·РІСЂР°С‰Р°РµС‚ РѕР±СЉРµРєС‚ СЃ СЂР°Р·РјРµСЂР°РјРё: S, M, L, XL, XXL, XXXL
             else if (typeof previewData.preview === 'object') {
-              // Ѓерем маленький размер длЯ thumbnail (S = 150px)
+              // Р‘РµСЂРµРј РјР°Р»РµРЅСЊРєРёР№ СЂР°Р·РјРµСЂ РґР»СЏ thumbnail (S = 150px)
               if (previewData.preview.S) {
                 thumbnailUrl = previewData.preview.S;
                 console.log(`[UNIVERSAL UPLOAD] Got S-size preview`);
               }
-              // €ли средний если маленького нет
+              // РР»Рё СЃСЂРµРґРЅРёР№ РµСЃР»Рё РјР°Р»РµРЅСЊРєРѕРіРѕ РЅРµС‚
               else if (previewData.preview.M) {
                 thumbnailUrl = previewData.preview.M;
                 console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
               }
-              // €ли первый доступный размер
+              // РР»Рё РїРµСЂРІС‹Р№ РґРѕСЃС‚СѓРїРЅС‹Р№ СЂР°Р·РјРµСЂ
               else {
                 const firstSize = Object.values(previewData.preview)[0];
                 if (firstSize) {
@@ -216,7 +689,7 @@ app.post('/api/media/upload', upload.fields([
             }
           }
           
-          // Ћбрабатываем информацию о видео
+          // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РІРёРґРµРѕ
           if (fileType === 'video' && previewData.video) {
             console.log(`[UNIVERSAL UPLOAD] Video metadata available`);
             
@@ -226,7 +699,7 @@ app.post('/api/media/upload', upload.fields([
             }
           }
           
-          // Ћбрабатываем информацию об изображении
+          // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ РѕР± РёР·РѕР±СЂР°Р¶РµРЅРёРё
           if (fileType === 'image' && previewData.image) {
             console.log(`[UNIVERSAL UPLOAD] Image metadata available`);
             
@@ -246,7 +719,7 @@ app.post('/api/media/upload', upload.fields([
       }
     }
 
-    // 7. Ћбработка thumbnail от клиента (если есть)
+    // 7. РћР±СЂР°Р±РѕС‚РєР° thumbnail РѕС‚ РєР»РёРµРЅС‚Р° (РµСЃР»Рё РµСЃС‚СЊ)
     const thumbnailFile = req.files?.thumbnail?.[0];
     
     if (thumbnailFile) {
@@ -255,7 +728,7 @@ app.post('/api/media/upload', upload.fields([
       const thumbFileName = `${fileName}.thumb.jpg`;
       const thumbRemotePath = `app:/${entityType}-app/${thumbFileName}`;
       
-      // ‡агружаем thumbnail
+      // Р—Р°РіСЂСѓР¶Р°РµРј thumbnail
       const thumbUploadUrlRes = await fetch(
         `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(thumbRemotePath)}`,
         {
@@ -272,7 +745,7 @@ app.post('/api/media/upload', upload.fields([
           headers: { 'Content-Type': thumbnailFile.mimetype },
         });
         
-        // Џубликуем thumbnail
+        // РџСѓР±Р»РёРєСѓРµРј thumbnail
         await fetch(
           `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(thumbRemotePath)}`,
           {
@@ -281,7 +754,7 @@ app.post('/api/media/upload', upload.fields([
           }
         );
         
-        // Џолучаем public_url длЯ thumbnail
+        // РџРѕР»СѓС‡Р°РµРј public_url РґР»СЏ thumbnail
         const thumbMetaRes = await fetch(
           `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(thumbRemotePath)}`,
           {
@@ -291,22 +764,22 @@ app.post('/api/media/upload', upload.fields([
         
         if (thumbMetaRes.ok) {
           const thumbMetaData = await thumbMetaRes.json();
-          // €спользуем thumbnail от клиента вместо Яндексовского
+          // РСЃРїРѕР»СЊР·СѓРµРј thumbnail РѕС‚ РєР»РёРµРЅС‚Р° РІРјРµСЃС‚Рѕ СЏРЅРґРµРєСЃРѕРІСЃРєРѕРіРѕ
           thumbnailUrl = thumbMetaData.public_url;
           console.log(`[UNIVERSAL UPLOAD] Client thumbnail created: ${thumbnailUrl}`);
         }
       }
     } 
-    // 8. „лЯ изображений без превью от џндекса используем само изображение
+    // 8. Р”Р»СЏ РёР·РѕР±СЂР°Р¶РµРЅРёР№ Р±РµР· РїСЂРµРІСЊСЋ РѕС‚ РЇРЅРґРµРєСЃР° РёСЃРїРѕР»СЊР·СѓРµРј СЃР°РјРѕ РёР·РѕР±СЂР°Р¶РµРЅРёРµ
     else if (fileType === 'image' && !thumbnailUrl) {
       console.log(`[UNIVERSAL UPLOAD] Using image itself as thumbnail`);
       thumbnailUrl = publicPageUrl;
     }
 
-    // 9. ‘охранЯем в Ѓ„ (новаЯ система)
+    // 9. РЎРѕС…СЂР°РЅСЏРµРј РІ Р‘Р” (РЅРѕРІР°СЏ СЃРёСЃС‚РµРјР°)
     console.log(`[UNIVERSAL UPLOAD] Saving for ${entityType} in new system`);
 
-    // ‘охранЯем в media_files
+    // РЎРѕС…СЂР°РЅСЏРµРј РІ media_files
     const { data: newFile, error: newError } = await supabase
       .from('media_files')
       .insert({
@@ -328,7 +801,7 @@ app.post('/api/media/upload', upload.fields([
 
     if (newError) throw newError;
 
-    // ‘оздаем свЯзь между файлом и сущностью
+    // РЎРѕР·РґР°РµРј СЃРІСЏР·СЊ РјРµР¶РґСѓ С„Р°Р№Р»РѕРј Рё СЃСѓС‰РЅРѕСЃС‚СЊСЋ
     await supabase
       .from('entity_media')
       .insert({
@@ -355,7 +828,7 @@ app.post('/api/media/upload', upload.fields([
       height: newFile.height
     };
 
-    // ѓарантируем, что savedMedia содержит created_at в правильном формате
+    // Р“Р°СЂР°РЅС‚РёСЂСѓРµРј, С‡С‚Рѕ savedMedia СЃРѕРґРµСЂР¶РёС‚ created_at РІ РїСЂР°РІРёР»СЊРЅРѕРј С„РѕСЂРјР°С‚Рµ
     if (savedMedia) {
       if (!savedMedia.created_at) {
         savedMedia.created_at = new Date().toISOString();
@@ -375,7 +848,7 @@ app.post('/api/media/upload', upload.fields([
       }
     }
 
-    // ‚озвращаем успешный результат
+    // Р’РѕР·РІСЂР°С‰Р°РµРј СѓСЃРїРµС€РЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚
     res.json({
       success: true,
       publicUrl: publicPageUrl,
@@ -398,7 +871,7 @@ app.post('/api/media/upload', upload.fields([
 });
 
 
-// 2. “ниверсальное получение медиа длЯ любой сущности
+// 2. РЈРЅРёРІРµСЂСЃР°Р»СЊРЅРѕРµ РїРѕР»СѓС‡РµРЅРёРµ РјРµРґРёР° РґР»СЏ Р»СЋР±РѕР№ СЃСѓС‰РЅРѕСЃС‚Рё
 	app.get('/api/media/:entityType/:entityId', async (req, res) => {
 	  try {
 		const { entityType, entityId } = req.params;
@@ -481,16 +954,16 @@ app.post('/api/media/upload', upload.fields([
 	  }
 	});
 
-// 3. “ниверсальное удаление медиа
+// 3. РЈРЅРёРІРµСЂСЃР°Р»СЊРЅРѕРµ СѓРґР°Р»РµРЅРёРµ РјРµРґРёР°
 app.delete('/api/media/:mediaId', async (req, res) => {
   try {
     const { mediaId } = req.params;
     const { entityType, entityId } = req.body;
 
-    console.log(`[UNIVERSAL DELETE] “даление медиа ${mediaId} длЯ ${entityType} ${entityId}`);
+    console.log(`[UNIVERSAL DELETE] РЈРґР°Р»РµРЅРёРµ РјРµРґРёР° ${mediaId} РґР»СЏ ${entityType} ${entityId}`);
 
 
-    // ‚сегда удалЯем свЯзь из новой системы
+    // Р’СЃРµРіРґР° СѓРґР°Р»СЏРµРј СЃРІСЏР·СЊ РёР· РЅРѕРІРѕР№ СЃРёСЃС‚РµРјС‹
     const { error: linkError } = await supabase
       .from('entity_media')
       .delete()
@@ -500,7 +973,7 @@ app.delete('/api/media/:mediaId', async (req, res) => {
 
     if (linkError) throw linkError;
 
-    // ЏроверЯем, остались ли другие свЯзи с этим файлом
+    // РџСЂРѕРІРµСЂСЏРµРј, РѕСЃС‚Р°Р»РёСЃСЊ Р»Рё РґСЂСѓРіРёРµ СЃРІСЏР·Рё СЃ СЌС‚РёРј С„Р°Р№Р»РѕРј
     const { data: links, error: countError } = await supabase
       .from('entity_media')
       .select('id')
@@ -508,7 +981,7 @@ app.delete('/api/media/:mediaId', async (req, res) => {
 
     if (countError) throw countError;
 
-    // …сли больше нет свЯзей - помечаем файл как неактивный
+    // Р•СЃР»Рё Р±РѕР»СЊС€Рµ РЅРµС‚ СЃРІСЏР·РµР№ - РїРѕРјРµС‡Р°РµРј С„Р°Р№Р» РєР°Рє РЅРµР°РєС‚РёРІРЅС‹Р№
     if (!links || links.length === 0) {
       await supabase
         .from('media_files')
@@ -518,7 +991,7 @@ app.delete('/api/media/:mediaId', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Њедиафайл удален'
+      message: 'РњРµРґРёР°С„Р°Р№Р» СѓРґР°Р»РµРЅ'
     });
 
   } catch (error) {
@@ -530,20 +1003,20 @@ app.delete('/api/media/:mediaId', async (req, res) => {
   }
 });
 
-// 4. “ниверсальное обновление порЯдка
+// 4. РЈРЅРёРІРµСЂСЃР°Р»СЊРЅРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ РїРѕСЂСЏРґРєР°
 app.post('/api/media/reorder', async (req, res) => {
   try {
     const { entityType, entityId, orderedIds } = req.body;
 
-    console.log(`[UNIVERSAL REORDER] Ћбновление порЯдка длЯ ${entityType} ${entityId}`);
+    console.log(`[UNIVERSAL REORDER] РћР±РЅРѕРІР»РµРЅРёРµ РїРѕСЂСЏРґРєР° РґР»СЏ ${entityType} ${entityId}`);
 
     if (!orderedIds || !Array.isArray(orderedIds)) {
-      throw new Error('orderedIds должен быть массивом');
+      throw new Error('orderedIds РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ РјР°СЃСЃРёРІРѕРј');
     }
 
     
 
-    // ЋбновлЯем в новой системе
+    // РћР±РЅРѕРІР»СЏРµРј РІ РЅРѕРІРѕР№ СЃРёСЃС‚РµРјРµ
     for (let i = 0; i < orderedIds.length; i++) {
       const mediaFileId = orderedIds[i];
       
@@ -557,15 +1030,15 @@ app.post('/api/media/reorder', async (req, res) => {
         .eq('entity_id', entityId);
       
       if (error) {
-        console.error(`Ћшибка обновлениЯ порЯдка в новой системе длЯ ${mediaFileId}:`, error);
-        // Ќе прерываем, если это мышца (стараЯ система главнаЯ)
+        console.error(`РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ РїРѕСЂСЏРґРєР° РІ РЅРѕРІРѕР№ СЃРёСЃС‚РµРјРµ РґР»СЏ ${mediaFileId}:`, error);
+        // РќРµ РїСЂРµСЂС‹РІР°РµРј, РµСЃР»Рё СЌС‚Рѕ РјС‹С€С†Р° (СЃС‚Р°СЂР°СЏ СЃРёСЃС‚РµРјР° РіР»Р°РІРЅР°СЏ)
         if (entityType !== 'muscle') throw error;
       }
     }
 
     res.json({
       success: true,
-      message: 'ЏорЯдок обновлен'
+      message: 'РџРѕСЂСЏРґРѕРє РѕР±РЅРѕРІР»РµРЅ'
     });
 
   } catch (error) {
@@ -577,7 +1050,7 @@ app.post('/api/media/reorder', async (req, res) => {
   }
 });
 
-// 5. Џолучение информации о поддерживаемых типах сущностей
+// 5. РџРѕР»СѓС‡РµРЅРёРµ РёРЅС„РѕСЂРјР°С†РёРё Рѕ РїРѕРґРґРµСЂР¶РёРІР°РµРјС‹С… С‚РёРїР°С… СЃСѓС‰РЅРѕСЃС‚РµР№
 app.get('/api/media/supported-entities', async (req, res) => {
   try {
     res.json({
@@ -585,38 +1058,38 @@ app.get('/api/media/supported-entities', async (req, res) => {
       entities: [
         {
           type: 'muscle',
-          name: 'Њышцы',
-          description: 'Њышцы человеческого тела',
+          name: 'РњС‹С€С†С‹',
+          description: 'РњС‹С€С†С‹ С‡РµР»РѕРІРµС‡РµСЃРєРѕРіРѕ С‚РµР»Р°',
           hasLegacySupport: false
         },
         {
           type: 'organ',
-          name: 'Ћрганы',
-          description: '‚нутренние органы',
+          name: 'РћСЂРіР°РЅС‹',
+          description: 'Р’РЅСѓС‚СЂРµРЅРЅРёРµ РѕСЂРіР°РЅС‹',
           hasLegacySupport: false
         },
         {
           type: 'meridian',
-          name: 'Њеридианы',
-          description: 'ќнергетические меридианы',
+          name: 'РњРµСЂРёРґРёР°РЅС‹',
+          description: 'Р­РЅРµСЂРіРµС‚РёС‡РµСЃРєРёРµ РјРµСЂРёРґРёР°РЅС‹',
           hasLegacySupport: false
         },
         {
           type: 'dysfunction',
-          name: '„исфункции',
-          description: '”ункциональные нарушениЯ',
+          name: 'Р”РёСЃС„СѓРЅРєС†РёРё',
+          description: 'Р¤СѓРЅРєС†РёРѕРЅР°Р»СЊРЅС‹Рµ РЅР°СЂСѓС€РµРЅРёСЏ',
           hasLegacySupport: false
         },
         {
           type: 'muscle_group',
-          name: 'ѓруппы мышц',
-          description: 'ѓруппы свЯзанных мышц',
+          name: 'Р“СЂСѓРїРїС‹ РјС‹С€С†',
+          description: 'Р“СЂСѓРїРїС‹ СЃРІСЏР·Р°РЅРЅС‹С… РјС‹С€С†',
           hasLegacySupport: false
         },
 		{
           type: 'receptor_class',
-          name: 'Љлассы рецепторов',
-          description: 'Љлассы рецепторов - механо, ноци и т.д.',
+          name: 'РљР»Р°СЃСЃС‹ СЂРµС†РµРїС‚РѕСЂРѕРІ',
+          description: 'РљР»Р°СЃСЃС‹ СЂРµС†РµРїС‚РѕСЂРѕРІ - РјРµС…Р°РЅРѕ, РЅРѕС†Рё Рё С‚.Рґ.',
           hasLegacySupport: false
         }
       ]
@@ -633,7 +1106,7 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
   try {
     const { mediaId } = req.params;
     
-    // Џолучаем файл из Ѓ„
+    // РџРѕР»СѓС‡Р°РµРј С„Р°Р№Р» РёР· Р‘Р”
     const { data: mediaFile, error } = await supabase
       .from('media_files')
       .select('*')
@@ -648,7 +1121,7 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
     
     console.log(`[UPDATE PREVIEW] Getting Yandex preview for ${mediaId} (${mediaFile.file_type})`);
     
-    // ‡апрашиваем ‚‘… метаданные у џндекса
+    // Р—Р°РїСЂР°С€РёРІР°РµРј Р’РЎР• РјРµС‚Р°РґР°РЅРЅС‹Рµ Сѓ РЇРЅРґРµРєСЃР°
     const previewApiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(mediaFile.public_url)}&fields=preview,video,image,name,path,type,mime_type,size,created,modified`;
     
     const previewRes = await fetch(previewApiUrl, {
@@ -666,36 +1139,36 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
     const previewData = await previewRes.json();
     console.log(`[UPDATE PREVIEW] Received Yandex data:`, JSON.stringify(previewData, null, 2));
     
-    // Џодготавливаем данные длЯ обновлениЯ
+    // РџРѕРґРіРѕС‚Р°РІР»РёРІР°РµРј РґР°РЅРЅС‹Рµ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ
     const updateData = {
       updated_at: new Date().toISOString()
     };
     
     let changes = [];
     
-    // 1. Џђ…‚њћ (thumbnail)
+    // 1. РџР Р•Р’Р¬Р® (thumbnail)
     if (previewData.preview) {
       let newThumbnailUrl = null;
       
       if (typeof previewData.preview === 'string') {
         newThumbnailUrl = previewData.preview;
       } else if (previewData.preview.S) {
-        newThumbnailUrl = previewData.preview.S; // Њаленькое превью (150px)
+        newThumbnailUrl = previewData.preview.S; // РњР°Р»РµРЅСЊРєРѕРµ РїСЂРµРІСЊСЋ (150px)
       } else if (previewData.preview.M) {
-        newThumbnailUrl = previewData.preview.M; // ‘реднее превью (300px)
+        newThumbnailUrl = previewData.preview.M; // РЎСЂРµРґРЅРµРµ РїСЂРµРІСЊСЋ (300px)
       } else if (previewData.preview.L) {
-        newThumbnailUrl = previewData.preview.L; // Ѓольшое превью (500px)
+        newThumbnailUrl = previewData.preview.L; // Р‘РѕР»СЊС€РѕРµ РїСЂРµРІСЊСЋ (500px)
       }
       
      if (newThumbnailUrl && newThumbnailUrl !== mediaFile.thumbnail_url) {
 		  updateData.thumbnail_url = newThumbnailUrl;
-		  updateData.thumbnail_updated_at = new Date().toISOString(); // ? „ЋЃЂ‚њ’… ќ’“ ‘’ђЋЉ“!
+		  updateData.thumbnail_updated_at = new Date().toISOString(); // ? Р”РћР‘РђР’Р¬РўР• Р­РўРЈ РЎРўР РћРљРЈ!
 		  changes.push('thumbnail');
 		  console.log(`[UPDATE PREVIEW] Updated thumbnail for ${mediaFile.file_name}`);
 		}
     }
     
-    // 2. „‹€’…‹њЌЋ‘’њ ‚€„…Ћ
+    // 2. Р”Р›РРўР•Р›Р¬РќРћРЎРўР¬ Р’РР”Р•Рћ
     if (mediaFile.file_type === 'video' && previewData.video) {
       console.log(`[UPDATE PREVIEW] Video data available:`, previewData.video);
       
@@ -711,7 +1184,7 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
       }
     }
     
-    // 3. ђЂ‡Њ…ђ› €‡ЋЃђЂ†…Ќ€џ
+    // 3. Р РђР—РњР•Р Р« РР—РћР‘Р РђР–Р•РќРРЇ
     if (mediaFile.file_type === 'image' && previewData.image) {
       console.log(`[UPDATE PREVIEW] Image data available:`, previewData.image);
       
@@ -727,7 +1200,7 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
       }
     }
     
-    // 4. ђЂ‡Њ…ђ ”Ђ‰‹Ђ
+    // 4. Р РђР—РњР•Р  Р¤РђР™Р›Рђ
     if (previewData.size && previewData.size !== mediaFile.file_size) {
       updateData.file_size = previewData.size;
       changes.push('file_size');
@@ -741,14 +1214,14 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
       console.log(`[UPDATE PREVIEW] Updated MIME type for ${mediaFile.file_name}: ${previewData.mime_type}`);
     }
     
-    // 6. €Њџ ”Ђ‰‹Ђ
+    // 6. РРњРЇ Р¤РђР™Р›Рђ
     if (previewData.name && previewData.name !== mediaFile.file_name) {
       updateData.file_name = previewData.name;
       changes.push('file_name');
       console.log(`[UPDATE PREVIEW] Updated file name for ${mediaFile.id}: ${previewData.name}`);
     }
     
-    // …сли есть изменениЯ - обновлЯем в Ѓ„
+    // Р•СЃР»Рё РµСЃС‚СЊ РёР·РјРµРЅРµРЅРёСЏ - РѕР±РЅРѕРІР»СЏРµРј РІ Р‘Р”
     let updated = false;
     if (changes.length > 0) {
       console.log(`[UPDATE PREVIEW] Updating database with:`, updateData);
@@ -769,7 +1242,7 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
       console.log(`[UPDATE PREVIEW] No changes needed for ${mediaFile.file_name}`);
     }
     
-    // ‚озвращаем детальную информацию
+    // Р’РѕР·РІСЂР°С‰Р°РµРј РґРµС‚Р°Р»СЊРЅСѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ
     res.json({
       success: true,
       mediaId,
@@ -803,17 +1276,17 @@ app.post('/api/media/:mediaId/update-yandex-preview', async (req, res) => {
 });
 
 
-// server.js - добавьте этот endpoint
+// server.js - РґРѕР±Р°РІСЊС‚Рµ СЌС‚РѕС‚ endpoint
 
-// Ћбновление метаданных медиафайла
+// РћР±РЅРѕРІР»РµРЅРёРµ РјРµС‚Р°РґР°РЅРЅС‹С… РјРµРґРёР°С„Р°Р№Р»Р°
 app.put('/api/media/:mediaId/update-metadata', async (req, res) => {
   try {
     const { mediaId } = req.params;
     const updateData = req.body;
     
-    console.log(`[UPDATE METADATA] Ћбновление метаданных длЯ медиафайла ${mediaId}:`, updateData);
+    console.log(`[UPDATE METADATA] РћР±РЅРѕРІР»РµРЅРёРµ РјРµС‚Р°РґР°РЅРЅС‹С… РґР»СЏ РјРµРґРёР°С„Р°Р№Р»Р° ${mediaId}:`, updateData);
     
-    // ЋбновлЯем в базе данных
+    // РћР±РЅРѕРІР»СЏРµРј РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С…
     const { data, error } = await supabase
       .from('media_files')
       .update({
@@ -829,7 +1302,7 @@ app.put('/api/media/:mediaId/update-metadata', async (req, res) => {
     res.json({
       success: true,
       data,
-      message: 'Њетаданные успешно обновлены'
+      message: 'РњРµС‚Р°РґР°РЅРЅС‹Рµ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅС‹'
     });
     
   } catch (error) {
@@ -842,17 +1315,17 @@ app.put('/api/media/:mediaId/update-metadata', async (req, res) => {
 });
 
 // ============================================
-// ‘’Ђђ›… ќЌ„ЏЋ€Ќ’› Ћ‘’Ђћ’‘џ Ѓ…‡ €‡Њ…Ќ…Ќ€‰!
-// Ћни будут использоватьсЯ длЯ мышц, пока не завершитсЯ миграциЯ
+// РЎРўРђР Р«Р• Р­РќР”РџРћРРќРўР« РћРЎРўРђР®РўРЎРЇ Р‘Р•Р— РР—РњР•РќР•РќРР™!
+// РћРЅРё Р±СѓРґСѓС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РґР»СЏ РјС‹С€С†, РїРѕРєР° РЅРµ Р·Р°РІРµСЂС€РёС‚СЃСЏ РјРёРіСЂР°С†РёСЏ
 // ============================================
 
 
-// Џолучение актуальной прЯмой ссылки
-// ЋбновленнаЯ и упрощеннаЯ функциЯ getDirectLink (логи на английском, комментарии на русском)
+// РџРѕР»СѓС‡РµРЅРёРµ Р°РєС‚СѓР°Р»СЊРЅРѕР№ РїСЂСЏРјРѕР№ СЃСЃС‹Р»РєРё
+// РћР±РЅРѕРІР»РµРЅРЅР°СЏ Рё СѓРїСЂРѕС‰РµРЅРЅР°СЏ С„СѓРЅРєС†РёСЏ getDirectLink (Р»РѕРіРё РЅР° Р°РЅРіР»РёР№СЃРєРѕРј, РєРѕРјРјРµРЅС‚Р°СЂРёРё РЅР° СЂСѓСЃСЃРєРѕРј)
 async function getDirectLink(url) {
   //console.log('[DEBUG] getDirectLink called for URL:', url);
 
-  // …сли это Ќ… публичнаЯ страница (yadi.sk), а прЯмаЯ ссылка (downloader...)
+  // Р•СЃР»Рё СЌС‚Рѕ РќР• РїСѓР±Р»РёС‡РЅР°СЏ СЃС‚СЂР°РЅРёС†Р° (yadi.sk), Р° РїСЂСЏРјР°СЏ СЃСЃС‹Р»РєР° (downloader...)
   if (!url.includes('yadi.sk') && !url.includes('disk.yandex.ru')) {
     //console.log('[DEBUG] Input URL is a direct link. Trying to find its public_url via Yandex.Disk API.');
 
@@ -877,7 +1350,7 @@ async function getDirectLink(url) {
           const data = await resourceRes.json();
           if (data.public_url) {
             //console.log('[DEBUG] Found public_url via API:', data.public_url);
-            // ђекурсивно вызываем эту же функцию с найденным public_url
+            // Р РµРєСѓСЂСЃРёРІРЅРѕ РІС‹Р·С‹РІР°РµРј СЌС‚Сѓ Р¶Рµ С„СѓРЅРєС†РёСЋ СЃ РЅР°Р№РґРµРЅРЅС‹Рј public_url
             return await getDirectLink(data.public_url);
           }
         }
@@ -890,7 +1363,7 @@ async function getDirectLink(url) {
     return url;
   }
   
-  // …сли это публичнаЯ страница (yadi.sk или disk.yandex.ru) С используем API
+  // Р•СЃР»Рё СЌС‚Рѕ РїСѓР±Р»РёС‡РЅР°СЏ СЃС‚СЂР°РЅРёС†Р° (yadi.sk РёР»Рё disk.yandex.ru) вЂ” РёСЃРїРѕР»СЊР·СѓРµРј API
   try {
     //console.log('[DEBUG] Getting fresh direct link via /download API for:', url);
     
@@ -900,7 +1373,7 @@ async function getDirectLink(url) {
         'Authorization': `OAuth ${process.env.YANDEX_TOKEN}`,
         'Accept': 'application/json'
       },
-      timeout: 10000 // ’аймаут 10 секунд
+      timeout: 10000 // РўР°Р№РјР°СѓС‚ 10 СЃРµРєСѓРЅРґ
     });
     
     //console.log(`[DEBUG] API /download response status: ${publicRes.status}`);
@@ -909,7 +1382,7 @@ async function getDirectLink(url) {
       let errorBody = 'Could not read error body';
       try {
         errorBody = await publicRes.text();
-      } catch (e) { /* игнорируем, если не прочиталось */ }
+      } catch (e) { /* РёРіРЅРѕСЂРёСЂСѓРµРј, РµСЃР»Рё РЅРµ РїСЂРѕС‡РёС‚Р°Р»РѕСЃСЊ */ }
       console.error(`[DEBUG] API Error! Status: ${publicRes.status}, Body:`, errorBody);
       throw new Error(`API returned status ${publicRes.status}`);
     }
@@ -927,29 +1400,29 @@ async function getDirectLink(url) {
 
   } catch (error) {
     console.error('[DEBUG] Critical error in getDirectLink:', error.message);
-    // ‚ случае ошибки возвращаем исходный URL как запасной вариант
+    // Р’ СЃР»СѓС‡Р°Рµ РѕС€РёР±РєРё РІРѕР·РІСЂР°С‰Р°РµРј РёСЃС…РѕРґРЅС‹Р№ URL РєР°Рє Р·Р°РїР°СЃРЅРѕР№ РІР°СЂРёР°РЅС‚
     return url;
   }
 }
 
-// Џрокси длЯ получениЯ прЯмых ссылок
-// Џриоритет длЯ прЯмых ссылок - сначала обрабатываем file_url (прЯмые ссылки)
-// Ћчистка параметров - убираем disposition=attachment из прЯмых ссылок
-// Љэширование - кэшируем обработанные прЯмые ссылки на 10 часов
+// РџСЂРѕРєСЃРё РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РїСЂСЏРјС‹С… СЃСЃС‹Р»РѕРє
+// РџСЂРёРѕСЂРёС‚РµС‚ РґР»СЏ РїСЂСЏРјС‹С… СЃСЃС‹Р»РѕРє - СЃРЅР°С‡Р°Р»Р° РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј file_url (РїСЂСЏРјС‹Рµ СЃСЃС‹Р»РєРё)
+// РћС‡РёСЃС‚РєР° РїР°СЂР°РјРµС‚СЂРѕРІ - СѓР±РёСЂР°РµРј disposition=attachment РёР· РїСЂСЏРјС‹С… СЃСЃС‹Р»РѕРє
+// РљСЌС€РёСЂРѕРІР°РЅРёРµ - РєСЌС€РёСЂСѓРµРј РѕР±СЂР°Р±РѕС‚Р°РЅРЅС‹Рµ РїСЂСЏРјС‹Рµ СЃСЃС‹Р»РєРё РЅР° 10 С‡Р°СЃРѕРІ
 //
-//’еперь система будет:
-// Џринимать прЯмые ссылки из file_url
-// Ђвтоматически обновлЯть устаревшие ссылки
-// Љэшировать актуальные ссылки
-// ђаботать с обоими типами URL в вашей Ѓ„
-// Џоддержка обоих типов - работает как с прЯмыми ссылками, так и с публичными страницами
+//РўРµРїРµСЂСЊ СЃРёСЃС‚РµРјР° Р±СѓРґРµС‚:
+// РџСЂРёРЅРёРјР°С‚СЊ РїСЂСЏРјС‹Рµ СЃСЃС‹Р»РєРё РёР· file_url
+// РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё РѕР±РЅРѕРІР»СЏС‚СЊ СѓСЃС‚Р°СЂРµРІС€РёРµ СЃСЃС‹Р»РєРё
+// РљСЌС€РёСЂРѕРІР°С‚СЊ Р°РєС‚СѓР°Р»СЊРЅС‹Рµ СЃСЃС‹Р»РєРё
+// Р Р°Р±РѕС‚Р°С‚СЊ СЃ РѕР±РѕРёРјРё С‚РёРїР°РјРё URL РІ РІР°С€РµР№ Р‘Р”
+// РџРѕРґРґРµСЂР¶РєР° РѕР±РѕРёС… С‚РёРїРѕРІ - СЂР°Р±РѕС‚Р°РµС‚ РєР°Рє СЃ РїСЂСЏРјС‹РјРё СЃСЃС‹Р»РєР°РјРё, С‚Р°Рє Рё СЃ РїСѓР±Р»РёС‡РЅС‹РјРё СЃС‚СЂР°РЅРёС†Р°РјРё
 
-//  добавлЯем эту функцию рЯдом с getDirectLink  обновление Џревью
+//  РґРѕР±Р°РІР»СЏРµРј СЌС‚Сѓ С„СѓРЅРєС†РёСЋ СЂСЏРґРѕРј СЃ getDirectLink  РѕР±РЅРѕРІР»РµРЅРёРµ РџСЂРµРІСЊСЋ
 async function getFreshPreviewUrl(publicUrl) {
   try {
     console.log(`[GET FRESH PREVIEW] Getting fresh preview for: ${publicUrl}`);
     
-    // ‡апрашиваем превью через API џндекс.„иска
+    // Р—Р°РїСЂР°С€РёРІР°РµРј РїСЂРµРІСЊСЋ С‡РµСЂРµР· API РЇРЅРґРµРєСЃ.Р”РёСЃРєР°
     const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(publicUrl)}&fields=preview`;
     
     const response = await fetch(apiUrl, {
@@ -969,7 +1442,7 @@ async function getFreshPreviewUrl(publicUrl) {
     
     const data = await response.json();
     
-    // €звлекаем превью из ответа
+    // РР·РІР»РµРєР°РµРј РїСЂРµРІСЊСЋ РёР· РѕС‚РІРµС‚Р°
     if (data.preview) {
       let previewUrl = null;
       
@@ -977,15 +1450,15 @@ async function getFreshPreviewUrl(publicUrl) {
         previewUrl = data.preview;
         console.log(`[GET FRESH PREVIEW] Got string preview`);
       } else if (data.preview.S) {
-        // Њаленькое превью (150px)
+        // РњР°Р»РµРЅСЊРєРѕРµ РїСЂРµРІСЊСЋ (150px)
         previewUrl = data.preview.S;
         console.log(`[GET FRESH PREVIEW] Got S-size preview`);
       } else if (data.preview.M) {
-        // ‘реднее превью (300px)
+        // РЎСЂРµРґРЅРµРµ РїСЂРµРІСЊСЋ (300px)
         previewUrl = data.preview.M;
         console.log(`[GET FRESH PREVIEW] Got M-size preview`);
       } else if (data.preview.L) {
-        // Ѓольшое превью (500px)
+        // Р‘РѕР»СЊС€РѕРµ РїСЂРµРІСЊСЋ (500px)
         previewUrl = data.preview.L;
         console.log(`[GET FRESH PREVIEW] Got L-size preview`);
       }
@@ -993,8 +1466,8 @@ async function getFreshPreviewUrl(publicUrl) {
       if (previewUrl) {
         console.log(`[GET FRESH PREVIEW] Got preview URL: ${previewUrl.substring(0, 80)}...`);
         
-        // Џолучаем ЏђџЊ“ћ ссылку на превью
-        // ‚ажно: previewUrl от џндекса может быть уже прЯмой ссылкой или публичной страницей
+        // РџРѕР»СѓС‡Р°РµРј РџР РЇРњРЈР® СЃСЃС‹Р»РєСѓ РЅР° РїСЂРµРІСЊСЋ
+        // Р’Р°Р¶РЅРѕ: previewUrl РѕС‚ РЇРЅРґРµРєСЃР° РјРѕР¶РµС‚ Р±С‹С‚СЊ СѓР¶Рµ РїСЂСЏРјРѕР№ СЃСЃС‹Р»РєРѕР№ РёР»Рё РїСѓР±Р»РёС‡РЅРѕР№ СЃС‚СЂР°РЅРёС†РµР№
         const directUrl = await getDirectLink(previewUrl);
         console.log(`[GET FRESH PREVIEW] Converted to direct link: ${directUrl.substring(0, 80)}...`);
         
@@ -1012,10 +1485,10 @@ async function getFreshPreviewUrl(publicUrl) {
 }
 
 
-// Џрокси длЯ изображений
+// РџСЂРѕРєСЃРё РґР»СЏ РёР·РѕР±СЂР°Р¶РµРЅРёР№
 app.get('/api/proxy-image', async (req, res) => {
   try {
-    // Ћбработка HEAD-запроса длЯ проверки соединениЯ
+    // РћР±СЂР°Р±РѕС‚РєР° HEAD-Р·Р°РїСЂРѕСЃР° РґР»СЏ РїСЂРѕРІРµСЂРєРё СЃРѕРµРґРёРЅРµРЅРёСЏ
     if (req.method === 'HEAD') {
       return res.status(200).end();
     }
@@ -1027,7 +1500,7 @@ app.get('/api/proxy-image', async (req, res) => {
 
     console.log('Proxy request for URL:', url);
 
-    // Џолучаем актуальную прЯмую ссылку
+    // РџРѕР»СѓС‡Р°РµРј Р°РєС‚СѓР°Р»СЊРЅСѓСЋ РїСЂСЏРјСѓСЋ СЃСЃС‹Р»РєСѓ
     const directUrl = await getDirectLink(url);
     //console.log('Using direct URL:', directUrl);
 
@@ -1043,7 +1516,7 @@ app.get('/api/proxy-image', async (req, res) => {
     console.log('Image response status:', response.status);
     
     if (!response.ok) {
-      // Џробуем оригинальную ссылку как fallback
+      // РџСЂРѕР±СѓРµРј РѕСЂРёРіРёРЅР°Р»СЊРЅСѓСЋ СЃСЃС‹Р»РєСѓ РєР°Рє fallback
       console.log('Trying original URL as fallback');
       const fallbackResponse = await fetch(url, {
         headers: {
@@ -1079,7 +1552,7 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-// „обавьте в server.js
+// Р”РѕР±Р°РІСЊС‚Рµ РІ server.js
 app.get('/api/check-token', async (req, res) => {
   try {
     const response = await fetch('https://cloud-api.yandex.net/v1/disk/', {
@@ -1098,16 +1571,16 @@ app.get('/api/check-token', async (req, res) => {
 });
 
 
-// использовать  проверьте конкретную проблемную ссылку:  http://localhost:3001/api/debug-link?url=‚ЂЂ_ЏђЋЃ‹…ЊЌЂџ_‘‘›‹ЉЂ
-//  ќто поможет понЯть, в чем именно проблема с вашими старыми ссылками.
+// РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ  РїСЂРѕРІРµСЂСЊС‚Рµ РєРѕРЅРєСЂРµС‚РЅСѓСЋ РїСЂРѕР±Р»РµРјРЅСѓСЋ СЃСЃС‹Р»РєСѓ:  http://localhost:3001/api/debug-link?url=Р’РђРЁРђ_РџР РћР‘Р›Р•РњРќРђРЇ_РЎРЎР«Р›РљРђ
+//  Р­С‚Рѕ РїРѕРјРѕР¶РµС‚ РїРѕРЅСЏС‚СЊ, РІ С‡РµРј РёРјРµРЅРЅРѕ РїСЂРѕР±Р»РµРјР° СЃ РІР°С€РёРјРё СЃС‚Р°СЂС‹РјРё СЃСЃС‹Р»РєР°РјРё.
 app.get('/api/debug-link', async (req, res) => {  
   try {
     const { url } = req.query;
-    if (!url) throw new Error('URL параметр обЯзателен');
+    if (!url) throw new Error('URL РїР°СЂР°РјРµС‚СЂ РѕР±СЏР·Р°С‚РµР»РµРЅ');
 
     console.log('Debugging link:', url);
     
-    // ЏроверЯем тип ссылки
+    // РџСЂРѕРІРµСЂСЏРµРј С‚РёРї СЃСЃС‹Р»РєРё
     const isDirectLink = url.includes('downloader.disk.yandex.ru');
     const isPublicPage = url.includes('yadi.sk') || url.includes('disk.yandex.ru');
     
@@ -1118,11 +1591,11 @@ app.get('/api/debug-link', async (req, res) => {
       steps: []
     };
 
-    // …сли это прЯмаЯ ссылка
+    // Р•СЃР»Рё СЌС‚Рѕ РїСЂСЏРјР°СЏ СЃСЃС‹Р»РєР°
     if (isDirectLink) {
-      result.steps.push('Ћбнаружена прЯмаЯ ссылка');
+      result.steps.push('РћР±РЅР°СЂСѓР¶РµРЅР° РїСЂСЏРјР°СЏ СЃСЃС‹Р»РєР°');
       
-      // Џробуем очистить параметры
+      // РџСЂРѕР±СѓРµРј РѕС‡РёСЃС‚РёС‚СЊ РїР°СЂР°РјРµС‚СЂС‹
       try {
         const urlObj = new URL(url);
         const originalParams = Array.from(urlObj.searchParams.entries());
@@ -1131,10 +1604,10 @@ app.get('/api/debug-link', async (req, res) => {
         urlObj.searchParams.delete('limit');
         
         const cleanedUrl = urlObj.toString();
-        result.steps.push(`Ћчищены параметры: ${JSON.stringify(originalParams)}`);
-        result.steps.push(`ЋчищеннаЯ ссылка: ${cleanedUrl}`);
+        result.steps.push(`РћС‡РёС‰РµРЅС‹ РїР°СЂР°РјРµС‚СЂС‹: ${JSON.stringify(originalParams)}`);
+        result.steps.push(`РћС‡РёС‰РµРЅРЅР°СЏ СЃСЃС‹Р»РєР°: ${cleanedUrl}`);
         
-        // Џробуем загрузить
+        // РџСЂРѕР±СѓРµРј Р·Р°РіСЂСѓР·РёС‚СЊ
         const testResponse = await fetch(cleanedUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1142,12 +1615,12 @@ app.get('/api/debug-link', async (req, res) => {
           }
         });
         
-        result.steps.push(`‘татус очищенной ссылки: ${testResponse.status}`);
+        result.steps.push(`РЎС‚Р°С‚СѓСЃ РѕС‡РёС‰РµРЅРЅРѕР№ СЃСЃС‹Р»РєРё: ${testResponse.status}`);
         result.cleanedUrl = cleanedUrl;
         result.cleanedUrlStatus = testResponse.status;
         
       } catch (error) {
-        result.steps.push(`Ћшибка обработки: ${error.message}`);
+        result.steps.push(`РћС€РёР±РєР° РѕР±СЂР°Р±РѕС‚РєРё: ${error.message}`);
       }
     }
 
@@ -1159,13 +1632,13 @@ app.get('/api/debug-link', async (req, res) => {
 });
 
 
-// Џроверьте поддержку форматов превью на џ-„иске:
+// РџСЂРѕРІРµСЂСЊС‚Рµ РїРѕРґРґРµСЂР¶РєСѓ С„РѕСЂРјР°С‚РѕРІ РїСЂРµРІСЊСЋ РЅР° РЇ-Р”РёСЃРєРµ:
 app.get('/api/test-yandex-preview', async (req, res) => {
   const testUrls = {
-    pdf: 'https://yadi.sk/i/ваш_pdf_файл',
-    image: 'https://yadi.sk/i/ваше_изображение',
-    video: 'https://yadi.sk/i/ваше_видео',
-    doc: 'https://yadi.sk/i/ваш_doc_файл'
+    pdf: 'https://yadi.sk/i/РІР°С€_pdf_С„Р°Р№Р»',
+    image: 'https://yadi.sk/i/РІР°С€Рµ_РёР·РѕР±СЂР°Р¶РµРЅРёРµ',
+    video: 'https://yadi.sk/i/РІР°С€Рµ_РІРёРґРµРѕ',
+    doc: 'https://yadi.sk/i/РІР°С€_doc_С„Р°Р№Р»'
   };
   
   const results = {};
@@ -1192,7 +1665,7 @@ app.get('/api/test-yandex-preview', async (req, res) => {
 
 app.get('/api/debug-yandex-preview-details', async (req, res) => {
   try {
-    // Ѓерем один PDF и одно видео длЯ теста
+    // Р‘РµСЂРµРј РѕРґРёРЅ PDF Рё РѕРґРЅРѕ РІРёРґРµРѕ РґР»СЏ С‚РµСЃС‚Р°
     const { data: files, error } = await supabase
       .from('media_files')
       .select('id, file_name, file_type, public_url')
@@ -1263,10 +1736,10 @@ app.get('/api/debug-yandex-preview-details', async (req, res) => {
   }
 });
 
-// „обавьте этот endpoint длЯ проверки реальных URL
+// Р”РѕР±Р°РІСЊС‚Рµ СЌС‚РѕС‚ endpoint РґР»СЏ РїСЂРѕРІРµСЂРєРё СЂРµР°Р»СЊРЅС‹С… URL
 app.get('/api/debug-public-urls', async (req, res) => {
   try {
-    // Ѓерем несколько последних записей
+    // Р‘РµСЂРµРј РЅРµСЃРєРѕР»СЊРєРѕ РїРѕСЃР»РµРґРЅРёС… Р·Р°РїРёСЃРµР№
     const { data: files, error } = await supabase
       .from('media_files')
       .select('id, file_name, file_type, public_url')
@@ -1280,12 +1753,12 @@ app.get('/api/debug-public-urls', async (req, res) => {
     for (const file of files) {
       if (!file.public_url) continue;
       
-      // ЏроверЯем тип URL
+      // РџСЂРѕРІРµСЂСЏРµРј С‚РёРї URL
       const isPublicPage = file.public_url.includes('yadi.sk') || 
                           file.public_url.includes('disk.yandex.ru');
       const isDirectLink = file.public_url.includes('downloader.disk.yandex.ru');
       
-      // ’естируем доступность через API
+      // РўРµСЃС‚РёСЂСѓРµРј РґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ С‡РµСЂРµР· API
       let apiStatus = 'not_tested';
       let previewAvailable = false;
       
@@ -1327,19 +1800,17 @@ app.get('/api/debug-public-urls', async (req, res) => {
   }
 });
 
-// server.js - добавьте этот код после существующего endpoint /api/media/:mediaId/update-yandex-preview
-
 // ============================================
-// ќЌ„ЏЋ€Ќ’ „‹џ ЊЂ‘‘Ћ‚ЋѓЋ ЋЃЌЋ‚‹…Ќ€џ Џђ…‚њћ
+// Р­РќР”РџРћРРќРў Р”Р›РЇ РњРђРЎРЎРћР’РћР“Рћ РћР‘РќРћР’Р›Р•РќРРЇ РџР Р•Р’Р¬Р®
 // ============================================
 
-// ќндпоинт длЯ обновлениЯ превью у нескольких медиафайлов одновременно
+// Р­РЅРґРїРѕРёРЅС‚ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ РїСЂРµРІСЊСЋ Сѓ РЅРµСЃРєРѕР»СЊРєРёС… РјРµРґРёР°С„Р°Р№Р»РѕРІ РѕРґРЅРѕРІСЂРµРјРµРЅРЅРѕ
 app.post('/api/update-media-previews', async (req, res) => {
   try {
     const { mediaIds, entityType, entityId } = req.body;
     
-    console.log(`[UPDATE MEDIA PREVIEWS] ‡апрос на обновление превью длЯ ${mediaIds?.length || 0} медиафайлов`);
-    console.log(`[UPDATE MEDIA PREVIEWS] ‘ущность: ${entityType}, ID: ${entityId}`);
+    console.log(`[UPDATE MEDIA PREVIEWS] Р—Р°РїСЂРѕСЃ РЅР° РѕР±РЅРѕРІР»РµРЅРёРµ РїСЂРµРІСЊСЋ РґР»СЏ ${mediaIds?.length || 0} РјРµРґРёР°С„Р°Р№Р»РѕРІ`);
+    console.log(`[UPDATE MEDIA PREVIEWS] РЎСѓС‰РЅРѕСЃС‚СЊ: ${entityType}, ID: ${entityId}`);
     
     if (!mediaIds || !Array.isArray(mediaIds) || mediaIds.length === 0) {
       return res.status(400).json({
@@ -1351,12 +1822,12 @@ app.post('/api/update-media-previews', async (req, res) => {
     const results = [];
     let successfulUpdates = 0;
     
-    // Ћбрабатываем каждый медиафайл
+    // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј РєР°Р¶РґС‹Р№ РјРµРґРёР°С„Р°Р№Р»
     for (const mediaId of mediaIds) {
       try {
-        console.log(`[UPDATE MEDIA PREVIEWS] Ћбработка медиафайла: ${mediaId}`);
+        console.log(`[UPDATE MEDIA PREVIEWS] РћР±СЂР°Р±РѕС‚РєР° РјРµРґРёР°С„Р°Р№Р»Р°: ${mediaId}`);
         
-        // €спользуем существующий эндпоинт длЯ обновлениЯ превью
+        // РСЃРїРѕР»СЊР·СѓРµРј СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ СЌРЅРґРїРѕРёРЅС‚ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ РїСЂРµРІСЊСЋ
         const updateResponse = await fetch(`http://localhost:${PORT}/api/media/${mediaId}/update-yandex-preview`, {
           method: 'POST',
           headers: {
@@ -1374,7 +1845,7 @@ app.post('/api/update-media-previews', async (req, res) => {
           };
         }
         
-        // Џолучаем информацию о файле длЯ логов
+        // РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ С„Р°Р№Р»Рµ РґР»СЏ Р»РѕРіРѕРІ
         let fileName = 'unknown';
         try {
           const { data: mediaFile } = await supabase
@@ -1423,7 +1894,7 @@ app.post('/api/update-media-previews', async (req, res) => {
         
         results.push(result);
         
-        // ЌебольшаЯ пауза между запросами, чтобы не перегружать API џндекс „иска
+        // РќРµР±РѕР»СЊС€Р°СЏ РїР°СѓР·Р° РјРµР¶РґСѓ Р·Р°РїСЂРѕСЃР°РјРё, С‡С‚РѕР±С‹ РЅРµ РїРµСЂРµРіСЂСѓР¶Р°С‚СЊ API РЇРЅРґРµРєСЃ Р”РёСЃРєР°
         await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (error) {
@@ -1438,7 +1909,7 @@ app.post('/api/update-media-previews', async (req, res) => {
       }
     }
     
-    // ”ормируем итоговый ответ
+    // Р¤РѕСЂРјРёСЂСѓРµРј РёС‚РѕРіРѕРІС‹Р№ РѕС‚РІРµС‚
     const response = {
       success: true,
       updated: successfulUpdates,
@@ -1446,7 +1917,7 @@ app.post('/api/update-media-previews', async (req, res) => {
       results
     };
     
-    console.log(`[UPDATE MEDIA PREVIEWS] ‡авершено. “спешно обновлено: ${successfulUpdates}/${mediaIds.length}`);
+    console.log(`[UPDATE MEDIA PREVIEWS] Р—Р°РІРµСЂС€РµРЅРѕ. РЈСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅРѕ: ${successfulUpdates}/${mediaIds.length}`);
     
     res.json(response);
     
@@ -1464,36 +1935,36 @@ app.post('/api/update-media-previews', async (req, res) => {
 
 
 // ============================================
-// ќЌ„ЏЋ€Ќ’ „‹џ ЋЃЌЋ‚‹…Ќ€џ ‘‘›‹ЋЉ ‘ “—…’ЋЊ ‘“™ЌЋ‘’€
+// Р­РќР”РџРћРРќРў Р”Р›РЇ РћР‘РќРћР’Р›Р•РќРРЇ РЎРЎР«Р›РћРљ РЎ РЈР§Р•РўРћРњ РЎРЈР©РќРћРЎРўР
 // ============================================
 
-// ЋбновлЯем существующий эндпоинт refresh-links длЯ поддержки entityType и entityId
-// как основной файл, так и превью
+// РћР±РЅРѕРІР»СЏРµРј СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ СЌРЅРґРїРѕРёРЅС‚ refresh-links РґР»СЏ РїРѕРґРґРµСЂР¶РєРё entityType Рё entityId
+// РєР°Рє РѕСЃРЅРѕРІРЅРѕР№ С„Р°Р№Р», С‚Р°Рє Рё РїСЂРµРІСЊСЋ
 app.post('/api/refresh-links', async (req, res) => {
   try {
     const { urls, entityType, entityId, mediaItems } = req.body;
     
-    console.log(`[REFRESH LINKS] ‡апрос на обновление ссылок`);
-    console.log(`[REFRESH LINKS] ‘ущность: ${entityType}, ID: ${entityId}`);
+    console.log(`[REFRESH LINKS] Р—Р°РїСЂРѕСЃ РЅР° РѕР±РЅРѕРІР»РµРЅРёРµ СЃСЃС‹Р»РѕРє`);
+    console.log(`[REFRESH LINKS] РЎСѓС‰РЅРѕСЃС‚СЊ: ${entityType}, ID: ${entityId}`);
     
-    // Џоддерживаем два формата запроса:
-    // 1. ‘тарый: { urls: [...], entityType, entityId }
-    // 2. Ќовый: { mediaItems: [...], entityType, entityId }
+    // РџРѕРґРґРµСЂР¶РёРІР°РµРј РґРІР° С„РѕСЂРјР°С‚Р° Р·Р°РїСЂРѕСЃР°:
+    // 1. РЎС‚Р°СЂС‹Р№: { urls: [...], entityType, entityId }
+    // 2. РќРѕРІС‹Р№: { mediaItems: [...], entityType, entityId }
     
     let itemsToProcess = [];
     
     if (mediaItems && Array.isArray(mediaItems)) {
-      // Ќовый формат - более детальный
-      console.log(`[REFRESH LINKS] €спользуем новый формат с ${mediaItems.length} медиафайлов`);
+      // РќРѕРІС‹Р№ С„РѕСЂРјР°С‚ - Р±РѕР»РµРµ РґРµС‚Р°Р»СЊРЅС‹Р№
+      console.log(`[REFRESH LINKS] РСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІС‹Р№ С„РѕСЂРјР°С‚ СЃ ${mediaItems.length} РјРµРґРёР°С„Р°Р№Р»РѕРІ`);
       itemsToProcess = mediaItems;
     } else if (urls && Array.isArray(urls)) {
-      // ‘тарый формат - длЯ обратной совместимости
-      console.log(`[REFRESH LINKS] €спользуем старый формат с ${urls.length} URL`);
+      // РЎС‚Р°СЂС‹Р№ С„РѕСЂРјР°С‚ - РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё
+      console.log(`[REFRESH LINKS] РСЃРїРѕР»СЊР·СѓРµРј СЃС‚Р°СЂС‹Р№ С„РѕСЂРјР°С‚ СЃ ${urls.length} URL`);
       itemsToProcess = urls.map(url => ({ publicUrl: url }));
     } else {
       return res.status(400).json({ 
         success: false,
-        error: '’ребуетсЯ либо urls array, либо mediaItems array' 
+        error: 'РўСЂРµР±СѓРµС‚СЃСЏ Р»РёР±Рѕ urls array, Р»РёР±Рѕ mediaItems array' 
       });
     }
     
@@ -1507,10 +1978,10 @@ app.post('/api/refresh-links', async (req, res) => {
         const fileName = item.fileName || 'unknown';
         const fileType = item.fileType;
         
-        console.log(`[REFRESH LINKS] Ћбработка: ${fileName} (${fileType})`);
+        console.log(`[REFRESH LINKS] РћР±СЂР°Р±РѕС‚РєР°: ${fileName} (${fileType})`);
         
         if (!publicUrl) {
-          console.warn(`[REFRESH LINKS] Џропускаем - нет public_url`);
+          console.warn(`[REFRESH LINKS] РџСЂРѕРїСѓСЃРєР°РµРј - РЅРµС‚ public_url`);
           results.push({
             fileName,
             success: false,
@@ -1522,44 +1993,44 @@ app.post('/api/refresh-links', async (req, res) => {
         const updates = {};
         const changes = [];
         
-        // 1. ЋбновлЯем основную ссылку на файл
+        // 1. РћР±РЅРѕРІР»СЏРµРј РѕСЃРЅРѕРІРЅСѓСЋ СЃСЃС‹Р»РєСѓ РЅР° С„Р°Р№Р»
         try {
           const freshDirectUrl = await getDirectLink(publicUrl);
           
           if (freshDirectUrl && freshDirectUrl !== item.currentFileUrl) {
             updates.file_url = freshDirectUrl;
             changes.push('main_link');
-            console.log(`[REFRESH LINKS] Ћбновлена основнаЯ ссылка длЯ ${fileName}`);
+            console.log(`[REFRESH LINKS] РћР±РЅРѕРІР»РµРЅР° РѕСЃРЅРѕРІРЅР°СЏ СЃСЃС‹Р»РєР° РґР»СЏ ${fileName}`);
           }
         } catch (mainLinkError) {
-          console.warn(`[REFRESH LINKS] Ћшибка основной ссылки длЯ ${fileName}:`, mainLinkError.message);
+          console.warn(`[REFRESH LINKS] РћС€РёР±РєР° РѕСЃРЅРѕРІРЅРѕР№ СЃСЃС‹Р»РєРё РґР»СЏ ${fileName}:`, mainLinkError.message);
         }
         
-        // 2. ЋбновлЯем ссылку на превью (если она есть)
+        // 2. РћР±РЅРѕРІР»СЏРµРј СЃСЃС‹Р»РєСѓ РЅР° РїСЂРµРІСЊСЋ (РµСЃР»Рё РѕРЅР° РµСЃС‚СЊ)
         try {
-          // Џолучаем свежее превью от џндекс.„иска
+          // РџРѕР»СѓС‡Р°РµРј СЃРІРµР¶РµРµ РїСЂРµРІСЊСЋ РѕС‚ РЇРЅРґРµРєСЃ.Р”РёСЃРєР°
           const freshPreviewUrl = await getFreshPreviewUrl(publicUrl);
           
           if (freshPreviewUrl && freshPreviewUrl !== item.currentThumbnailUrl) {
             updates.thumbnail_url = freshPreviewUrl;
 			updates.thumbnail_updated_at = new Date().toISOString(); // 
             changes.push('preview_link');
-            console.log(`[REFRESH LINKS] Ћбновлена ссылка на превью длЯ ${fileName}`);
+            console.log(`[REFRESH LINKS] РћР±РЅРѕРІР»РµРЅР° СЃСЃС‹Р»РєР° РЅР° РїСЂРµРІСЊСЋ РґР»СЏ ${fileName}`);
           } else if (!freshPreviewUrl && item.currentThumbnailUrl) {
-            // …сли џндекс не дал превью, но у нас оно было - возможно стоит сбросить
-            console.log(`[REFRESH LINKS] џндекс не вернул превью длЯ ${fileName}`);
+            // Р•СЃР»Рё РЇРЅРґРµРєСЃ РЅРµ РґР°Р» РїСЂРµРІСЊСЋ, РЅРѕ Сѓ РЅР°СЃ РѕРЅРѕ Р±С‹Р»Рѕ - РІРѕР·РјРѕР¶РЅРѕ СЃС‚РѕРёС‚ СЃР±СЂРѕСЃРёС‚СЊ
+            console.log(`[REFRESH LINKS] РЇРЅРґРµРєСЃ РЅРµ РІРµСЂРЅСѓР» РїСЂРµРІСЊСЋ РґР»СЏ ${fileName}`);
           }
         } catch (previewError) {
-          console.warn(`[REFRESH LINKS] Ћшибка превью длЯ ${fileName}:`, previewError.message);
+          console.warn(`[REFRESH LINKS] РћС€РёР±РєР° РїСЂРµРІСЊСЋ РґР»СЏ ${fileName}:`, previewError.message);
         }
         
-        // 3. ЋбновлЯем в базе данных
+        // 3. РћР±РЅРѕРІР»СЏРµРј РІ Р±Р°Р·Рµ РґР°РЅРЅС‹С…
         if (Object.keys(updates).length > 0 && mediaId) {
           try {
-            // ЋпределЯем таблицу
+            // РћРїСЂРµРґРµР»СЏРµРј С‚Р°Р±Р»РёС†Сѓ
             let tableName = 'media_files';
             if (entityType === 'muscle') {
-              // ЏроверЯем, существует ли запись в muscle_media
+              // РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё Р·Р°РїРёСЃСЊ РІ muscle_media
               const { data: muscleMedia } = await supabase
                 .from('muscle_media')
                 .select('id')
@@ -1581,13 +2052,13 @@ app.post('/api/refresh-links', async (req, res) => {
             
             if (!updateError) {
               updatedCount++;
-              console.log(`[REFRESH LINKS] Ѓаза данных обновлена длЯ ${fileName}`);
+              console.log(`[REFRESH LINKS] Р‘Р°Р·Р° РґР°РЅРЅС‹С… РѕР±РЅРѕРІР»РµРЅР° РґР»СЏ ${fileName}`);
             } else {
-              console.error(`[REFRESH LINKS] Ћшибка Ѓ„ длЯ ${fileName}:`, updateError);
+              console.error(`[REFRESH LINKS] РћС€РёР±РєР° Р‘Р” РґР»СЏ ${fileName}:`, updateError);
             }
             
           } catch (dbError) {
-            console.error(`[REFRESH LINKS] Ћшибка обновлениЯ Ѓ„ длЯ ${fileName}:`, dbError.message);
+            console.error(`[REFRESH LINKS] РћС€РёР±РєР° РѕР±РЅРѕРІР»РµРЅРёСЏ Р‘Р” РґР»СЏ ${fileName}:`, dbError.message);
           }
         }
         
@@ -1600,11 +2071,11 @@ app.post('/api/refresh-links', async (req, res) => {
           updated: Object.keys(updates).length > 0
         });
         
-        // Џауза между запросами к API џндекса
+        // РџР°СѓР·Р° РјРµР¶РґСѓ Р·Р°РїСЂРѕСЃР°РјРё Рє API РЇРЅРґРµРєСЃР°
         await new Promise(resolve => setTimeout(resolve, 300));
         
       } catch (error) {
-        console.error(`[REFRESH LINKS] Ћшибка обработки элемента:`, error.message);
+        console.error(`[REFRESH LINKS] РћС€РёР±РєР° РѕР±СЂР°Р±РѕС‚РєРё СЌР»РµРјРµРЅС‚Р°:`, error.message);
         results.push({
           fileName: item.fileName || 'unknown',
           success: false,
@@ -1620,7 +2091,7 @@ app.post('/api/refresh-links', async (req, res) => {
       results
     };
     
-    console.log(`[REFRESH LINKS] ‡авершено. Ћбновлено: ${updatedCount}/${itemsToProcess.length} файлов`);
+    console.log(`[REFRESH LINKS] Р—Р°РІРµСЂС€РµРЅРѕ. РћР±РЅРѕРІР»РµРЅРѕ: ${updatedCount}/${itemsToProcess.length} С„Р°Р№Р»РѕРІ`);
     
     res.json(response);
     
@@ -1636,15 +2107,13 @@ app.post('/api/refresh-links', async (req, res) => {
   }
 });
 
-// server.js - добавлЯем debug endpoint
-
-// ќндпоинт длЯ детальной отладки џндекс API
-// Њожно так использовать через браузер  http://localhost:3001/api/debug-yandex-api/095ff625-a2ac-47f1-b719-10b13c1571f3
+// Р­РЅРґРїРѕРёРЅС‚ РґР»СЏ РґРµС‚Р°Р»СЊРЅРѕР№ РѕС‚Р»Р°РґРєРё РЇРЅРґРµРєСЃ API
+// РњРѕР¶РЅРѕ С‚Р°Рє РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ С‡РµСЂРµР· Р±СЂР°СѓР·РµСЂ  http://localhost:3001/api/debug-yandex-api/095ff625-a2ac-47f1-b719-10b13c1571f3
 app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
   try {
     const { mediaId } = req.params;
     
-    // Џолучаем файл из Ѓ„
+    // РџРѕР»СѓС‡Р°РµРј С„Р°Р№Р» РёР· Р‘Р”
     const { data: mediaFile, error } = await supabase
       .from('media_files')
       .select('*')
@@ -1659,7 +2128,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
     
     console.log(`[DEBUG YANDEX API] Checking ${mediaFile.file_type}: ${mediaFile.file_name}`);
     
-    // ‡апрашиваем данные у џндекса
+    // Р—Р°РїСЂР°С€РёРІР°РµРј РґР°РЅРЅС‹Рµ Сѓ РЇРЅРґРµРєСЃР°
     const previewApiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(mediaFile.public_url)}&fields=preview,video,image`;
     
     console.log(`[DEBUG YANDEX API] Request URL: ${previewApiUrl}`);
@@ -1713,14 +2182,13 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 });
 
 
-// server.js - добавлЯем после других медиа-эндпоинтов
 
 // ============================================
-// ќЌ„ЏЋ€Ќ’ „‹џ ‘‚џ‡›‚ЂЌ€џ ‘“™…‘’‚“ћ™…ѓЋ Њ…„€Ђ ‘ ‘“™ЌЋ‘’њћ
+// Р­РќР”РџРћРРќРў Р”Р›РЇ РЎР’РЇР—Р«Р’РђРќРРЇ РЎРЈР©Р•РЎРўР’РЈР®Р©Р•Р“Рћ РњР•Р”РРђ РЎ РЎРЈР©РќРћРЎРўР¬Р®
 // ============================================
 
-// Џолучение списка медиафайлов длЯ выбора (с фильтрацией) - ‚…ђ‘€џ ‘ „…’Ђ‹њЌЋ‰ Ћ’‹Ђ„ЉЋ‰
-// ЂльтернативнаЯ логика: показываем все, кроме привЯзанных к текущей сущности
+// РџРѕР»СѓС‡РµРЅРёРµ СЃРїРёСЃРєР° РјРµРґРёР°С„Р°Р№Р»РѕРІ РґР»СЏ РІС‹Р±РѕСЂР° (СЃ С„РёР»СЊС‚СЂР°С†РёРµР№) - Р’Р•Р РЎРРЇ РЎ Р”Р•РўРђР›Р¬РќРћР™ РћРўР›РђР”РљРћР™
+// РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅР°СЏ Р»РѕРіРёРєР°: РїРѕРєР°Р·С‹РІР°РµРј РІСЃРµ, РєСЂРѕРјРµ РїСЂРёРІСЏР·Р°РЅРЅС‹С… Рє С‚РµРєСѓС‰РµР№ СЃСѓС‰РЅРѕСЃС‚Рё
 	app.get('/api/media/files', async (req, res) => {
 	  try {
 		const { 
@@ -1734,13 +2202,13 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		console.log(`[DEBUG] === START /api/media/files ===`);
 		console.log(`[DEBUG] Params:`, { exclude_entity_type, exclude_entity_id, search, file_type });
 		
-		// 1. Џолучаем ‚‘… медиафайлы (включаЯ is_active = false)
+		// 1. РџРѕР»СѓС‡Р°РµРј Р’РЎР• РјРµРґРёР°С„Р°Р№Р»С‹ (РІРєР»СЋС‡Р°СЏ is_active = false)
 		let query = supabase
 		  .from('media_files')
 		  .select('*', { count: 'exact' })
 		  .order('created_at', { ascending: false });
 		
-		// ”ильтры поиска
+		// Р¤РёР»СЊС‚СЂС‹ РїРѕРёСЃРєР°
 		if (search) {
 		  query = query.or(`file_name.ilike.%${search}%,description.ilike.%${search}%`);
 		}
@@ -1749,7 +2217,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		  query = query.eq('file_type', file_type);
 		}
 		
-		// ‚ыполнЯем запрос
+		// Р’С‹РїРѕР»РЅСЏРµРј Р·Р°РїСЂРѕСЃ
 		const { data: allMedia, error, count } = await query;
 		
 		if (error) throw error;
@@ -1758,7 +2226,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		
 		let availableMedia = allMedia || [];
 		
-		// 2. …сли нужно исключить медиа текущей сущности
+		// 2. Р•СЃР»Рё РЅСѓР¶РЅРѕ РёСЃРєР»СЋС‡РёС‚СЊ РјРµРґРёР° С‚РµРєСѓС‰РµР№ СЃСѓС‰РЅРѕСЃС‚Рё
 		if (exclude_entity_type && exclude_entity_id) {
 		  console.log(`[DEBUG] Checking links for: ${exclude_entity_type}/${exclude_entity_id}`);
 		  
@@ -1777,7 +2245,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 			  const linkedIds = linkedMedia.map(item => item.media_file_id);
 			  console.log(`[DEBUG] Linked media IDs:`, linkedIds);
 			  
-			  // €сключаем медиа, уже привЯзанные к текущей сущности
+			  // РСЃРєР»СЋС‡Р°РµРј РјРµРґРёР°, СѓР¶Рµ РїСЂРёРІСЏР·Р°РЅРЅС‹Рµ Рє С‚РµРєСѓС‰РµР№ СЃСѓС‰РЅРѕСЃС‚Рё
 			  const beforeCount = availableMedia.length;
 			  availableMedia = availableMedia.filter(media => !linkedIds.includes(media.id));
 			  
@@ -1786,14 +2254,14 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		  }
 		}
 		
-		// 3. ЏрименЯем лимит
+		// 3. РџСЂРёРјРµРЅСЏРµРј Р»РёРјРёС‚
 		const limitNum = parseInt(limit) || 50;
 		const beforeLimit = availableMedia.length;
 		availableMedia = availableMedia.slice(0, limitNum);
 		
 		console.log(`[DEBUG] Final result: ${availableMedia.length} files (limited from ${beforeLimit})`);
 		
-		// ‹огируем статус is_active длЯ отладки
+		// Р›РѕРіРёСЂСѓРµРј СЃС‚Р°С‚СѓСЃ is_active РґР»СЏ РѕС‚Р»Р°РґРєРё
 		const activeCount = availableMedia.filter(m => m.is_active).length;
 		const inactiveCount = availableMedia.filter(m => !m.is_active).length;
 		console.log(`[DEBUG] Active/Inactive in result: ${activeCount}/${inactiveCount}`);
@@ -1813,7 +2281,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 	  }
 	});
 
-// ‘вЯзывание существующего медиафайла с сущностью
+// РЎРІСЏР·С‹РІР°РЅРёРµ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ РјРµРґРёР°С„Р°Р№Р»Р° СЃ СЃСѓС‰РЅРѕСЃС‚СЊСЋ
 	app.post('/api/media/link', async (req, res) => {
 	  try {
 		const { mediaFileId, entityType, entityId, relationType = 'primary' } = req.body;
@@ -1823,23 +2291,23 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		if (!mediaFileId || !entityType || !entityId) {
 		  return res.status(400).json({
 			success: false,
-			error: '’ребуютсЯ параметры: mediaFileId, entityType, entityId'
+			error: 'РўСЂРµР±СѓСЋС‚СЃСЏ РїР°СЂР°РјРµС‚СЂС‹: mediaFileId, entityType, entityId'
 		  });
 		}
 		
-		// €‘ЏђЂ‚‹…Ќ€…: “бираем проверку is_active при поиске медиафайла
+		// РРЎРџР РђР’Р›Р•РќРР•: РЈР±РёСЂР°РµРј РїСЂРѕРІРµСЂРєСѓ is_active РїСЂРё РїРѕРёСЃРєРµ РјРµРґРёР°С„Р°Р№Р»Р°
 		const { data: mediaFile, error: mediaError } = await supabase
 		  .from('media_files')
 		  .select('*')
 		  .eq('id', mediaFileId)
-		  // .eq('is_active', true)  ? “ЃђЂ’њ ќ’“ ‘’ђЋЉ“
+		  // .eq('is_active', true)  ? РЈР‘Р РђРўР¬ Р­РўРЈ РЎРўР РћРљРЈ
 		  .single();
 		
 		if (mediaError || !mediaFile) {
 		  console.log('[LINK] Media file not found:', mediaError || 'No data');
 		  return res.status(404).json({
 			success: false,
-			error: 'Њедиафайл не найден'
+			error: 'РњРµРґРёР°С„Р°Р№Р» РЅРµ РЅР°Р№РґРµРЅ'
 		  });
 		}
 		
@@ -1849,7 +2317,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		  is_active: mediaFile.is_active 
 		});
 		
-		// ЏроверЯем, не существует ли уже такаЯ свЯзь
+		// РџСЂРѕРІРµСЂСЏРµРј, РЅРµ СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё СѓР¶Рµ С‚Р°РєР°СЏ СЃРІСЏР·СЊ
 		const { data: existingLink } = await supabase
 		  .from('entity_media')
 		  .select('id')
@@ -1862,11 +2330,11 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		if (existingLink) {
 		  return res.status(409).json({
 			success: false,
-			error: 'ќтот медиафайл уже свЯзан с данной сущностью'
+			error: 'Р­С‚РѕС‚ РјРµРґРёР°С„Р°Р№Р» СѓР¶Рµ СЃРІСЏР·Р°РЅ СЃ РґР°РЅРЅРѕР№ СЃСѓС‰РЅРѕСЃС‚СЊСЋ'
 		  });
 		}
 		
-		// Џолучаем максимальный display_order длЯ этой сущности
+		// РџРѕР»СѓС‡Р°РµРј РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ display_order РґР»СЏ СЌС‚РѕР№ СЃСѓС‰РЅРѕСЃС‚Рё
 		const { data: maxOrderData } = await supabase
 		  .from('entity_media')
 		  .select('display_order')
@@ -1879,7 +2347,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		  ? maxOrderData[0].display_order + 1 
 		  : 0;
 		
-		// ‘оздаем свЯзь
+		// РЎРѕР·РґР°РµРј СЃРІСЏР·СЊ
 		const { data: newLink, error: createError } = await supabase
 		  .from('entity_media')
 		  .insert({
@@ -1897,7 +2365,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		  throw createError;
 		}
 		
-		// ‚Ђ†ЌЋ… „ЋЏЋ‹Ќ…Ќ€…: Ђктивируем медиафайл при свЯзывании
+		// Р’РђР–РќРћР• Р”РћРџРћР›РќР•РќРР•: РђРєС‚РёРІРёСЂСѓРµРј РјРµРґРёР°С„Р°Р№Р» РїСЂРё СЃРІСЏР·С‹РІР°РЅРёРё
 		if (!mediaFile.is_active) {
 		  const { error: updateError } = await supabase
 			.from('media_files')
@@ -1911,11 +2379,11 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 			console.warn('[LINK] Warning: could not activate media file:', updateError);
 		  } else {
 			console.log('[LINK] Activated media file:', mediaFileId);
-			mediaFile.is_active = true; // ЋбновлЯем локальный объект
+			mediaFile.is_active = true; // РћР±РЅРѕРІР»СЏРµРј Р»РѕРєР°Р»СЊРЅС‹Р№ РѕР±СЉРµРєС‚
 		  }
 		}
 		
-		// ”орматируем ответ в совместимом формате
+		// Р¤РѕСЂРјР°С‚РёСЂСѓРµРј РѕС‚РІРµС‚ РІ СЃРѕРІРјРµСЃС‚РёРјРѕРј С„РѕСЂРјР°С‚Рµ
 		const resultMedia = {
 		  id: mediaFile.id,
 		  entity_id: entityId,
@@ -1935,14 +2403,14 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 		  created_at: newLink.created_at,
 		  updated_at: mediaFile.updated_at,
 		  thumbnail_updated_at: mediaFile.thumbnail_updated_at,
-		  is_active: true // ’еперь всегда true после свЯзываниЯ
+		  is_active: true // РўРµРїРµСЂСЊ РІСЃРµРіРґР° true РїРѕСЃР»Рµ СЃРІСЏР·С‹РІР°РЅРёСЏ
 		};
 		
-		console.log(`[LINK] “спешно создана свЯзь длЯ ${mediaFile.file_name}`);
+		console.log(`[LINK] РЈСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅР° СЃРІСЏР·СЊ РґР»СЏ ${mediaFile.file_name}`);
 		
 		res.json({
 		  success: true,
-		  message: 'Њедиафайл успешно свЯзан с сущностью',
+		  message: 'РњРµРґРёР°С„Р°Р№Р» СѓСЃРїРµС€РЅРѕ СЃРІСЏР·Р°РЅ СЃ СЃСѓС‰РЅРѕСЃС‚СЊСЋ',
 		  media: resultMedia,
 		  link: newLink
 		});
@@ -1956,7 +2424,7 @@ app.get('/api/debug-yandex-api/:mediaId', async (req, res) => {
 	  }
 	});
 
-// „ЋЃЂ‚њ’… в самый конец файла, перед app.listen:
+// Р”РћР‘РђР’Р¬РўР• РІ СЃР°РјС‹Р№ РєРѕРЅРµС† С„Р°Р№Р»Р°, РїРµСЂРµРґ app.listen:
 
 console.log('Test end points:');
 console.log('Test GET  /api/check-token               :  http://localhost:3001/api/check-token');

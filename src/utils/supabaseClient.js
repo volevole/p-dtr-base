@@ -10,5 +10,5 @@ auth: {
   }
 });
 
-//window.supabase = supabase; // Делаем глобальным
+//window.supabase = supabase; // РґРµР»Р°РµРј РіР»РѕР±Р°Р»СЊРЅС‹Рј
 

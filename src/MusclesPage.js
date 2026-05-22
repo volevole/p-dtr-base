@@ -1,7 +1,7 @@
-// MusclesPage.js - с использованием универсальных классов
+// MusclesPage.js - ПОЛНОСТЬЮ НА НОВОЙ БД
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
+import API_URL from './config/api';
 import EntityList from './EntityList';
 import { 
   FaEdit, 
@@ -21,196 +21,98 @@ function MusclesPage() {
     fetchMuscles();
   }, []);
 
+  // === ЗАГРУЗКА СПИСКА ===
   const fetchMuscles = async () => {
     try {
-      setLoading(true);      
-
-      const { data: muscleList, error: muscleError } = await supabase
-        .from('muscles')
-        .select('*')
-        .order('display_order')
-        .order('name_ru');
-
-      if (muscleError) {
-        console.error('Ошибка загрузки мышц:', muscleError);
-        throw muscleError;
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/muscles`);
+      const result = await response.json();
+      if (result.success) {
+        setMuscles(result.data);
+      } else {
+        console.error('Ошибка загрузки:', result.error);
+        setMuscles([]);
       }
-
-      const [
-        { data: merLinks },
-        { data: orgLinks },
-        { data: dysfunctionsData },
-        { data: groupMemberships },
-        { data: groupDysfunctions }
-      ] = await Promise.all([
-        supabase.from('muscle_meridians').select('muscle_id, meridians(name)'),
-        supabase.from('muscle_organs').select('muscle_id, organs(name)'),
-        supabase.from('muscle_dysfunctions').select('muscle_id, dysfunctions(id)'),
-        supabase.from('muscle_group_membership').select('muscle_id, muscle_groups(id)'),
-        supabase.from('muscle_group_dysfunctions').select('group_id, dysfunctions(id)')
-      ]);
-
-      const muscleDysfunctionsMap = {};
-      dysfunctionsData?.forEach(item => {
-        muscleDysfunctionsMap[item.muscle_id] = (muscleDysfunctionsMap[item.muscle_id] || 0) + 1;
-      });
-
-      const groupDysfunctionsMap = {};
-      groupDysfunctions?.forEach(item => {
-        groupDysfunctionsMap[item.group_id] = (groupDysfunctionsMap[item.group_id] || 0) + 1;
-      });
-
-      const muscleGroupsMap = {};
-      groupMemberships?.forEach(item => {
-        if (!muscleGroupsMap[item.muscle_id]) {
-          muscleGroupsMap[item.muscle_id] = [];
-        }
-        muscleGroupsMap[item.muscle_id].push(item.muscle_groups.id);
-      });
-
-      const enriched = muscleList.map((m) => {
-        const groupDysfunctionsCount = (muscleGroupsMap[m.id] || []).reduce((sum, groupId) => {
-          return sum + (groupDysfunctionsMap[groupId] || 0);
-        }, 0);
-
-        return {
-          ...m,
-          meridians: merLinks?.filter(l => l.muscle_id === m.id).map(l => l.meridians?.name),
-          organs: orgLinks?.filter(l => l.muscle_id === m.id).map(l => l.organs?.name),
-          dysfunctionsCount: (muscleDysfunctionsMap[m.id] || 0) + groupDysfunctionsCount,
-          relatedCount: (
-            (merLinks?.filter(l => l.muscle_id === m.id).length || 0) +
-            (orgLinks?.filter(l => l.muscle_id === m.id).length || 0) +
-            ((muscleDysfunctionsMap[m.id] || 0) + groupDysfunctionsCount)
-          )
-        };
-      });
-
-      setMuscles(enriched);
     } catch (error) {
       console.error('Ошибка загрузки мышц:', error);
+      setMuscles([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (id) => {
-    navigate(`/muscle/${id}/edit`);
-  };
-
+  // === УДАЛЕНИЕ ===
   const handleDelete = async (id) => {
-    if (!window.confirm('Удалить мышцу?')) return;
+    // Находим мышцу по ID в текущем списке
+  const muscleToDelete = muscles.find(m => m.id === id);
+  const muscleName = muscleToDelete?.name_ru || 'эту мышцу';
+
+  if (!window.confirm(`Удалить мышцу "${muscleName}"?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('muscles')
-        .delete()
-        .eq('id', id);
+      const response = await fetch(`${API_URL}/api/muscle/${id}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
 
-      if (error) throw error;
-
-      setMuscles(prev => prev.filter(m => m.id !== id));
+      if (result.success) {
+        setMuscles(prev => prev.filter(m => m.id !== id));
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Ошибка удаления:', error);
       alert('Ошибка при удалении: ' + error.message);
     }
   };
 
+  // === РЕДАКТИРОВАНИЕ (перенаправление) ===
+  const handleEdit = (id) => {
+    navigate(`/muscle/${id}/edit`);
+  };
+
+  // === ДОБАВЛЕНИЕ ===
   const handleAdd = async () => {
     try {
-      const { data: maxOrderData } = await supabase
-        .from('muscles')
-        .select('display_order')
-        .order('display_order', { ascending: false })
-        .limit(1);
+      const response = await fetch(`${API_URL}/api/muscles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name_ru: 'Новая мышца' })
+      });
+      const result = await response.json();
 
-      const maxOrder = maxOrderData?.[0]?.display_order || 0;
-
-      const { data, error } = await supabase
-        .from('muscles')
-        .insert([{
-          name_ru: 'Новая мышца',
-          display_order: maxOrder + 1
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      navigate(`/muscle/${data.id}/edit`);
+      if (result.success) {
+        navigate(`/muscle/${result.id}/edit`);
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Ошибка создания:', error);
       alert('Ошибка при создании: ' + error.message);
     }
   };
 
+  // === КОПИРОВАНИЕ ===
   const handleCopy = async (id) => {
     try {
-      const { data: original } = await supabase
-        .from('muscles')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await fetch(`${API_URL}/api/muscle/${id}/copy`, {
+        method: 'POST',
+      });
+      const result = await response.json();
 
-      const { id: originalId, created_at, ...copyData } = original;
-
-      const { data: maxOrderData } = await supabase
-        .from('muscles')
-        .select('display_order')
-        .order('display_order', { ascending: false })
-        .limit(1);
-
-      const maxOrder = maxOrderData?.[0]?.display_order || 0;
-
-      const { data: copied, error } = await supabase
-        .from('muscles')
-        .insert([{
-          ...copyData,
-          name_ru: `${copyData.name_ru} (копия)`,
-          display_order: maxOrder + 1
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      await copyMuscleRelations(id, copied.id);
-
-      navigate(`/muscle/${copied.id}/edit`);
+      if (result.success) {
+        await fetchMuscles(); // обновляем список
+        navigate(`/muscle/${result.id}/edit`);
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Ошибка копирования:', error);
-      alert('Не удалось создать копию');
+      alert('Не удалось создать копию: ' + error.message);
     }
   };
 
-  const copyMuscleRelations = async (sourceId, targetId) => {
-    const relations = [
-      'muscle_group_membership',
-      'muscle_dysfunctions',
-      'muscle_meridians',
-      'muscle_organs',
-      'muscle_nerves',
-      'muscle_vertebrae',
-      'muscle_functions'
-    ];
-
-    for (const table of relations) {
-      const { data: links } = await supabase
-        .from(table)
-        .select('*')
-        .eq('muscle_id', sourceId);
-
-      if (links?.length > 0) {
-        const newLinks = links.map(link => ({
-          ...link,
-          muscle_id: targetId
-        }));
-        
-        await supabase.from(table).insert(newLinks);
-      }
-    }
-  };
-
+  // === ПЕРЕМЕЩЕНИЕ ===
   const handleMove = async (id, direction) => {
     const currentIndex = muscles.findIndex(m => m.id === id);
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
@@ -229,24 +131,28 @@ function MusclesPage() {
       display_order: index
     }));
 
+    // Оптимистичное обновление UI
     setMuscles(updatedMuscles);
 
     try {
-      const updatePromises = updatedMuscles.map(muscle =>
-        supabase
-          .from('muscles')
-          .update({ display_order: muscle.display_order })
-          .eq('id', muscle.id)
-      );
-      await Promise.all(updatePromises);
+      const response = await fetch(`${API_URL}/api/muscles/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: updatedMuscles.map(m => m.id) })
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Reorder failed');
+      }
     } catch (error) {
-      console.error('Ошибка сохранения в БД:', error);
-      setMuscles(muscles);
+      console.error('Ошибка сохранения порядка:', error);
+      await fetchMuscles(); // откат к серверному состоянию
       alert('Ошибка сохранения изменений: ' + error.message);
     }
   };
 
-  // Кастомная карточка для мышц с универсальными классами
+  // === КАРТОЧКА (без изменений) ===
   const renderMuscleCard = (muscle, index, actions) => {
     const totalCount = muscles.length;
     

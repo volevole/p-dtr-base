@@ -1,3 +1,60 @@
+09-05-26
+
+ На сервере «Tangerine Praseodymium» внутри PostgreSQL создан пользователь:
+ CREATE USER pdtr_admin WITH PASSWORD '17021702';
+  CREATE DATABASE "p-dtr-db" OWNER "pdtr_admin";
+
+Суперпользователь в PostgreSQL:
+ USER postgres WITH PASSWORD '17021702'
+
+Создан сервер «Tangerine Praseodymium»
+
+Вы создали сервер «Tangerine Praseodymium» с Ubuntu 24.04 LTS, IP-адрес 194.226.165.244
+
+Доступ к серверу
+
+Логин: root
+Пароль: zXu8BBXqqXAZQ8WY
+
+Как подключиться к серверу  https://www.reg.ru/r?to=https%3A%2F%2Freg.cloud%2Fsupport%2Fcloud%2Foblachnyye-servery%2Frabota-s-serverom%2Fpodklyuchenie-i-nastrojka-ssh-na-oblachnom-servere&sign=eed222ecf39efd23000dd56dfc94fcc9&rtm_source=e-mail&rtm_medium=e-mail&rtm_campaign=CloudVPSActivated
+
+Справка по облачным серверам  https://help.reg.ru/support/servery-vps/oblachnyye-servery/?rtm_source=e-mail&rtm_medium=e-mail&rtm_campaign=CloudVPSActivated
+
+Доступ к DNS
+
+Адрес: https://dnsadmin.hosting.reg.ru/manager/ispmgr
+Логин: ce119128259
+Пароль: sj5e1!8soYs7v0m
+DNS: ns5.hosting.reg.ru • ns6.hosting.reg.ru
+
+Как привязать домен к VPS серверу https://www.reg.ru/support/hosting-i-servery/servery-vps/kak-privyazat-domen-k-vps/kak-privyazat-domen-k-vps-bez-paneli-upravleniya?rtm_source=e-mail&rtm_medium=e-mail&rtm_campaign=CloudVPSActivated
+
+
+Данные для входа в ЛК Рег.ру    https://cloud.reg.ru/panel/servers
+Логин there@rambler.ru
+Пароль Qx$1
+
+06-05-26
+
+QAZxsw$123QAZxsw$123QAZxsw$123  - пароль к новой базе в новом регионе
+xMCv8KngDBXEOdcg   URL   https://hwlfgdtyzfkozzafisjx.supabase.co
+
+02-05-2026
+Кластер в облаке Яндекс
+Проверьте кластер в консоли Yandex Cloud:
+
+Перейдите в консоль управления.
+Откройте ваш облако → папку default.
+Найдите сервис Managed Service for PostgreSQL.
+Убедитесь, что кластер test-cluster-01 отображается в списке.
+Подключитесь к кластеру:
+
+Используйте имя хоста, которое можно найти в консоли.
+Логин: dbuser
+Пароль: StrongPass123!@#
+База данных: testdb
+
+
 01-01-2026 19:18
 
 01-01-2026 15:08

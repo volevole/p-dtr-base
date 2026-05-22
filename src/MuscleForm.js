@@ -1,8 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
-import { supabase } from './utils/supabaseClient';
+﻿// src/MuscleForm.js — полностью на новой БД (через API)
+import React, { useState, useEffect } from 'react';
+import API_URL from './config/api';
 
 export default function MuscleForm({ muscle, onSave }) {
-  // Основные данные мышцы
   const [formData, setFormData] = useState({
     name_ru: '',
     name_lat: '',
@@ -10,7 +10,8 @@ export default function MuscleForm({ muscle, onSave }) {
     insertion: '',
     indicator: '',
     pain_zones_text: '',
-    notes: ''
+    notes: '',
+    display_order: 0
   });
 
   // Связанные данные
@@ -29,10 +30,15 @@ export default function MuscleForm({ muscle, onSave }) {
   const [functs, setFuncts] = useState([]);
   const [selectedFuncts, setSelectedFuncts] = useState([]);
 
-  // Загрузка данных при монтировании
+  // Загрузка справочников (один раз)
+  useEffect(() => {
+    loadDictionaries();
+  }, []);
+
+  // Загрузка данных мышцы при изменении muscle.id
   useEffect(() => {
     if (muscle) {
-      // Загружаем основные данные
+      // Основные данные
       setFormData({
         name_ru: muscle.name_ru || '',
         name_lat: muscle.name_lat || '',
@@ -40,77 +46,62 @@ export default function MuscleForm({ muscle, onSave }) {
         insertion: muscle.insertion || '',
         indicator: muscle.indicator || '',
         pain_zones_text: muscle.pain_zones_text || '',
-		display_order: muscle.display_order || 0,
-        notes: muscle.notes || ''
+        notes: muscle.notes || '',
+        display_order: muscle.display_order || 0
       });
 
-      // Загружаем связанные данные
-      loadRelatedData();
+      // Загружаем связи для этой мышцы
+      loadRelatedData(muscle.id);
     }
-
-    // Загружаем справочники
-    loadDictionaries();
   }, [muscle]);
 
+  // Загрузка справочников через API
   const loadDictionaries = async () => {
-  // Загружаем все справочники параллельно
-  const [
-    { data: groupsData },
-    { data: dysfunctionsData },
-    { data: meridiansData },
-    { data: organsData },
-    { data: nervesData },
-    { data: functsData },
-    { data: vertebraeData }
-  ] = await Promise.all([
-    supabase.from('muscle_groups').select('*'),
-    supabase.from('dysfunctions').select('*'),
-    supabase.from('meridians').select('*'),
-    supabase.from('organs').select('*'),
-    supabase.from('nerves').select('id, name, type'), // Добавляем поле type
-    supabase.from('functions').select('*'),
-    supabase.from('vertebrae').select('*')
-  ]);
+    try {
+      const endpoints = [
+        '/api/dictionaries/groups',
+        '/api/dictionaries/dysfunctions',
+        '/api/dictionaries/meridians',
+        '/api/dictionaries/organs',
+        '/api/dictionaries/nerves',
+        '/api/dictionaries/functions',
+        '/api/dictionaries/vertebrae'
+      ];
 
-  setGroups(groupsData || []);
-  setDysfunctions(dysfunctionsData || []);
-  setMeridians(meridiansData || []);
-  setOrgans(organsData || []);
-  setNerves(nervesData || []);
-  setFuncts(functsData || []);
-  setVertebrae(vertebraeData || []);
-};
+      const responses = await Promise.all(endpoints.map(url => fetch(`${API_URL}${url}`)));
+      const results = await Promise.all(responses.map(r => r.json()));
 
-  const loadRelatedData = async () => {
-  if (!muscle) return;
+      setGroups(results[0].data || []);
+      setDysfunctions(results[1].data || []);
+      setMeridians(results[2].data || []);
+      setOrgans(results[3].data || []);
+      setNerves(results[4].data || []);
+      setFuncts(results[5].data || []);
+      setVertebrae(results[6].data || []);
+    } catch (error) {
+      console.error('Ошибка загрузки справочников:', error);
+    }
+  };
 
-  // Загружаем все связи параллельно
-  const [
-    { data: groupsData },
-    { data: dysfunctionsData },
-    { data: meridiansData },
-    { data: organsData },
-    { data: nervesData },
-    { data: functsData },
-    { data: vertebraeData }
-  ] = await Promise.all([
-    supabase.from('muscle_group_membership').select('group_id').eq('muscle_id', muscle.id),
-    supabase.from('muscle_dysfunctions').select('dysfunction_id').eq('muscle_id', muscle.id),
-    supabase.from('muscle_meridians').select('meridian_id').eq('muscle_id', muscle.id),
-    supabase.from('muscle_organs').select('organ_id').eq('muscle_id', muscle.id),
-    supabase.from('muscle_nerves').select('nerve_id').eq('muscle_id', muscle.id),
-    supabase.from('muscle_functions').select('function_id, note').eq('muscle_id', muscle.id),
-    supabase.from('muscle_vertebrae').select('vertebra_id').eq('muscle_id', muscle.id)
-  ]);
+  // Загрузка связей для конкретной мышцы
+  const loadRelatedData = async (muscleId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/muscle/${muscleId}/relations`);
+      const result = await response.json();
 
-  setSelectedGroups(groupsData?.map(g => g.group_id) || []);
-  setSelectedDysfunctions(dysfunctionsData?.map(d => d.dysfunction_id) || []);
-  setSelectedMeridians(meridiansData?.map(m => m.meridian_id) || []);
-  setSelectedOrgans(organsData?.map(o => o.organ_id) || []);
-  setSelectedNerves(nervesData?.map(n => n.nerve_id) || []);
-  setSelectedFuncts(functsData?.map(f => ({ id: f.function_id, note: f.note || '' })) || []);
-  setSelectedVertebrae(vertebraeData?.map(v => v.vertebra_id) || []);
-};
+      if (result.success) {
+        setSelectedGroups(result.data.groups || []);
+        setSelectedDysfunctions(result.data.dysfunctions || []);
+        setSelectedMeridians(result.data.meridians || []);
+        setSelectedOrgans(result.data.organs || []);
+        setSelectedNerves(result.data.nerves || []);
+        setSelectedFuncts(result.data.functions || []);
+        setSelectedVertebrae(result.data.vertebrae || []);
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки связей:', error);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -118,199 +109,154 @@ export default function MuscleForm({ muscle, onSave }) {
   };
 
   const handleMultiSelectChange = (type, value, checked) => {
-  const setters = {
-    group: setSelectedGroups,
-    dysfunction: setSelectedDysfunctions,
-    meridian: setSelectedMeridians,
-    organ: setSelectedOrgans,
-    nerve: setSelectedNerves,
-    funct: setSelectedFuncts,
-    vertebra: setSelectedVertebrae
-  };
+    const setters = {
+      group: setSelectedGroups,
+      dysfunction: setSelectedDysfunctions,
+      meridian: setSelectedMeridians,
+      organ: setSelectedOrgans,
+      nerve: setSelectedNerves,
+      funct: setSelectedFuncts,
+      vertebra: setSelectedVertebrae
+    };
 
-  const stateSetters = {
-    group: selectedGroups,
-    dysfunction: selectedDysfunctions,
-    meridian: selectedMeridians,
-    organ: selectedOrgans,
-    nerve: selectedNerves,
-    funct: selectedFuncts,
-    vertebra: selectedVertebrae
-  };
+    const stateSetters = {
+      group: selectedGroups,
+      dysfunction: selectedDysfunctions,
+      meridian: selectedMeridians,
+      organ: selectedOrgans,
+      nerve: selectedNerves,
+      funct: selectedFuncts,
+      vertebra: selectedVertebrae
+    };
 
-  if (type === 'funct') {
-    if (checked) {
-      setters[type]([...stateSetters[type], { id: value.id, note: value.note }]);
+    if (type === 'funct') {
+      if (checked) {
+        setters[type]([...stateSetters[type], { id: value.id, note: value.note }]);
+      } else {
+        setters[type](stateSetters[type].filter(item => item.id !== value.id));
+      }
     } else {
-      setters[type](stateSetters[type].filter(item => item.id !== value.id));
+      if (checked) {
+        setters[type]([...stateSetters[type], value]);
+      } else {
+        setters[type](stateSetters[type].filter(item => item !== value));
+      }
     }
-  } else {
-    if (checked) {
-      setters[type]([...stateSetters[type], value]);
-    } else {
-      setters[type](stateSetters[type].filter(item => item !== value));
-    }
-  }
-};
+  };
 
   const handleSubmit = async (e) => {
+    e.preventDefault();
 
-	e.preventDefault();
-	
-	console.log('Отправляемые данные:', {
-	  formData,
-	  selectedGroups,
-	  selectedDysfunctions,
-	  selectedMeridians,
-	  selectedOrgans,
-	  selectedNerves,
-	  selectedFuncts,
-	  selectedVertebrae
-	});
+    try {
+      // 1. Сохраняем основные данные
+      const updateResponse = await fetch(`${API_URL}/api/muscle/${muscle.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const updateResult = await updateResponse.json();
+      if (!updateResult.success) throw new Error(updateResult.error);
 
-  
-  try {
+      // 2. Сохраняем связи
+      const relationsResponse = await fetch(`${API_URL}/api/muscle/${muscle.id}/relations`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groups: selectedGroups,
+          dysfunctions: selectedDysfunctions,
+          meridians: selectedMeridians,
+          organs: selectedOrgans,
+          nerves: selectedNerves,
+          functions: selectedFuncts,
+          vertebrae: selectedVertebrae
+        })
+      });
+      const relationsResult = await relationsResponse.json();
+      if (!relationsResult.success) throw new Error(relationsResult.error);
 
-// const { data: columns } = await supabase
-  // .rpc('get_columns', { table_name: 'muscles' });
-
-console.log('Начинаем сохранять для :', muscle.id);
-
-    // 1. Проверка подключения
-    const { error: pingError } = await supabase
-      .from('muscles')
-      .select('*')
-      .limit(1);
-    
-    if (pingError) throw new Error('Нет соединения с Supabase');
-
-    // 2. Сохраняем основные данные
-    const { data, error } = await supabase
-      .from('muscles')
-      .update(formData)
-      .eq('id', muscle.id)
-      .select()
-      .single();
-	 console.log('Сохранили таблицу :', 'muscles');
-
-    if (error) throw error;
-	
-	// 3. Обновляем все связи
-    await Promise.all([
-      updateRelations('muscle_group_membership', 'group_id', selectedGroups),
-      updateRelations('muscle_dysfunctions', 'dysfunction_id', selectedDysfunctions),
-      updateRelations('muscle_meridians', 'meridian_id', selectedMeridians),
-      updateRelations('muscle_organs', 'organ_id', selectedOrgans),
-      updateRelations('muscle_nerves', 'nerve_id', selectedNerves),
-	  updateRelations('muscle_functions', 'function_id', selectedFuncts),
-      updateRelations('muscle_vertebrae', 'vertebra_id', selectedVertebrae)
-    ]);
-	
-
-    // 4. Успешное сохранение
-    onSave(data);
-    alert('Данные сохранены!');
-    
-  } catch (error) {
-    console.error('Детали ошибки:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-    
-    alert(`Ошибка сохранения: ${error.message}`);
-  }
-};
-
-  const updateRelations = async (table, foreignKey, selectedItems) => {
-  console.log("Обновляем связи в таблице ", table);
-  
-  // Удаляем все существующие связи
-  await supabase
-    .from(table)
-    .delete()
-    .eq('muscle_id', muscle.id);
-
-  // Добавляем новые связи
-  if (selectedItems.length > 0) {
-    // Специальная обработка для функций
-    if (table === 'muscle_functions') {
-      await supabase
-        .from(table)
-        .insert(
-          selectedItems.map(item => ({
-            muscle_id: muscle.id,
-            [foreignKey]: item.id,
-            note: item.note || null
-          }))
-        );
-    } else {
-      await supabase
-        .from(table)
-        .insert(
-          selectedItems.map(item => ({
-            muscle_id: muscle.id,
-            [foreignKey]: typeof item === 'object' ? item.id : item
-          }))
-        );
+      // 3. Успешное сохранение
+      onSave({ ...muscle, ...formData });
+      alert('Данные сохранены!');
+    } catch (error) {
+      console.error('Ошибка сохранения:', error);
+      alert(`Ошибка сохранения: ${error.message}`);
     }
-  }
-};
+  };
 
-	const handleFunctionNoteChange = (functionId, note) => {
-	  setSelectedFuncts(prev => 
-		prev.map(item => 
-		  item.id === functionId ? { ...item, note } : item
-		)
-	  );
-	};
+  const handleFunctionNoteChange = (functionId, note) => {
+    setSelectedFuncts(prev =>
+      prev.map(item =>
+        item.id === functionId ? { ...item, note } : item
+      )
+    );
+  };
 
   const renderMultiSelect = (items, selectedItems, type, label) => {
-  // Для функций
-  if (type === 'funct') {
-    return (
-      <div className="form-section">
-        <label>{label}</label>
-        <div className="multi-select-container">
-          {items.map(item => {
-            const isSelected = selectedItems.some(si => si.id === item.id);
-            const selectedItem = selectedItems.find(si => si.id === item.id);
-            
-            return (
+    if (type === 'funct') {
+      return (
+        <div className="form-section">
+          <label>{label}</label>
+          <div className="multi-select-container">
+            {items.map(item => {
+              const isSelected = selectedItems.some(si => si.id === item.id);
+              const selectedItem = selectedItems.find(si => si.id === item.id);
+
+              return (
+                <div key={item.id} className="multi-select-item">
+                  <input
+                    type="checkbox"
+                    id={`${type}-${item.id}`}
+                    checked={isSelected}
+                    onChange={(e) => handleMultiSelectChange(
+                      type,
+                      { id: item.id, note: selectedItem?.note || '' },
+                      e.target.checked
+                    )}
+                  />
+                  <label htmlFor={`${type}-${item.id}`}>
+                    {item.name || item.code}
+                  </label>
+
+                  {isSelected && (
+                    <input
+                      type="text"
+                      value={selectedItem?.note || ''}
+                      onChange={(e) => handleFunctionNoteChange(item.id, e.target.value)}
+                      placeholder="Примечание"
+                      className="function-note-input"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (type === 'nerve') {
+      return (
+        <div className="form-section">
+          <label>{label}</label>
+          <div className="multi-select-container">
+            {items.map(item => (
               <div key={item.id} className="multi-select-item">
                 <input
                   type="checkbox"
                   id={`${type}-${item.id}`}
-                  checked={isSelected}
-                  onChange={(e) => handleMultiSelectChange(
-                    type, 
-                    { id: item.id, note: selectedItem?.note || '' },
-                    e.target.checked
-                  )}
+                  checked={selectedItems.includes(item.id)}
+                  onChange={(e) => handleMultiSelectChange(type, item.id, e.target.checked)}
                 />
                 <label htmlFor={`${type}-${item.id}`}>
-                  {item.name || item.code}
+                  {`${item.name}${item.type ? ` (${item.type})` : ''}`}
                 </label>
-                
-                {isSelected && (
-                  <input
-                    type="text"
-                    value={selectedItem?.note || ''}
-                    onChange={(e) => handleFunctionNoteChange(item.id, e.target.value)}
-                    placeholder="Примечание"
-                    className="function-note-input"
-                  />
-                )}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // Для нервов (объединяем name и type)
-  if (type === 'nerve') {
     return (
       <div className="form-section">
         <label>{label}</label>
@@ -324,37 +270,14 @@ console.log('Начинаем сохранять для :', muscle.id);
                 onChange={(e) => handleMultiSelectChange(type, item.id, e.target.checked)}
               />
               <label htmlFor={`${type}-${item.id}`}>
-                {`${item.name}${item.type ? ` (${item.type})` : ''}`}
+                {item.name || item.code}
               </label>
             </div>
           ))}
         </div>
       </div>
     );
-  }
-
-  // Стандартная обработка для других типов
-  return (
-    <div className="form-section">
-      <label>{label}</label>
-      <div className="multi-select-container">
-        {items.map(item => (
-          <div key={item.id} className="multi-select-item">
-            <input
-              type="checkbox"
-              id={`${type}-${item.id}`}
-              checked={selectedItems.includes(item.id)}
-              onChange={(e) => handleMultiSelectChange(type, item.id, e.target.checked)}
-            />
-            <label htmlFor={`${type}-${item.id}`}>
-              {item.name || item.code}
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
+  };
 
   return (
     <form onSubmit={handleSubmit} className="muscle-form">
@@ -428,14 +351,13 @@ console.log('Начинаем сохранять для :', muscle.id);
           rows={7}
         />
       </div>
-	  
-	  
-	  <div className="form-group">
+
+      <div className="form-group">
         <label>Порядок отображения</label>
         <input
           type="number"
           name="display_order"
-          value={formData.display_order || 0}
+          value={formData.display_order}
           onChange={handleInputChange}
           min="0"
         />
@@ -447,7 +369,7 @@ console.log('Начинаем сохранять для :', muscle.id);
       {renderMultiSelect(organs, selectedOrgans, 'organ', 'Органы')}
       {renderMultiSelect(nerves, selectedNerves, 'nerve', 'Нервы')}
       {renderMultiSelect(vertebrae, selectedVertebrae, 'vertebra', 'Позвонки')}
-      {renderMultiSelect(functs, selectedFuncts, 'funct', 'Функции')}	  
+      {renderMultiSelect(functs, selectedFuncts, 'funct', 'Функции')}
 
       <div className="form-actions">
         <button type="submit" className="save-button">
