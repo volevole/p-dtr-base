@@ -1,6 +1,6 @@
-//MuscleRelationships.js
-import React, { useState, useEffect } from 'react';
-import { supabase } from './utils/supabaseClient';
+// MuscleRelationships.js
+import React, { useState, useEffect, useRef } from 'react';
+import API_URL from './config/api';
 
 function MuscleRelationships({ muscleId, muscleName }) {
   const [relationships, setRelationships] = useState([]);
@@ -15,234 +15,117 @@ function MuscleRelationships({ muscleId, muscleName }) {
     antagonists: []
   });
 
+  const formRef = useRef(null);
+
   useEffect(() => {
     fetchData();
   }, [muscleId]);
 
-const fetchData = async () => {
-  try {
-    // Загрузка всех мышц для выпадающих списков - сортировка по display_order
-    const { data: musclesData } = await supabase
-      .from('muscles')
-      .select('id, name_ru, name_lat, display_order')
-      .order('display_order', { ascending: true, nullsFirst: false });
+  const scrollToForm = () => {
+    setTimeout(() => {
+      if (formRef.current) {
+        formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
-    // Загрузка всех функций
-    const { data: functionsData } = await supabase
-      .from('functions')
-      .select('id, name')
-      .order('name');
+  const fetchData = async () => {
+    try {
+      const musclesRes = await fetch(`${API_URL}/api/muscles`);
+      const musclesResult = await musclesRes.json();
+      if (musclesResult.success) {
+        const sortedMuscles = (musclesResult.data || []).sort((a, b) => 
+          (a.display_order || 999) - (b.display_order || 999)
+        );
+        setAllMuscles(sortedMuscles);
+      }
 
-    // Загрузка ВСЕХ отношений (без фильтра по muscle_id)
-    const { data: allRelationshipsData, error } = await supabase
-      .from('muscle_relationships')
-      .select(`
-        *,
-        function:functions(name),
-        synergists:muscle_relationship_synergists(
-          muscle:muscles(
-            id, 
-            name_ru, 
-            name_lat,
-            display_order
-          )
-        ),
-        antagonists:muscle_relationship_antagonists(
-          muscle:muscles(
-            id, 
-            name_ru, 
-            name_lat,
-            display_order
-          )
-        )
-      `);
+      const functionsRes = await fetch(`${API_URL}/api/dictionaries/functions`);
+      const functionsResult = await functionsRes.json();
+      if (functionsResult.success) {
+        setAllFunctions(functionsResult.data || []);
+      }
 
-    if (error) throw error;
-
-    // Фильтруем отношения, где текущая мышца есть в синергистах ИЛИ антагонистах
-    const filteredRelationships = allRelationshipsData?.filter(relationship => {
-      const isSynergist = relationship.synergists?.some(s => s.muscle.id === muscleId) || false;
-      const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === muscleId) || false;
-      return isSynergist || isAntagonist;
-    }) || [];
-
-    // После фильтрации, сортируем синергистов и антагонистов по display_order
-    const sortedRelationships = filteredRelationships.map(rel => ({
-      ...rel,
-      synergists: rel.synergists?.sort((a, b) => 
-        (a.muscle.display_order || 999) - (b.muscle.display_order || 999)
-      ),
-      antagonists: rel.antagonists?.sort((a, b) => 
-        (a.muscle.display_order || 999) - (b.muscle.display_order || 999)
-      )
-    }));
-
-    setAllMuscles(musclesData || []);
-    setAllFunctions(functionsData || []);
-    setRelationships(sortedRelationships);
-
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    alert('Ошибка загрузки данных: ' + error.message);
-  }
-};
+      const relRes = await fetch(`${API_URL}/api/muscle/${muscleId}/relationships`);
+      const relResult = await relRes.json();
+      if (relResult.success) {
+        setRelationships(relResult.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      alert('Ошибка загрузки данных: ' + error.message);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
-      // Убираем дубликаты и текущую мышцу из formData.synergists
-    const uniqueSynergists = [...new Set(formData.synergists.filter(id => id !== muscleId))];
-    
-    // Всегда добавляем текущую мышцу в синергисты
-    const updatedSynergists = [...uniqueSynergists, muscleId];
-    const updatedAntagonists = [...new Set(formData.antagonists.filter(id => id !== muscleId))]; // Антагонисты без изменений
+      const uniqueSynergists = [...new Set(formData.synergists.filter(id => id !== muscleId))];
+      const updatedSynergists = [...uniqueSynergists, muscleId];
+      const updatedAntagonists = [...new Set(formData.antagonists.filter(id => id !== muscleId))];
+
+      let url = `${API_URL}/api/relationships`;
+      let method = 'POST';
 
       if (editingRelationship) {
-        // Редактирование существующего отношения
-        const { error } = await supabase
-          .from('muscle_relationships')
-          .update({
-            function_id: formData.function_id,
-            note: formData.note
-          })
-          .eq('id', editingRelationship.id);
-
-        if (error) throw error;
-
-        // Обновляем синергисты (включая текущую мышцу)
-        await updateSynergists(editingRelationship.id, updatedSynergists);
-        // Обновляем антагонисты
-        await updateAntagonists(editingRelationship.id, updatedAntagonists);
-
-      } else {
-        // Создание нового отношения (БЕЗ muscle_id)
-        const { data, error } = await supabase
-          .from('muscle_relationships')
-          .insert({
-            function_id: formData.function_id,
-            note: formData.note
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        // Добавляем синергистов (включая текущую мышцу) и антагонистов
-        await updateSynergists(data.id, updatedSynergists);
-        await updateAntagonists(data.id, updatedAntagonists);
+        url = `${API_URL}/api/relationships/${editingRelationship.id}`;
+        method = 'PUT';
       }
+
+      const payload = {
+        function_id: formData.function_id,
+        note: formData.note,
+        synergists: updatedSynergists,
+        antagonists: updatedAntagonists
+      };
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+
+      if (!result.success) throw new Error(result.error);
 
       setShowForm(false);
       setEditingRelationship(null);
       setFormData({ function_id: '', note: '', synergists: [], antagonists: [] });
-      fetchData(); // Обновляем список
-
+      fetchData();
     } catch (error) {
       console.error('Error saving relationship:', error);
       alert('Ошибка при сохранении: ' + error.message);
     }
   };
 
-  const updateSynergists = async (relationshipId, synergistIds) => {
-    try {
-		
-		//console.log('[DEBUG] Updating synergists for relationship', relationshipId);
-		//console.log('[DEBUG] Synergist IDs to insert:', synergistIds);
-		
-		// Проверяем на дубликаты внутри массива
-		const uniqueIds = [...new Set(synergistIds)];
-		if (uniqueIds.length !== synergistIds.length) {
-		  console.warn('[DEBUG] Duplicate muscle IDs in array!', synergistIds);
-		}
-		
-      // Удаляем старые синергисты
-      const { error: deleteError } = await supabase
-        .from('muscle_relationship_synergists')
-        .delete()
-        .eq('relationship_id', relationshipId);
-
-      if (deleteError) throw deleteError;
-
-      // Добавляем новые
-      if (synergistIds.length > 0) {
-        const synergistsData = synergistIds.map(synergistId => ({
-          relationship_id: relationshipId,
-          synergist_id: synergistId
-        }));
-
-        const { error: insertError } = await supabase
-          .from('muscle_relationship_synergists')
-          .insert(synergistsData);
-
-        if (insertError) throw insertError;
-      }
-    } catch (error) {
-		console.error('Error message on adding syn :', error.message);
-      throw new Error(`Ошибка обновления синергистов: ${error.message}`);
-    }
-  };
-
-  const updateAntagonists = async (relationshipId, antagonistIds) => {
-    try {
-      // Удаляем старых антагонистов
-      const { error: deleteError } = await supabase
-        .from('muscle_relationship_antagonists')
-        .delete()
-        .eq('relationship_id', relationshipId);
-
-      if (deleteError) throw deleteError;
-
-      // Добавляем новых
-      if (antagonistIds.length > 0) {
-        const antagonistsData = antagonistIds.map(antagonistId => ({
-          relationship_id: relationshipId,
-          antagonist_id: antagonistId
-        }));
-
-        const { error: insertError } = await supabase
-          .from('muscle_relationship_antagonists')
-          .insert(antagonistsData);
-
-        if (insertError) throw insertError;
-      }
-    } catch (error) {
-      throw new Error(`Ошибка обновления антагонистов: ${error.message}`);
-    }
-  };
-
   const handleEdit = (relationship) => {
-	  setEditingRelationship(relationship);
-	  
-	  // Автоматически добавляем текущую мышцу в синергисты
-	  const synergists = relationship.synergists?.map(s => s.muscle.id) || [];
-	  const antagonists = relationship.antagonists?.map(a => a.muscle.id) || [];
-	  
-	  // Убеждаемся, что текущая мышца есть в синергистах
-	  const updatedSynergists = synergists.includes(muscleId) ? synergists : [...synergists, muscleId];
-	  
-	  // Убираем текущую мышцу из массива для формы, чтобы она не отображалась в списке выбора
-	  const formSynergists = updatedSynergists.filter(id => id !== muscleId);
-	  
-	  setFormData({
-		function_id: relationship.function_id,
-		note: relationship.note || '',
-		synergists: formSynergists, // Только другие мышцы
-		antagonists: antagonists.filter(id => id !== muscleId) // Тоже убираем текущую мышцу
-	  });
-	  setShowForm(true);
-	};
+    setEditingRelationship(relationship);
+    
+    const synergists = relationship.synergists?.map(s => s.muscle_id) || [];
+    const antagonists = relationship.antagonists?.map(a => a.muscle_id) || [];
+    
+    const updatedSynergists = synergists.includes(muscleId) ? synergists : [...synergists, muscleId];
+    const formSynergists = updatedSynergists.filter(id => id !== muscleId);
+    
+    setFormData({
+      function_id: relationship.function_id,
+      note: relationship.note || '',
+      synergists: formSynergists,
+      antagonists: antagonists.filter(id => id !== muscleId)
+    });
+    setShowForm(true);
+    scrollToForm();
+  };
 
   const handleDelete = async (relationshipId) => {
     if (window.confirm('Удалить это отношение?')) {
       try {
-        const { error } = await supabase
-          .from('muscle_relationships')
-          .delete()
-          .eq('id', relationshipId);
-
-        if (error) throw error;
-        
+        const response = await fetch(`${API_URL}/api/relationships/${relationshipId}`, {
+          method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
         fetchData();
       } catch (error) {
         console.error('Error deleting relationship:', error);
@@ -260,28 +143,27 @@ const fetchData = async () => {
     }));
   };
 
-  
-  // Функция для получения названий мышц из массива с сортировкой по display_order
-	const getMuscleNames = (musclesArray) => {
-	  if (!musclesArray || musclesArray.length === 0) return '—';
-	  
-	  // Сортируем мышцы по display_order
-	  const sortedMuscles = [...musclesArray].sort((a, b) => {
-		const orderA = a.muscle.display_order ?? 999;
-		const orderB = b.muscle.display_order ?? 999;
-		return orderA - orderB;
-	  });
-	  
-	  return sortedMuscles.map(m => `${m.muscle.name_ru} (${m.muscle.name_lat})`).join(', ');
-	};
-  
+  const getMuscleNames = (musclesArray) => {
+    if (!musclesArray || musclesArray.length === 0) return '—';
+    return musclesArray.map(m => `${m.name_ru} (${m.name_lat})`).join(', ');
+  };
+
+  const handleToggleForm = () => {
+    setShowForm(!showForm);
+    if (!showForm) {
+      // Сбрасываем редактирование, если открываем форму для добавления
+      setEditingRelationship(null);
+      setFormData({ function_id: '', note: '', synergists: [], antagonists: [] });
+      scrollToForm();
+    }
+  };
 
   return (
     <div style={{ marginTop: '30px' }}>
       <h3>Взаимоотношения мышцы "{muscleName}"</h3>
       
       <button 
-        onClick={() => setShowForm(!showForm)}
+        onClick={handleToggleForm}
         style={{
           padding: '10px 15px',
           backgroundColor: '#007bff',
@@ -296,13 +178,17 @@ const fetchData = async () => {
       </button>
 
       {showForm && (
-        <form onSubmit={handleSubmit} style={{
-          border: '1px solid #ddd',
-          padding: '20px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          backgroundColor: '#f9f9f9'
-        }}>
+        <form 
+          ref={formRef}
+          onSubmit={handleSubmit} 
+          style={{
+            border: '1px solid #ddd',
+            padding: '20px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            backgroundColor: '#f9f9f9'
+          }}
+        >
           <h4>{editingRelationship ? 'Редактировать' : 'Добавить'} отношение</h4>
           
           <div style={{ marginBottom: '15px' }}>
@@ -334,7 +220,7 @@ const fetchData = async () => {
             <label>Синергисты (кроме текущей мышцы):</label>
             <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px' }}>
               {allMuscles
-                .filter(muscle => muscle.id !== muscleId) // Скрываем текущую мышцу
+                .filter(muscle => muscle.id !== muscleId)
                 .map(muscle => (
                   <div key={muscle.id}>
                     <label>
@@ -357,7 +243,7 @@ const fetchData = async () => {
             <label>Антагонисты:</label>
             <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px' }}>
               {allMuscles
-                .filter(muscle => muscle.id !== muscleId) // Скрываем текущую мышцу
+                .filter(muscle => muscle.id !== muscleId)
                 .map(muscle => (
                   <div key={muscle.id}>
                     <label>
@@ -409,8 +295,7 @@ const fetchData = async () => {
 
       <div>
         {relationships.map(relationship => {
-          // Определяем роль текущей мышцы в этом отношении
-          const isSynergist = relationship.synergists?.some(s => s.muscle.id === muscleId) || false;
+          const isSynergist = relationship.synergists?.some(s => s.muscle_id === muscleId) || false;
           
           return (
             <div key={relationship.id} style={{
@@ -421,18 +306,18 @@ const fetchData = async () => {
               backgroundColor: 'white'
             }}>
               <h4 style={{ margin: '0 0 10px 0' }}>
-                {relationship.function?.name}
+                {relationship.function_name}
                 {relationship.note && ` - ${relationship.note}`}
               </h4>
               
-            <div style={{ marginBottom: '10px' }}>
-				  <strong>Роль этой мышцы:</strong>{' '}
-				  {isSynergist ? (
-					<span style={{color: 'green'}}>Синергист</span>
-				  ) : (
-					<span style={{color: 'red'}}>Антагонист</span>
-				  )}
-			</div>
+              <div style={{ marginBottom: '10px' }}>
+                <strong>Роль этой мышцы:</strong>{' '}
+                {isSynergist ? (
+                  <span style={{color: 'green'}}>Синергист</span>
+                ) : (
+                  <span style={{color: 'red'}}>Антагонист</span>
+                )}
+              </div>
               
               <div style={{ marginBottom: '10px' }}>
                 <strong>Синергисты:</strong>{' '}

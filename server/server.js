@@ -382,6 +382,169 @@ app.post('/api/muscle/:id/copy', async (req, res) => {
   }
 });
 
+// ========== ВЗАИМООТНОШЕНИЯ МЫШЦ ==========
+
+// GET /api/muscle/:id/relationships — получить все отношения для мышцы
+app.get('/api/muscle/:id/relationships', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    // Получаем все отношения, где мышца участвует как синергист или антагонист
+    const result = await client.query(`
+      SELECT 
+        r.id,
+        r.function_id,
+        f.name as function_name,
+        r.note,
+        (
+          SELECT json_agg(json_build_object('muscle_id', m.id, 'name_ru', m.name_ru, 'name_lat', m.name_lat, 'display_order', m.display_order))
+          FROM muscle_relationship_synergists s
+          JOIN muscles m ON m.id = s.synergist_id
+          WHERE s.relationship_id = r.id
+        ) as synergists,
+        (
+          SELECT json_agg(json_build_object('muscle_id', m.id, 'name_ru', m.name_ru, 'name_lat', m.name_lat, 'display_order', m.display_order))
+          FROM muscle_relationship_antagonists a
+          JOIN muscles m ON m.id = a.antagonist_id
+          WHERE a.relationship_id = r.id
+        ) as antagonists
+      FROM muscle_relationships r
+      LEFT JOIN functions f ON f.id = r.function_id
+      WHERE EXISTS (
+        SELECT 1 FROM muscle_relationship_synergists s WHERE s.relationship_id = r.id AND s.synergist_id = $1
+        UNION
+        SELECT 1 FROM muscle_relationship_antagonists a WHERE a.relationship_id = r.id AND a.antagonist_id = $1
+      )
+    `, [id]);
+
+    // Обрабатываем NULL как пустые массивы
+    const relationships = result.rows.map(row => ({
+      ...row,
+      synergists: row.synergists || [],
+      antagonists: row.antagonists || []
+    }));
+
+    res.json({ success: true, data: relationships });
+  } catch (error) {
+    console.error('[ERROR] GET /api/muscle/:id/relationships:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/relationships — создать новое отношение
+app.post('/api/relationships', async (req, res) => {
+  const client = await connectDB();
+  const { function_id, note, synergists, antagonists } = req.body;
+
+  if (!function_id) {
+    return res.status(400).json({ success: false, error: 'function_id is required' });
+  }
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Создаём отношение
+    const relResult = await client.query(
+      `INSERT INTO muscle_relationships (function_id, note) VALUES ($1, $2) RETURNING id`,
+      [function_id, note || null]
+    );
+    const relationshipId = relResult.rows[0].id;
+
+    // 2. Добавляем синергистов
+    if (synergists && synergists.length > 0) {
+      for (const synergistId of synergists) {
+        await client.query(
+          `INSERT INTO muscle_relationship_synergists (relationship_id, synergist_id) VALUES ($1, $2)`,
+          [relationshipId, synergistId]
+        );
+      }
+    }
+
+    // 3. Добавляем антагонистов
+    if (antagonists && antagonists.length > 0) {
+      for (const antagonistId of antagonists) {
+        await client.query(
+          `INSERT INTO muscle_relationship_antagonists (relationship_id, antagonist_id) VALUES ($1, $2)`,
+          [relationshipId, antagonistId]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, id: relationshipId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] POST /api/relationships:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/relationships/:id — обновить отношение
+app.put('/api/relationships/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  const { function_id, note, synergists, antagonists } = req.body;
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Обновляем основную информацию
+    await client.query(
+      `UPDATE muscle_relationships SET function_id = $1, note = $2, updated_at = NOW() WHERE id = $3`,
+      [function_id, note || null, id]
+    );
+
+    // 2. Обновляем синергистов
+    await client.query(`DELETE FROM muscle_relationship_synergists WHERE relationship_id = $1`, [id]);
+    if (synergists && synergists.length > 0) {
+      for (const synergistId of synergists) {
+        await client.query(
+          `INSERT INTO muscle_relationship_synergists (relationship_id, synergist_id) VALUES ($1, $2)`,
+          [id, synergistId]
+        );
+      }
+    }
+
+    // 3. Обновляем антагонистов
+    await client.query(`DELETE FROM muscle_relationship_antagonists WHERE relationship_id = $1`, [id]);
+    if (antagonists && antagonists.length > 0) {
+      for (const antagonistId of antagonists) {
+        await client.query(
+          `INSERT INTO muscle_relationship_antagonists (relationship_id, antagonist_id) VALUES ($1, $2)`,
+          [id, antagonistId]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Relationship updated' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] PUT /api/relationships/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/relationships/:id — удалить отношение
+app.delete('/api/relationships/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    await client.query('BEGIN');
+    await client.query(`DELETE FROM muscle_relationship_synergists WHERE relationship_id = $1`, [id]);
+    await client.query(`DELETE FROM muscle_relationship_antagonists WHERE relationship_id = $1`, [id]);
+    await client.query(`DELETE FROM muscle_relationships WHERE id = $1`, [id]);
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Relationship deleted' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] DELETE /api/relationships/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 // ========== СПРАВОЧНИКИ ==========
 app.get('/api/dictionaries/groups', async (req, res) => {
