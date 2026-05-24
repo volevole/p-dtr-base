@@ -16,9 +16,46 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // ========== НОВЫЙ КОД ДЛЯ РАБОТЫ С POSTGRESQL НА REG.RU ==========
 const { Client } = require('pg');
 let db = null;
+let queryQueue = [];
+let isProcessing = false;
+
+async function processQueue() {
+  if (isProcessing || queryQueue.length === 0) return;
+  isProcessing = true;
+  
+  while (queryQueue.length > 0) {
+    const { text, params, resolve, reject } = queryQueue.shift();
+    try {
+      const client = await connectDB();
+      const result = await client.query(text, params);
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    }
+  }
+  
+  isProcessing = false;
+}
+
+async function query(text, params) {
+  return new Promise((resolve, reject) => {
+    queryQueue.push({ text, params, resolve, reject });
+    processQueue();
+  });
+}
 
 async function connectDB() {
-  if (!db) {
+  if (db && db._connected && !db._ending) {
+    return db;
+  }
+
+  try {
+    if (db && !db._ended) {
+      try {
+        await db.end();
+      } catch (e) {}
+    }
+
     db = new Client({
       host: '194.226.165.244',
       port: 5432,
@@ -26,11 +63,23 @@ async function connectDB() {
       user: 'pdtr_admin',
       password: process.env.REGRU_DB_PASSWORD
     });
+
     await db.connect();
     console.log('Connected to PostgreSQL at Reg.ru');
+    
+    db.on('error', (err) => {
+      console.error('Database connection error:', err.message);
+      db = null;
+    });
+    
+    return db;
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    db = null;
+    throw error;
   }
-  return db;
 }
+
 // ========== КОНЕЦ НОВОГО КОДА ==========
 
 
@@ -382,6 +431,42 @@ app.post('/api/muscle/:id/copy', async (req, res) => {
   }
 });
 
+// GET /api/muscle/:id/dysfunctions-count - количество дисфункций
+app.get('/api/muscle/:id/dysfunctions-count', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    // Прямые дисфункции мышцы
+    const muscleResult = await client.query(
+      'SELECT COUNT(*) FROM muscle_dysfunctions WHERE muscle_id = $1',
+      [id]
+    );
+    const muscleCount = parseInt(muscleResult.rows[0].count);
+
+    // Дисфункции групп, в которые входит мышца
+    const groupsResult = await client.query(
+      `SELECT DISTINCT group_id FROM muscle_group_membership WHERE muscle_id = $1`,
+      [id]
+    );
+    const groupIds = groupsResult.rows.map(r => r.group_id);
+
+    let groupCount = 0;
+    if (groupIds.length > 0) {
+      const groupDysResult = await client.query(
+        `SELECT COUNT(*) FROM muscle_group_dysfunctions WHERE group_id = ANY($1)`,
+        [groupIds]
+      );
+      groupCount = parseInt(groupDysResult.rows[0].count);
+    }
+
+    res.json({ success: true, count: muscleCount + groupCount });
+  } catch (error) {
+    console.error('[ERROR] GET /api/muscle/:id/dysfunctions-count:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== ВЗАИМООТНОШЕНИЯ МЫШЦ ==========
 
 // GET /api/muscle/:id/relationships — получить все отношения для мышцы
@@ -545,6 +630,245 @@ app.delete('/api/relationships/:id', async (req, res) => {
   }
 });
 
+
+// ========== ГРУППЫ МЫШЦ ==========
+
+// GET /api/groups — список групп с обогащёнными данными
+app.get('/api/groups', async (req, res) => {
+  const client = await connectDB();
+
+  try {
+    const result = await client.query(`
+      SELECT g.*, 
+             COUNT(DISTINCT gm.muscle_id) AS "muscleCount",
+             COUNT(DISTINCT gd.dysfunction_id) AS "dysfunctionCount"
+      FROM muscle_groups g
+      LEFT JOIN muscle_group_membership gm ON gm.group_id = g.id
+      LEFT JOIN muscle_group_dysfunctions gd ON gd.group_id = g.id
+      GROUP BY g.id
+      ORDER BY g.display_order NULLS LAST, g.name
+    `);
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('[ERROR] GET /api/groups:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/group/:id — получение одной группы
+app.get('/api/group/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    const result = await client.query('SELECT * FROM muscle_groups WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Group not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/group/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/group/:id — обновление группы
+app.put('/api/group/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  const { name, description, type } = req.body;
+
+  try {
+    const result = await client.query(
+      `UPDATE muscle_groups 
+       SET name = $1, description = $2, type = $3, updated_at = NOW()
+       WHERE id = $4
+       RETURNING id`,
+      [name, description, type || null, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Group not found' });
+    }
+
+    res.json({ success: true, message: 'Group updated successfully' });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/group/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/groups — создание новой группы
+app.post('/api/groups', async (req, res) => {
+  const client = await connectDB();
+  const { name, description, type } = req.body;
+
+  try {
+    const maxOrderResult = await client.query(
+      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM muscle_groups'
+    );
+    const nextOrder = maxOrderResult.rows[0].next_order;
+
+    // Вставляем NULL для type, если значение не передано или пустая строка
+    const typeValue = (type && type.trim() !== '') ? type : null;
+
+    const result = await client.query(
+      `INSERT INTO muscle_groups (name, description, type, display_order) 
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [name || 'Новая группа', description || '', typeValue, nextOrder]
+    );
+
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('[ERROR] POST /api/groups:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/group/:id — удаление группы
+app.delete('/api/group/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    await client.query('BEGIN');
+    
+    // Проверяем, есть ли связанные мышцы
+    const musclesResult = await client.query(
+      'SELECT COUNT(*) FROM muscle_group_membership WHERE group_id = $1',
+      [id]
+    );
+    const muscleCount = parseInt(musclesResult.rows[0].count);
+
+    if (muscleCount > 0) {
+      // Удаляем связи с мышцами
+      await client.query('DELETE FROM muscle_group_membership WHERE group_id = $1', [id]);
+    }
+
+    // Удаляем связи с дисфункциями
+    await client.query('DELETE FROM muscle_group_dysfunctions WHERE group_id = $1', [id]);
+    
+    // Удаляем саму группу
+    const result = await client.query('DELETE FROM muscle_groups WHERE id = $1 RETURNING id', [id]);
+
+    if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Group not found' });
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Group deleted successfully', muscleCount });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] DELETE /api/group/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/group/:id/copy — копирование группы
+app.post('/api/group/:id/copy', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    // Получаем оригинальную группу
+    const originalResult = await client.query('SELECT * FROM muscle_groups WHERE id = $1', [id]);
+    if (originalResult.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Group not found' });
+    }
+    const original = originalResult.rows[0];
+
+    // Получаем следующий display_order
+    const maxOrderResult = await client.query(
+      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM muscle_groups'
+    );
+    const nextOrder = maxOrderResult.rows[0].next_order;
+
+    // Создаём копию
+    const copyResult = await client.query(
+      `INSERT INTO muscle_groups (name, description, type, display_order) 
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [`${original.name} (копия)`, original.description, original.type, nextOrder]
+    );
+
+    res.json({ success: true, id: copyResult.rows[0].id });
+  } catch (error) {
+    console.error('[ERROR] POST /api/group/:id/copy:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/groups/reorder — переупорядочивание групп
+app.put('/api/groups/reorder', async (req, res) => {
+  const client = await connectDB();
+  const { orderedIds } = req.body;
+
+  if (!orderedIds || !Array.isArray(orderedIds)) {
+    return res.status(400).json({ success: false, error: 'orderedIds array is required' });
+  }
+
+  try {
+    await client.query('BEGIN');
+    for (let i = 0; i < orderedIds.length; i++) {
+      await client.query('UPDATE muscle_groups SET display_order = $1 WHERE id = $2', [i, orderedIds[i]]);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Order updated successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] PUT /api/groups/reorder:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/group/:id/members — получить ID мышц, входящих в группу
+app.get('/api/group/:id/members', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    const result = await client.query(
+      'SELECT muscle_id FROM muscle_group_membership WHERE group_id = $1 ORDER BY display_order',
+      [id]
+    );
+    res.json({ success: true, data: result.rows.map(r => r.muscle_id) });
+  } catch (error) {
+    console.error('[ERROR] GET /api/group/:id/members:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/group/:id/members — обновить состав группы
+app.put('/api/group/:id/members', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  const { muscleIds } = req.body;
+
+  try {
+    await client.query('BEGIN');
+    
+    // Удаляем старые связи
+    await client.query('DELETE FROM muscle_group_membership WHERE group_id = $1', [id]);
+    
+    // Добавляем новые связи
+    if (muscleIds && muscleIds.length > 0) {
+      for (let i = 0; i < muscleIds.length; i++) {
+        await client.query(
+          'INSERT INTO muscle_group_membership (group_id, muscle_id, display_order) VALUES ($1, $2, $3)',
+          [id, muscleIds[i], i]
+        );
+      }
+    }
+    
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Members updated successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] PUT /api/group/:id/members:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ========== СПРАВОЧНИКИ ==========
 app.get('/api/dictionaries/groups', async (req, res) => {
