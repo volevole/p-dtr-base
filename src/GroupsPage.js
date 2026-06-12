@@ -1,7 +1,7 @@
-// GroupsPage.js - с использованием универсальных классов
+// GroupsPage.js - полностью на новой БД
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
+import API_URL from './config/api';
 import EntityList from './EntityList';
 import { 
   FaEdit, 
@@ -24,28 +24,18 @@ function GroupsPage() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
+      const response = await fetch(`${API_URL}/api/groups`);
+      const result = await response.json();
       
-      const { data: groupsData, error } = await supabase
-        .from('muscle_groups')
-        .select(`
-          *,
-          muscle_group_membership(muscle_id),
-          muscle_group_dysfunctions(dysfunction_id)
-        `)
-        .order('display_order', { ascending: true, nullsFirst: false })
-        .order('name');
-
-      if (error) throw error;
-
-      const processedGroups = groupsData.map(group => ({
-        ...group,
-        muscleCount: group.muscle_group_membership?.length || 0,
-        dysfunctionCount: group.muscle_group_dysfunctions?.length || 0
-      }));
-
-      setGroups(processedGroups);
+      if (result.success) {
+        setGroups(result.data);
+      } else {
+        console.error('Ошибка загрузки групп:', result.error);
+        setGroups([]);
+      }
     } catch (error) {
       console.error('Ошибка загрузки групп:', error);
+      setGroups([]);
     } finally {
       setLoading(false);
     }
@@ -57,27 +47,32 @@ function GroupsPage() {
 
   const handleDelete = async (id) => {
     const groupToDelete = groups.find(g => g.id === id);
-    
     if (!groupToDelete) {
       alert('Группа не найдена');
       return;
     }
 
+    let confirmMessage = `Удалить группу "${groupToDelete.name}"?`;
     if (groupToDelete.muscleCount > 0) {
-      if (!window.confirm(`Группа "${groupToDelete.name}" содержит ${groupToDelete.muscleCount} мышц. Удалить вместе с ними?`)) return;
-    } else {
-      if (!window.confirm(`Удалить группу "${groupToDelete.name}"?`)) return;
+      confirmMessage = `Группа "${groupToDelete.name}" содержит ${groupToDelete.muscleCount} мышц. Удалить вместе с ними?`;
     }
 
+    if (!window.confirm(confirmMessage)) return;
+
     try {
-      const { error } = await supabase
-        .from('muscle_groups')
-        .delete()
-        .eq('id', id);
+      const response = await fetch(`${API_URL}/api/group/${id}`, {
+        method: 'DELETE'
+      });
+      const result = await response.json();
 
-      if (error) throw error;
-
-      setGroups(prev => prev.filter(g => g.id !== id));
+      if (result.success) {
+        setGroups(prev => prev.filter(g => g.id !== id));
+        if (result.muscleCount > 0) {
+          alert(`Группа удалена. Удалено ${result.muscleCount} связанных мышц.`);
+        }
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Ошибка удаления:', error);
       alert('Ошибка при удалении: ' + error.message);
@@ -86,28 +81,18 @@ function GroupsPage() {
 
   const handleAdd = async () => {
     try {
-      // Получаем максимальный порядок
-      const { data: maxOrderData } = await supabase
-        .from('muscle_groups')
-        .select('display_order')
-        .order('display_order', { ascending: false })
-        .limit(1);
+      const response = await fetch(`${API_URL}/api/groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Новая группа', description: '' })
+      });
+      const result = await response.json();
 
-      const maxOrder = maxOrderData?.[0]?.display_order || 0;
-
-      const { data, error } = await supabase
-        .from('muscle_groups')
-        .insert([{
-          name: 'Новая группа',
-          description: '',
-          display_order: maxOrder + 1
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      navigate(`/group/${data.id}/edit`);
+      if (result.success) {
+        navigate(`/group/${result.id}/edit`);
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Ошибка создания:', error);
       alert('Ошибка при создании: ' + error.message);
@@ -116,37 +101,17 @@ function GroupsPage() {
 
   const handleCopy = async (id) => {
     try {
-      const { data: original, error: fetchError } = await supabase
-        .from('muscle_groups')
-        .select('name, description, display_order')
-        .eq('id', id)
-        .single();
+      const response = await fetch(`${API_URL}/api/group/${id}/copy`, {
+        method: 'POST'
+      });
+      const result = await response.json();
 
-      if (fetchError) throw fetchError;
-      if (!original) throw new Error('Группа не найдена');
-
-      // Получаем максимальный порядок
-      const { data: maxOrderData } = await supabase
-        .from('muscle_groups')
-        .select('display_order')
-        .order('display_order', { ascending: false })
-        .limit(1);
-
-      const maxOrder = maxOrderData?.[0]?.display_order || 0;
-
-      const { data: copied, error: insertError } = await supabase
-        .from('muscle_groups')
-        .insert([{
-          name: `${original.name} (копия)`,
-          description: original.description,
-          display_order: maxOrder + 1
-        }])
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      await fetchGroups();
+      if (result.success) {
+        await fetchGroups();
+        alert('Группа скопирована');
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Ошибка копирования:', error);
       alert('Не удалось создать копию: ' + error.message);
@@ -174,97 +139,96 @@ function GroupsPage() {
     setGroups(updatedGroups);
 
     try {
-      const updatePromises = updatedGroups.map(group =>
-        supabase
-          .from('muscle_groups')
-          .update({ display_order: group.display_order })
-          .eq('id', group.id)
-      );
-      await Promise.all(updatePromises);
+      const response = await fetch(`${API_URL}/api/groups/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: updatedGroups.map(g => g.id) })
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Reorder failed');
+      }
     } catch (error) {
-      console.error('Ошибка сохранения в БД:', error);
-      setGroups(groups);
+      console.error('Ошибка сохранения порядка:', error);
+      await fetchGroups();
       alert('Ошибка сохранения изменений: ' + error.message);
     }
   };
 
-// Кастомная карточка для групп с универсальными классами (без дублирующей кнопки)
-const renderGroupCard = (group, index, actions) => {
-  const totalCount = groups.length;
-  
-  return (  
-    <div key={group.id} className="entity-card">
-      <div className="entity-card-header">
-        <div className="entity-card-title-section">
-          <h3 className="entity-card-title">
-            <Link to={`/group/${group.id}`} className="link-text">
-              {group.name}
-            </Link>
-          </h3>
+  const renderGroupCard = (group, index, actions) => {
+    const totalCount = groups.length;
+    
+    return (  
+      <div key={group.id} className="entity-card">
+        <div className="entity-card-header">
+          <div className="entity-card-title-section">
+            <h3 className="entity-card-title">
+              <Link to={`/group/${group.id}`} className="link-text">
+                {group.name}
+              </Link>
+            </h3>
+          </div>
+          
+          <div className="entity-card-actions">
+            <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
+              <HiDuplicate size={14} />
+            </button>
+            <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
+              <FaEdit size={14} />
+            </button>
+            <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
+              <FaTrash size={14} />
+            </button>
+          </div>
         </div>
-        
-        <div className="entity-card-actions">
-          <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
-            <HiDuplicate size={14} />
-          </button>
-          <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
-            <FaEdit size={14} />
-          </button>
-          <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
-            <FaTrash size={14} />
-          </button>
-        </div>
-      </div>
 
-      {/* Описание */}
-      {group.description && (
-        <div className="entity-card-description">
-          {group.description.length > 200 
-            ? `${group.description.substring(0, 200)}...` 
-            : group.description}
-        </div>
-      )}
-
-      {/* Статистика в виде бейджей */}
-      <div className="entity-card-badges">
-        {group.muscleCount > 0 && (
-          <span className="entity-badge badge-primary">
-            Мышцы: {group.muscleCount}
-          </span>
+        {group.description && (
+          <div className="entity-card-description">
+            {group.description.length > 200 
+              ? `${group.description.substring(0, 200)}...` 
+              : group.description}
+          </div>
         )}
-        {group.dysfunctionCount > 0 && (
-          <span className="entity-badge badge-info">
-            Дисфункции: {group.dysfunctionCount}
-          </span>
-        )}
-      </div>
 
-      {/* Кнопки перемещения */}
-      <div className="entity-move-buttons">
-        <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-          <button 
-            onClick={actions.onMoveUp} 
-            disabled={index === 0}
-            className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
-            title="Переместить выше"
-          >
-            <FaArrowUp size={10} />
-            <span>Вверх</span>
-          </button>
-          <button 
-            onClick={actions.onMoveDown} 
-            disabled={index === totalCount - 1}
-            className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
-            title="Переместить ниже"
-          >
-            <FaArrowDown size={10} />
-            <span>Вниз</span>
-          </button>
+        <div className="entity-card-badges">
+          {group.muscleCount > 0 && (
+            <span className="entity-badge badge-primary">
+              Мышцы: {group.muscleCount}
+            </span>
+          )}
+          {group.dysfunctionCount > 0 && (
+            <span className="entity-badge badge-info">
+              Дисфункции: {group.dysfunctionCount}
+            </span>
+          )}
+        </div>
+
+        <div className="entity-move-buttons">
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+            <button 
+              onClick={actions.onMoveUp} 
+              disabled={index === 0}
+              className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
+              title="Переместить выше"
+            >
+              <FaArrowUp size={10} />
+              <span>Вверх</span>
+            </button>
+            <button 
+              onClick={actions.onMoveDown} 
+              disabled={index === totalCount - 1}
+              className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
+              title="Переместить ниже"
+            >
+              <FaArrowDown size={10} />
+              <span>Вниз</span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   if (loading) return <div className="detail-container">Загрузка...</div>;
 

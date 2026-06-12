@@ -1,3 +1,7 @@
+30-05-26
+Удобная админка для БД:
+http://194.226.165.244/phppgadmin/
+
 09-05-26
 
  На сервере «Tangerine Praseodymium» внутри PostgreSQL создан пользователь:
@@ -11,7 +15,7 @@
 
 Вы создали сервер «Tangerine Praseodymium» с Ubuntu 24.04 LTS, IP-адрес 194.226.165.244
 
-Доступ к серверу
+Доступ к серверу по SSH:   ssh root@194.226.165.244
 
 Логин: root
 Пароль: zXu8BBXqqXAZQ8WY

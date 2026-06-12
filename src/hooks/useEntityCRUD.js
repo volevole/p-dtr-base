@@ -1,8 +1,7 @@
-// hooks/useEntityCRUD.js
+// hooks/useEntityCRUD.js - исправленная версия
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-//import { supabase } from './supabaseClient';
-import { supabase } from '../utils/supabaseClient';
+import { useParams, useNavigate }  from 'react-router-dom';
+import API_URL from '../config/api';
 
 export function useEntityCRUD(config) {
   const { 
@@ -20,7 +19,6 @@ export function useEntityCRUD(config) {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   
-  // Инициализация формы
   const initialFormData = fields.reduce((acc, field) => {
     acc[field.name] = field.defaultValue || '';
     return acc;
@@ -28,34 +26,24 @@ export function useEntityCRUD(config) {
   
   const [formData, setFormData] = useState(initialFormData);
 
-  // Загрузка данных
+  // Определяем URL в зависимости от tableName
+  const getListUrl = () => `/api/${tableName}`;           // /api/receptors
+  const getSingleUrl = (id) => `/api/${tableName}/${id}`; // /api/receptors/:id
+  const getReorderUrl = () => `/api/${tableName}/reorder`;
+
   const fetchEntity = async () => {
     try {
       setLoading(true);
+      const response = await fetch(`${API_URL}${getSingleUrl(id)}`);
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error);
       
-      let query = supabase
-        .from(tableName)
-        .select('*')
-        .eq('id', id);
-
-      if (relatedTables.length > 0) {
-        const relatedFields = relatedTables.map(rel => 
-          `${rel.table}(${rel.fields || '*'})`
-        ).join(',');
-        
-        query = query.select(`*, ${relatedFields}`);
-      }
-
-      const { data, error } = await query.single();
-
-      if (error) throw error;
-
+      const data = result.data;
       if (data) {
         setEntity(data);
-        
         const newFormData = { ...initialFormData };
         fields.forEach(field => {
-          newFormData[field.name] = data[field.name] || field.defaultValue || '';
+          newFormData[field.name] = data[field.name] ?? field.defaultValue ?? '';
         });
         setFormData(newFormData);
       }
@@ -67,34 +55,26 @@ export function useEntityCRUD(config) {
     }
   };
 
-  // Сохранение
   const saveEntity = async (data) => {
     setSaving(true);
-    
     try {
       if (isNew) {
-        const { data: result, error } = await supabase
-          .from(tableName)
-          .insert([{
-            ...data,
-            is_active: true,
-            created_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-
-        if (error) throw error;
+        const response = await fetch(`${API_URL}${getListUrl()}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
         return result;
       } else {
-        const { error } = await supabase
-          .from(tableName)
-          .update({
-            ...data,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id);
-
-        if (error) throw error;
+        const response = await fetch(`${API_URL}${getSingleUrl(id)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
         return { id };
       }
     } catch (error) {
@@ -105,25 +85,17 @@ export function useEntityCRUD(config) {
     }
   };
 
-  // Обработчик изменения полей
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    
     let processedValue = value;
-    
     if (type === 'number') {
       processedValue = parseInt(value) || 0;
     } else if (type === 'checkbox') {
       processedValue = e.target.checked;
     }
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: processedValue
-    }));
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
 
-  // Инициализация при монтировании
   useEffect(() => {
     if (!isNew && id) {
       fetchEntity();
@@ -133,25 +105,18 @@ export function useEntityCRUD(config) {
   }, [id, isNew]);
 
   return {
-    // Состояния
     isNew,
     entity,
     loading,
     saving,
     formData,
-    
-    // Методы
     fetchEntity,
     saveEntity,
     handleChange,
     setFormData,
-    
-    // Вспомогательные
     setFieldValue: (fieldName, value) => {
       setFormData(prev => ({ ...prev, [fieldName]: value }));
     },
-    
-    // Навигация и идентификаторы
     id,
     navigate
   };

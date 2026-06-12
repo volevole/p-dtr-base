@@ -1,356 +1,313 @@
-// MuscleDetail.js - адаптивная версия с использованием CSS классов
+// MuscleDetail.js - использует справочники для отображения названий
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
 import API_URL from './config/api';
-import { FaCopy, FaPlus, FaPlusCircle, FaEdit } from 'react-icons/fa';
-import { getMediaForEntity, uploadMediaForEntity } from './utils/mediaHelper';
+import { FaEdit } from 'react-icons/fa';
 import MediaManager from './MediaManager';
 import './App.css';
 
-// Функция для обрезания длинного текста (только для определенных полей)
 const truncateText = (text, maxLength = 200) => {
   if (!text) return text;
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 };
 
-async function fetchDysfunctionsCount(muscleId) {
-  const { count: muscleCount } = await supabase
-    .from('muscle_dysfunctions')
-    .select('*', { count: 'exact', head: true })
-    .eq('muscle_id', muscleId)
-
-  const { data: groups } = await supabase
-    .from('muscle_group_membership')
-    .select('group_id')
-    .eq('muscle_id', muscleId)
-
-  let groupCount = 0
-  if (groups?.length > 0) {
-    const groupIds = groups.map(g => g.group_id)
-    const { count } = await supabase
-      .from('muscle_group_dysfunctions')
-      .select('*', { count: 'exact', head: true })
-      .in('group_id', groupIds)
-    groupCount = count || 0
-  }
-
-  return (muscleCount || 0) + groupCount
-}
-
 function MuscleDetail() {
-  const { id } = useParams()
-  const [muscle, setMuscle] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { id } = useParams();
+  const [muscle, setMuscle] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const [dysfunctionsCount, setDysfunctionsCount] = useState(0)
-  const [relationships, setRelationships] = useState([])
+  const [dysfunctionsCount, setDysfunctionsCount] = useState(0);
+  const [relationships, setRelationships] = useState([]);
   
-  // Определяем мобильное устройство для адаптивных стилей
+  // Справочники
+  const [groupsDict, setGroupsDict] = useState({});
+  const [functionsDict, setFunctionsDict] = useState({});
+  const [meridiansDict, setMeridiansDict] = useState({});
+  const [organsDict, setOrgansDict] = useState({});
+  const [nervesDict, setNervesDict] = useState({});
+  const [vertebraeDict, setVertebraeDict] = useState({});
+  
   const [isMobile, setIsMobile] = useState(false);
   
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
     };
-    
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
   
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
-
+    async function loadDictionaries() {
       try {
-        // 1. Сначала загружаем данные мышцы
-        const { data: muscleData, error: muscleError } = await supabase
-          .from('muscles')
-          .select(`
-            *,
-            muscle_functions (
-              note,
-              functions (
-                name
-              )
-            ),
-            muscle_meridians (
-              meridian_id,
-              meridians (
-                name,
-                code
-              )
-            ),
-            muscle_organs (
-              organ_id,
-              organs (
-                name,
-                system
-              )
-            ),
-            muscle_nerves (
-              nerve_id,
-              nerves (
-                name,
-                type
-              )
-            ),
-            muscle_group_membership (
-              group_id,
-              muscle_groups (
-                id,
-                name,
-                description,
-                type
-              )
-            ),
-            muscle_vertebrae (
-              vertebrae (
-                code
-              )
-            )
-          `)
-          .eq('id', id)
-          .single();
-
-        if (muscleError) throw muscleError;
-
-        // 2. Устанавливаем данные мышцы СРАЗУ после их получения
-        setMuscle(muscleData);
-
-        // 3. Загружаем количество дисфункций
-        const count = await fetchDysfunctionsCount(id);
-        setDysfunctionsCount(count);
-
-        // 4. Загружаем отношения
-        const { data: allRelationshipsData, error: relationshipsError } = await supabase
-          .from('muscle_relationships')
-          .select(`
-            *,
-            function:functions (
-              name
-            ),
-            synergists:muscle_relationship_synergists (
-              muscle:muscles (
-                id,
-                name_ru,
-                name_lat,
-                display_order
-              )
-            ),
-            antagonists:muscle_relationship_antagonists (
-              muscle:muscles (
-                id,
-                name_ru,
-                name_lat,
-                display_order
-              )
-            )
-          `);
-
-        if (relationshipsError) throw relationshipsError;
-
-        // 5. Фильтруем и сортируем отношения
-        const filteredRelationships = allRelationshipsData?.filter(relationship => {
-          const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
-          const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;
-          return isSynergist || isAntagonist;
-        }) || [];
-
-        const sortedRelationships = filteredRelationships.map(rel => ({
-		  ...rel,
-		  synergists: (rel.synergists || []).sort((a, b) => {
-			const orderA = a.muscle.display_order ?? 999;
-			const orderB = b.muscle.display_order ?? 999;
-			return orderA - orderB;
-		  }),
-		  antagonists: (rel.antagonists || []).sort((a, b) => {
-			const orderA = a.muscle.display_order ?? 999;
-			const orderB = b.muscle.display_order ?? 999;
-			return orderA - orderB;
-		  })
-		}));
-
-        setRelationships(sortedRelationships);
+        // Загружаем все справочники параллельно
+        const [groupsRes, functionsRes, meridiansRes, organsRes, nervesRes, vertebraeRes] = await Promise.all([
+          fetch(`${API_URL}/api/dictionaries/groups`),
+          fetch(`${API_URL}/api/dictionaries/functions`),
+          fetch(`${API_URL}/api/dictionaries/meridians`),
+          fetch(`${API_URL}/api/dictionaries/organs`),
+          fetch(`${API_URL}/api/dictionaries/nerves`),
+          fetch(`${API_URL}/api/dictionaries/vertebrae`)
+        ]);
         
+        const groupsData = await groupsRes.json();
+        const functionsData = await functionsRes.json();
+        const meridiansData = await meridiansRes.json();
+        const organsData = await organsRes.json();
+        const nervesData = await nervesRes.json();
+        const vertebraeData = await vertebraeRes.json();
+        
+        // Преобразуем в Map для быстрого доступа по ID
+        const groupsMap = {};
+        (groupsData.data || []).forEach(g => { groupsMap[g.id] = g.name; });
+        
+        const functionsMap = {};
+        (functionsData.data || []).forEach(f => { functionsMap[f.id] = f.name; });
+        
+        const meridiansMap = {};
+        (meridiansData.data || []).forEach(m => { meridiansMap[m.id] = { name: m.name, code: m.code }; });
+        
+        const organsMap = {};
+        (organsData.data || []).forEach(o => { organsMap[o.id] = { name: o.name, system: o.system }; });
+        
+        const nervesMap = {};
+        (nervesData.data || []).forEach(n => { nervesMap[n.id] = { name: n.name, type: n.type }; });
+        
+        const vertebraeMap = {};
+        (vertebraeData.data || []).forEach(v => { vertebraeMap[v.id] = v.code; });
+        
+        setGroupsDict(groupsMap);
+        setFunctionsDict(functionsMap);
+        setMeridiansDict(meridiansMap);
+        setOrgansDict(organsMap);
+        setNervesDict(nervesMap);
+        setVertebraeDict(vertebraeMap);
       } catch (error) {
-        console.error('Ошибка загрузки:', error);
+        console.error('Error loading dictionaries:', error);
+      }
+    }
+    
+    async function fetchData() {
+      setLoading(true);
+      try {
+        // Загружаем справочники
+        await loadDictionaries();
+        
+        // 1. Основные данные мышцы
+        const muscleRes = await fetch(`${API_URL}/api/muscle/${id}`);
+        const muscleResult = await muscleRes.json();
+        if (!muscleResult.success) throw new Error(muscleResult.error);
+        
+        // 2. Связи
+        const relationsRes = await fetch(`${API_URL}/api/muscle/${id}/relations`);
+        const relationsResult = await relationsRes.json();
+        
+        const fullMuscle = {
+          ...muscleResult.data,
+          muscle_groups: relationsResult.data?.groups || [],
+          muscle_functions: relationsResult.data?.functions || [],
+          muscle_meridians: relationsResult.data?.meridians || [],
+          muscle_organs: relationsResult.data?.organs || [],
+          muscle_nerves: relationsResult.data?.nerves || [],
+          muscle_vertebrae: relationsResult.data?.vertebrae || []
+        };
+        
+        setMuscle(fullMuscle);
+        
+        // 3. Количество дисфункций
+        const dysRes = await fetch(`${API_URL}/api/muscle/${id}/dysfunctions-count`);
+        const dysResult = await dysRes.json();
+        if (dysResult.success) {
+          setDysfunctionsCount(dysResult.count);
+        }
+        
+        // 4. Отношения
+        const relRes = await fetch(`${API_URL}/api/muscle/${id}/relationships`);
+        const relResult = await relRes.json();
+        if (relResult.success) {
+          setRelationships(relResult.data || []);
+        }
+      } catch (error) {
+        console.error('Error loading muscle:', error);
+        alert('Ошибка загрузки данных: ' + error.message);
       } finally {
         setLoading(false);
       }
     }
-
     fetchData();
   }, [id]);
 
-  if (loading) return <div className="detail-container">Загрузка...</div>
-  if (!muscle) return <div className="detail-container">Мышца не найдена</div>
+  if (loading) return <div className="detail-container">Загрузка...</div>;
+  if (!muscle) return <div className="detail-container">Мышца не найдена</div>;
 
-  const functions = muscle.muscle_functions || []
-  const meridians = muscle.muscle_meridians || []
-  const organs = muscle.muscle_organs || []
-  const nerves = muscle.muscle_nerves || []
-  const verts = muscle.muscle_vertebrae || []
-  const groups = muscle.muscle_group_membership || []
-
-  // Функция для рендеринга групп
+  // Функции рендеринга с использованием справочников
   const renderGroups = () => {
+    const groups = muscle.muscle_groups || [];
     if (groups.length === 0) return <span className="empty-value">—</span>;
     
     if (groups.length === 1) {
+      const groupId = groups[0];
       return (
         <>
-          <Link to={`/group/${groups[0].muscle_groups.id}`} className="link-text bold-link">
-            {groups[0].muscle_groups.name}
+          <Link to={`/group/${groupId}`} className="link-text bold-link">
+            {groupsDict[groupId] || groupId}
           </Link>
-          <em className="small-text">
-            {groups[0].muscle_groups.description && ` – ${truncateText(groups[0].muscle_groups.description, isMobile ? 50 : 200)}`}
-            {groups[0].muscle_groups.type && ` (${groups[0].muscle_groups.type})`}
-          </em>
         </>
       );
     }
     
     return (
       <ul className="detail-list">
-        {groups.map((f, idx) => (
+        {groups.map((groupId, idx) => (
           <li key={idx}>
-            <Link to={`/group/${f.muscle_groups.id}`} className="link-text bold-link">
-              {f.muscle_groups.name}
+            <Link to={`/group/${groupId}`} className="link-text bold-link">
+              {groupsDict[groupId] || groupId}
             </Link>
-            <em className="small-text">
-              {f.muscle_groups.description && ` – ${truncateText(f.muscle_groups.description, isMobile ? 50 : 200)}`}
-              {f.muscle_groups.type && ` (${f.muscle_groups.type})`}
-            </em>
           </li>
         ))}
       </ul>
     );
   };
 
-  // Функция для рендеринга функций
   const renderFunctions = () => {
+    const functions = muscle.muscle_functions || [];
     if (functions.length === 0) return <span className="empty-value">—</span>;
     
     if (functions.length === 1) {
+      const func = functions[0];
       return (
         <>
-          {functions[0].functions.name}
-          {functions[0].note && <em className="small-text"> – {truncateText(functions[0].note, isMobile ? 50 : 200)}</em>}
+          {functionsDict[func.id] || func.id}
+          {func.note && <em className="small-text"> – {func.note}</em>}
         </>
       );
     }
     
     return (
       <ul className="detail-list">
-        {functions.map((f, idx) => (
+        {functions.map((func, idx) => (
           <li key={idx}>
-            {f.functions.name}
-            {f.note && <em className="small-text"> – {truncateText(f.note, isMobile ? 50 : 200)}</em>}
+            {functionsDict[func.id] || func.id}
+            {func.note && <em className="small-text"> – {func.note}</em>}
           </li>
         ))}
       </ul>
     );
   };
 
-  // Функция для рендеринга меридианов
   const renderMeridians = () => {
+    const meridians = muscle.muscle_meridians || [];
     if (meridians.length === 0) return <span className="empty-value">—</span>;
     
     if (meridians.length === 1) {
+      const meridianId = meridians[0];
+      const meridian = meridiansDict[meridianId] || {};
       return (
         <>
-          <Link to={`/meridian/${meridians[0].meridian_id}`} className="link-text bold-link">
-            {meridians[0].meridians.name}
+          <Link to={`/meridian/${meridianId}`} className="link-text bold-link">
+            {meridian.name || meridianId}
           </Link>
-          {meridians[0].meridians.code && <span className="code-badge"> [{meridians[0].meridians.code}]</span>}
+          {meridian.code && <span className="code-badge"> [{meridian.code}]</span>}
         </>
       );
     }
     
     return (
       <ul className="detail-list">
-        {meridians.map((f, idx) => (
-          <li key={idx}>
-            <Link to={`/meridian/${f.meridian_id}`} className="link-text bold-link">
-              {f.meridians.name}
-            </Link>
-            {f.meridians.code && <span className="code-badge"> [{f.meridians.code}]</span>}
-          </li>
-        ))}
+        {meridians.map((meridianId, idx) => {
+          const meridian = meridiansDict[meridianId] || {};
+          return (
+            <li key={idx}>
+              <Link to={`/meridian/${meridianId}`} className="link-text bold-link">
+                {meridian.name || meridianId}
+              </Link>
+              {meridian.code && <span className="code-badge"> [{meridian.code}]</span>}
+            </li>
+          );
+        })}
       </ul>
     );
   };
 
-  // Функция для рендеринга органов
   const renderOrgans = () => {
+    const organs = muscle.muscle_organs || [];
     if (organs.length === 0) return <span className="empty-value">—</span>;
     
     if (organs.length === 1) {
+      const organId = organs[0];
+      const organ = organsDict[organId] || {};
       return (
         <>
-          <Link to={`/organ/${organs[0].organ_id}`} className="link-text bold-link">
-            {organs[0].organs.name}
+          <Link to={`/organ/${organId}`} className="link-text bold-link">
+            {organ.name || organId}
           </Link>
-          {organs[0].organs.system && <span className="system-badge"> ({organs[0].organs.system})</span>}
+          {organ.system && <span className="system-badge"> ({organ.system})</span>}
         </>
       );
     }
     
     return (
       <ul className="detail-list">
-        {organs.map((f, idx) => (
-          <li key={idx}>
-            <Link to={`/organ/${f.organ_id}`} className="link-text bold-link">
-              {f.organs.name}
-            </Link>
-            {f.organs.system && <span className="system-badge"> ({f.organs.system})</span>}
-          </li>
-        ))}
+        {organs.map((organId, idx) => {
+          const organ = organsDict[organId] || {};
+          return (
+            <li key={idx}>
+              <Link to={`/organ/${organId}`} className="link-text bold-link">
+                {organ.name || organId}
+              </Link>
+              {organ.system && <span className="system-badge"> ({organ.system})</span>}
+            </li>
+          );
+        })}
       </ul>
     );
   };
 
-  // Функция для рендеринга нервов
   const renderNerves = () => {
+    const nerves = muscle.muscle_nerves || [];
     if (nerves.length === 0) return <span className="empty-value">—</span>;
     
     if (nerves.length === 1) {
+      const nerveId = nerves[0];
+      const nerve = nervesDict[nerveId] || {};
       return (
         <>
-          {nerves[0].nerves.name}
-          {nerves[0].nerves.type && <span className="type-badge"> ({nerves[0].nerves.type})</span>}
+          {nerve.name || nerveId}
+          {nerve.type && <span className="type-badge"> ({nerve.type})</span>}
         </>
       );
     }
     
     return (
       <ul className="detail-list">
-        {nerves.map((f, idx) => (
-          <li key={idx}>
-            {f.nerves.name} 
-            {f.nerves.type && <span className="type-badge"> ({f.nerves.type})</span>}
-          </li>
-        ))}
+        {nerves.map((nerveId, idx) => {
+          const nerve = nervesDict[nerveId] || {};
+          return (
+            <li key={idx}>
+              {nerve.name || nerveId}
+              {nerve.type && <span className="type-badge"> ({nerve.type})</span>}
+            </li>
+          );
+        })}
       </ul>
     );
   };
 
-  // Функция для рендеринга позвонков
   const renderVertebrae = () => {
-    if (verts.length === 0) return <span className="empty-value">—</span>;
+    const vertebrae = muscle.muscle_vertebrae || [];
+    if (vertebrae.length === 0) return <span className="empty-value">—</span>;
     
-    if (verts.length === 1) {
-      return <span className="vertebrae-code">{verts[0].vertebrae.code}</span>;
+    if (vertebrae.length === 1) {
+      const vertebraId = vertebrae[0];
+      return <span className="vertebrae-code">{vertebraeDict[vertebraId] || vertebraId}</span>;
     }
     
     return (
       <ul className="detail-list">
-        {verts.map((f, idx) => (
-          <li key={idx}>{f.vertebrae.code}</li>
+        {vertebrae.map((vertebraId, idx) => (
+          <li key={idx}>{vertebraeDict[vertebraId] || vertebraId}</li>
         ))}
       </ul>
     );
@@ -358,7 +315,6 @@ function MuscleDetail() {
 
   return (
     <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
-      {/* Навигация */}
       <div className="detail-navigation">
         <Link className="link-text" to="/">← Назад</Link>
         <button 
@@ -380,7 +336,6 @@ function MuscleDetail() {
         <span className="detail-subtitle">({muscle.name_lat})</span>
       </h1>
       
-      {/* Адаптивное отображение - либо таблица, либо вертикальные блоки */}
       <div className="detail-content">
         <table className="detail-table">
           <tbody>
@@ -398,127 +353,79 @@ function MuscleDetail() {
           </tbody>
         </table>
         
-        {/* Вертикальная версия для мобильных (будет показана через CSS медиа-запросы) */}
         <div className="mobile-detail">
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Описание:</span>
-            <span className="mobile-detail-value description-text">{muscle.notes || <span className="empty-value">—</span>}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Начало:</span>
-            <span className="mobile-detail-value">{muscle.origin || <span className="empty-value">—</span>}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Прикрепление:</span>
-            <span className="mobile-detail-value">{muscle.insertion || <span className="empty-value">—</span>}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Группы:</span>
-            <span className="mobile-detail-value">{renderGroups()}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Функции:</span>
-            <span className="mobile-detail-value">{renderFunctions()}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Меридиан:</span>
-            <span className="mobile-detail-value">{renderMeridians()}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Орган:</span>
-            <span className="mobile-detail-value">{renderOrgans()}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Иннервация:</span>
-            <span className="mobile-detail-value">{renderNerves()}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Позвонок:</span>
-            <span className="mobile-detail-value">{renderVertebrae()}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Индикатор:</span>
-            <span className="mobile-detail-value">{muscle.indicator || <span className="empty-value">—</span>}</span>
-          </div>
-          <div className="mobile-detail-item">
-            <span className="mobile-detail-label">Зона боли:</span>
-            <span className="mobile-detail-value">{muscle.pain_zones_text || <span className="empty-value">—</span>}</span>
-          </div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Описание:</span><span className="mobile-detail-value description-text">{muscle.notes || <span className="empty-value">—</span>}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Начало:</span><span className="mobile-detail-value">{muscle.origin || <span className="empty-value">—</span>}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Прикрепление:</span><span className="mobile-detail-value">{muscle.insertion || <span className="empty-value">—</span>}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Группы:</span><span className="mobile-detail-value">{renderGroups()}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Функции:</span><span className="mobile-detail-value">{renderFunctions()}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Меридиан:</span><span className="mobile-detail-value">{renderMeridians()}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Орган:</span><span className="mobile-detail-value">{renderOrgans()}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Иннервация:</span><span className="mobile-detail-value">{renderNerves()}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Позвонок:</span><span className="mobile-detail-value">{renderVertebrae()}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Индикатор:</span><span className="mobile-detail-value">{muscle.indicator || <span className="empty-value">—</span>}</span></div>
+          <div className="mobile-detail-item"><span className="mobile-detail-label">Зона боли:</span><span className="mobile-detail-value">{muscle.pain_zones_text || <span className="empty-value">—</span>}</span></div>
         </div>
       </div>
 
-    {/* Блок взаимоотношений */}
-	{relationships.length > 0 && (
-	  <div className="relationships-section">
-		<h3>Взаимоотношения мышцы</h3>
-		{relationships.map(relationship => {
-		  const isSynergist = relationship.synergists?.some(s => s.muscle.id === id) || false;
-		  const isAntagonist = relationship.antagonists?.some(a => a.muscle.id === id) || false;		  
-		  
-		  
-		  return (
-			<div key={relationship.id} className="relationship-card">
-			  <h4 className="relationship-title">
-				{relationship.function?.name}
-				{relationship.note && ` - ${truncateText(relationship.note, isMobile ? 50 : 200)}`}
-			  </h4>
-			  
-			  <div className="relationship-role">
-				<strong>Роль этой мышцы:</strong>{' '}
-				{isSynergist ? (
-				  <span className="role-synergist">Синергист</span>
-				) : isAntagonist ? (
-				  <span className="role-antagonist">Антагонист</span>
-				) : null}
-			  </div>
-			  
-			  {relationship.synergists && relationship.synergists.length > 0 && (
-				<div className="relationship-group">
-				  <strong>Синергисты:</strong>
-				  <ul className="relationship-list">
-					{relationship.synergists.map(synergist => (
-					  <li key={synergist.muscle.id}>
-						<Link to={`/muscle/${synergist.muscle.id}`} className="link-text">
-						  {synergist.muscle.name_ru} ({synergist.muscle.name_lat})
-						</Link>
-					  </li>
-					))}
-				  </ul>
-				</div>
-			  )}
+      {relationships.length > 0 && (
+        <div className="relationships-section">
+          <h3>Взаимоотношения мышцы</h3>
+          {relationships.map(relationship => {
+            const isSynergist = relationship.synergists?.some(s => s.muscle_id === id) || false;
+            const isAntagonist = relationship.antagonists?.some(a => a.muscle_id === id) || false;
+            
+            return (
+              <div key={relationship.id} className="relationship-card">
+                <h4 className="relationship-title">
+                  {relationship.function_name}
+                  {relationship.note && ` - ${truncateText(relationship.note, isMobile ? 50 : 200)}`}
+                </h4>
+                <div className="relationship-role">
+                  <strong>Роль этой мышцы:</strong>{' '}
+                  {isSynergist ? <span className="role-synergist">Синергист</span> : <span className="role-antagonist">Антагонист</span>}
+                </div>
+                {relationship.synergists && relationship.synergists.length > 0 && (
+                  <div className="relationship-group">
+                    <strong>Синергисты:</strong>
+                    <ul className="relationship-list">
+                      {relationship.synergists.map(synergist => (
+                        <li key={synergist.muscle_id}>
+                          <Link to={`/muscle/${synergist.muscle_id}`} className="link-text">
+                            {synergist.name_ru} ({synergist.name_lat})
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {relationship.antagonists && relationship.antagonists.length > 0 && (
+                  <div className="relationship-group">
+                    <strong>Антагонисты:</strong>
+                    <ul className="relationship-list">
+                      {relationship.antagonists.map(antagonist => (
+                        <li key={antagonist.muscle_id}>
+                          <Link to={`/muscle/${antagonist.muscle_id}`} className="link-text">
+                            {antagonist.name_ru} ({antagonist.name_lat})
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-			  {relationship.antagonists && relationship.antagonists.length > 0 && (
-				<div className="relationship-group">
-				  <strong>Антагонисты:</strong>
-				  <ul className="relationship-list">
-					{relationship.antagonists.map(antagonist => (
-					  <li key={antagonist.muscle.id}>
-						<Link to={`/muscle/${antagonist.muscle.id}`} className="link-text">
-						  {antagonist.muscle.name_ru} ({antagonist.muscle.name_lat})
-						  {/* ВРЕМЕННО: показываем порядок */}
-						  <span style={{ fontSize: '10px', color: '#999', marginLeft: '5px' }}>
-							[{antagonist.muscle.display_order || '?'}]
-						  </span>
-						</Link>
-					  </li>
-					))}
-				  </ul>
-				</div>
-			  )}
-			</div>
-		  );
-		})}
-	  </div>
-	)}
-
-    
-      {/* MediaManager */}
       <MediaManager 
         entityType="muscle"
         entityId={id}
         entityName={muscle?.name_ru || ''}
         showTitle={true}
         readonly={true}
+        viewMode="inline"   // <-- добавляем эту строку для теста
       />
       
       <hr className="separator" />

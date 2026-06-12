@@ -1,8 +1,8 @@
 // EntryDetail.js - адаптивная версия с использованием существующих стилей
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
-import MediaManager from './MediaManager'; 
+import MediaManager from './MediaManager';
+import API_URL from './config/api';
 import './App.css';
 
 function EntryDetail() {
@@ -30,16 +30,14 @@ function EntryDetail() {
       setLoading(true);
 
       try {
-        // Загружаем данные захода
-        const { data: entryData, error: entryError } = await supabase
-          .from('entries')
-          .select('*')
-          .eq('id', id)
-          .single();
+        // Загружаем данные захода через API
+        const response = await fetch(`${API_URL}/api/entries/${id}`);
+        const result = await response.json();
 
-        if (entryError) throw entryError;
+        if (!result.success) throw new Error(result.error);
+        if (!result.data) throw new Error('Заход не найден');
 
-        setEntry(entryData);
+        setEntry(result.data);
       } catch (error) {
         console.error('Ошибка загрузки данных:', error);
       } finally {

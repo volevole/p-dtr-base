@@ -50,7 +50,7 @@ function Sidebar({ isOpen, onToggle }) {
     if (path.startsWith('/meridian')) return 'meridian';
     if (path.startsWith('/dysfunction')) return 'dysfunction';
     if (path.startsWith('/group')) return 'group';
-    if (path.startsWith('/receptor-class')) return 'receptor-class';
+    if (path.startsWith('/receptor-class')) return 'receptor-classes';
     if (path.startsWith('/receptor')) return 'receptor';
     if (path.startsWith('/tool')) return 'tool';
     if (path.startsWith('/entry')) return 'entry';

@@ -1,9 +1,9 @@
-// GroupEditPage.js
+// GroupEditPage.js - полностью на новой БД
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
-import MediaManager from './MediaManager';
 import API_URL from './config/api';
+import MediaManager from './MediaManager';
+import './App.css';
 
 function GroupEditPage() {
   const { id } = useParams();
@@ -29,51 +29,33 @@ function GroupEditPage() {
     setLoading(true);
 
     try {
-      // Загрузка данных группы
-      const { data: groupData, error: groupError } = await supabase
-        .from('muscle_groups')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // 1. Загружаем данные группы
+      const groupRes = await fetch(`${API_URL}/api/group/${id}`);
+      const groupResult = await groupRes.json();
+      if (!groupResult.success) throw new Error(groupResult.error);
+      
+      const groupData = groupResult.data;
+      setGroup(groupData);
+      setFormData({
+        name: groupData.name || '',
+        type: groupData.type || '',
+        description: groupData.description || ''
+      });
 
-      if (groupError) throw groupError;
-
-      // Загрузка всех мышц - сортировка по display_order
-      const { data: musclesData, error: musclesError } = await supabase
-        .from('muscles')
-        .select('id, name_ru, name_lat, display_order')
-        .order('display_order', { ascending: true, nullsFirst: false });  // ← сортировка по display_order, null в конце
-
-      if (musclesError) throw musclesError;
-
-      // Загрузка мышц, которые уже в группе - с сортировкой по display_order
-      const { data: groupMusclesData, error: membershipError } = await supabase
-        .from('muscle_group_membership')
-        .select(`
-          muscle_id,
-          muscles!inner (
-            display_order
-          )
-        `)
-        .eq('group_id', id)
-        .order('muscles(display_order)', { ascending: true });
-
-      if (membershipError) throw membershipError;
-
-      if (groupData) {
-        setGroup(groupData);
-        setFormData({
-          name: groupData.name || '',
-          type: groupData.type || '',
-          description: groupData.description || ''
-        });
+      // 2. Загружаем все мышцы (справочник)
+      const musclesRes = await fetch(`${API_URL}/api/muscles`);
+      const musclesResult = await musclesRes.json();
+      if (musclesResult.success) {
+        setAllMuscles(musclesResult.data || []);
       }
 
-      setAllMuscles(musclesData || []);
-      
-      // Получаем ID мышц в правильном порядке
-      const selectedIds = groupMusclesData?.map(item => item.muscle_id) || [];
-      setSelectedMuscles(selectedIds);
+      // 3. Загружаем мышцы, уже входящие в группу
+      const membersRes = await fetch(`${API_URL}/api/group/${id}/members`);
+      const membersResult = await membersRes.json();
+      if (membersResult.success) {
+        // Преобразуем ID к строке для единообразия
+        setSelectedMuscles(membersResult.data.map(id => String(id)));
+      }
       
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -92,10 +74,11 @@ function GroupEditPage() {
   };
 
   const toggleMuscleSelection = (muscleId) => {
+    const muscleIdStr = String(muscleId);
     setSelectedMuscles(prev => 
-      prev.includes(muscleId)
-        ? prev.filter(id => id !== muscleId)
-        : [...prev, muscleId]
+      prev.includes(muscleIdStr)
+        ? prev.filter(id => id !== muscleIdStr)
+        : [...prev, muscleIdStr]
     );
   };
 
@@ -104,42 +87,23 @@ function GroupEditPage() {
     setSaving(true);
 
     try {
-      // Обновление данных группы
-      const { error: updateError } = await supabase
-        .from('muscle_groups')
-        .update({
-          name: formData.name,
-          type: formData.type,
-          description: formData.description,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
+      // 1. Обновляем данные группы
+      const updateRes = await fetch(`${API_URL}/api/group/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const updateResult = await updateRes.json();
+      if (!updateResult.success) throw new Error(updateResult.error);
 
-      if (updateError) throw updateError;
-
-      // Обновление состава группы
-      // Удаляем старые связи
-      const { error: deleteError } = await supabase
-        .from('muscle_group_membership')
-        .delete()
-        .eq('group_id', id);
-
-      if (deleteError) throw deleteError;
-
-      // Добавляем новые связи
-      if (selectedMuscles.length > 0) {
-        const membershipData = selectedMuscles.map(muscleId => ({
-          group_id: id,
-          muscle_id: muscleId,
-          created_at: new Date().toISOString()
-        }));
-
-        const { error: insertError } = await supabase
-          .from('muscle_group_membership')
-          .insert(membershipData);
-
-        if (insertError) throw insertError;
-      }
+      // 2. Обновляем состав группы (отправляем исходные UUID, без преобразования)
+      const updateMembersRes = await fetch(`${API_URL}/api/group/${id}/members`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ muscleIds: selectedMuscles })
+      });
+      const updateMembersResult = await updateMembersRes.json();
+      if (!updateMembersResult.success) throw new Error(updateMembersResult.error);
 
       alert('Группа мышц успешно обновлена!');
       navigate(`/group/${id}`);
@@ -151,118 +115,79 @@ function GroupEditPage() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
-  if (!group) return <div style={{ padding: '2rem' }}>Группа не найдена</div>;
+  if (loading) return <div className="detail-container">Загрузка...</div>;
+  if (!group) return <div className="detail-container">Группа не найдена</div>;
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <Link to={`/group/${id}`}>← Назад к просмотру группы</Link>
+    <div className="detail-container">
+      <div className="detail-navigation">
+        <Link to={`/group/${id}`} className="link-text">← Назад к просмотру группы</Link>
       </div>
 
-      <h2>Редактирование группы мышц: {group.name}</h2>
+      <h2 className="detail-title">Редактирование группы мышц: {group.name}</h2>
 
-      <form onSubmit={handleSubmit} style={{ marginBottom: '40px' }}>
-        <div style={{ 
-          backgroundColor: '#f8f9fa', 
-          padding: '20px', 
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
+      <form onSubmit={handleSubmit} className="muscle-form">
+        <div className="form-section">
           <h3>Основная информация</h3>
           
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Название группы:
-            </label>
+          <div className="form-section">
+            <label>Название группы:</label>
             <input
               type="text"
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              style={{ width: '100%', padding: '8px', fontSize: '16px' }}
               required
             />
           </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Тип группы:
-            </label>
+          <div className="form-section">
+            <label>Тип группы:</label>
             <input
               type="text"
               name="type"
-              value={formData.type}
+              value={formData.type || ''}
               onChange={handleInputChange}
-              style={{ width: '100%', padding: '8px', fontSize: '16px' }}
-              placeholder="Например: функциональная, анатомическая и т.д."
+              placeholder="Например: функциональная, анатомическая, часть одной мышцы и т.д."
             />
           </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Описание:
-            </label>
+          <div className="form-section">
+            <label>Описание:</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              style={{ 
-                width: '100%', 
-                padding: '8px', 
-                fontSize: '16px',
-                minHeight: '150px',
-                resize: 'vertical'
-              }}
+              rows={5}
             />
           </div>
         </div>
 
-        <div style={{ 
-          backgroundColor: '#f8f9fa', 
-          padding: '20px', 
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
+        <div className="form-section">
           <h3>Состав группы</h3>
           
-          <div style={{ 
-            maxHeight: '300px', 
-            overflowY: 'auto', 
-            border: '1px solid #ddd', 
-            padding: '15px',
-            marginTop: '10px',
-            backgroundColor: 'white'
-          }}>
+          <div className="multi-select-container">
             {allMuscles.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {allMuscles.map(muscle => (
-                  <div key={muscle.id} style={{ 
-                    padding: '10px', 
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '4px',
-                    backgroundColor: selectedMuscles.includes(muscle.id) ? '#e7f4ff' : 'white'
-                  }}>
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              allMuscles.map(muscle => {
+                const muscleIdStr = String(muscle.id);
+                const isChecked = selectedMuscles.includes(muscleIdStr);
+                return (
+                  <div key={muscle.id} className="multi-select-item">
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', width: '100%' }}>
                       <input
                         type="checkbox"
-                        checked={selectedMuscles.includes(muscle.id)}
+                        checked={isChecked}
                         onChange={() => toggleMuscleSelection(muscle.id)}
-                        style={{ 
-                          marginRight: '12px',
-                          width: '18px',
-                          height: '18px',
-                          cursor: 'pointer'
-                        }}
+                        style={{ marginRight: '12px' }}
                       />
                       <div>
                         <div style={{ fontWeight: 'bold' }}>{muscle.name_ru}</div>
-                        <div style={{ fontSize: '14px', color: '#666' }}>{muscle.name_lat}</div>
+                        <div style={{ fontSize: '12px', color: '#666' }}>{muscle.name_lat}</div>
                       </div>
                     </label>
                   </div>
-                ))}
-              </div>
+                );
+              })
             ) : (
               <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
                 Нет доступных мышц
@@ -279,43 +204,20 @@ function GroupEditPage() {
             borderRadius: '4px'
           }}>
             Выбрано: <strong>{selectedMuscles.length}</strong> мышц
-            {selectedMuscles.length > 0 && (
-              <div style={{ fontSize: '12px', marginTop: '5px' }}>
-                {allMuscles
-                  .filter(muscle => selectedMuscles.includes(muscle.id))
-                  .map(muscle => muscle.name_ru)
-                  .join(', ')}
-              </div>
-            )}
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={saving}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: saving ? '#6c757d' : '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: saving ? 'not-allowed' : 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            if (!saving) e.target.style.backgroundColor = '#218838';
-          }}
-          onMouseLeave={(e) => {
-            if (!saving) e.target.style.backgroundColor = '#28a745';
-          }}
-        >
-          {saving ? '⏳ Сохранение...' : '💾 Сохранить изменения группы'}
-        </button>
+        <div className="form-actions">
+          <button
+            type="submit"
+            disabled={saving}
+            className="save-button"
+          >
+            {saving ? '⏳ Сохранение...' : '💾 Сохранить изменения группы'}
+          </button>
+        </div>
       </form>
 
-      {/* Используем универсальный MediaManager для группы мышц */}
       <MediaManager 
         entityType="muscle_group"
         entityId={id}

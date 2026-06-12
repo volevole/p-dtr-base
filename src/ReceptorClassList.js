@@ -181,7 +181,7 @@ const renderReceptorClassCard = (cls, index, actions, totalCount) => {
 const ReceptorClassList = createEntityList({
   entityName: 'Классы рецепторов',
   entityType: 'receptor-class',
-  tableName: 'receptor_classes',
+  tableName: 'receptor-classes',
   columns: [
     { field: 'name', label: 'Название', searchable: true },
     { field: 'antistimulus', label: 'Антистимул', searchable: true }

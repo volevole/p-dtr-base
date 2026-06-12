@@ -1,8 +1,8 @@
 // EntryEditPage.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
 import MediaManager from './MediaManager';
+import API_URL from './config/api';
 
 function EntryEditPage() {
   const { id } = useParams();
@@ -32,21 +32,18 @@ function EntryEditPage() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await fetch(`${API_URL}/api/entries/${id}`);
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
-      if (data) {
-        setEntry(data);
+      if (result.data) {
+        setEntry(result.data);
         setFormData({
-          name: data.name || '',
-          description: data.description || '',
-          display_order: data.display_order || 0,
-          is_active: data.is_active !== false // По умолчанию true
+          name: result.data.name || '',
+          description: result.data.description || '',
+          display_order: result.data.display_order || 0,
+          is_active: result.data.is_active !== false // По умолчанию true
         });
       }
     } catch (error) {
@@ -78,40 +75,33 @@ function EntryEditPage() {
     setSaving(true);
 
     try {
+      let url, method, successMessage;
+
       if (isNew) {
-        // Создание нового захода
-        const { data, error } = await supabase
-          .from('entries')
-          .insert([{
-            name: formData.name,
-            description: formData.description,
-            display_order: formData.display_order,
-            is_active: formData.is_active,
-            created_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        alert('Заход успешно создан!');
-        navigate(`/entry/${data.id}`);
+        url = `${API_URL}/api/entries`;
+        method = 'POST';
+        successMessage = 'Заход успешно создан!';
       } else {
-        // Обновление существующего захода
-        const { error } = await supabase
-          .from('entries')
-          .update({
-            name: formData.name,
-            description: formData.description,
-            display_order: formData.display_order,
-            is_active: formData.is_active,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id);
+        url = `${API_URL}/api/entries/${id}`;
+        method = 'PUT';
+        successMessage = 'Заход успешно обновлен!';
+      }
 
-        if (error) throw error;
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
 
-        alert('Заход успешно обновлен!');
+      const result = await response.json();
+
+      if (!result.success) throw new Error(result.error);
+
+      alert(successMessage);
+      
+      if (isNew && result.id) {
+        navigate(`/entry/${result.id}`);
+      } else {
         navigate(`/entry/${id}`);
       }
     } catch (error) {
@@ -278,7 +268,9 @@ function EntryEditPage() {
           color: '#6c757d'
         }}>
           <p><strong>ID:</strong> {entry.id}</p>
-          <p><strong>Создан:</strong> {new Date(entry.created_at).toLocaleString('ru-RU')}</p>
+          {entry.created_at && (
+            <p><strong>Создан:</strong> {new Date(entry.created_at).toLocaleString('ru-RU')}</p>
+          )}
           {entry.updated_at && (
             <p><strong>Обновлен:</strong> {new Date(entry.updated_at).toLocaleString('ru-RU')}</p>
           )}

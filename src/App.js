@@ -4,6 +4,7 @@ import { Routes, Route } from 'react-router-dom'
 import Sidebar from './Sidebar'; 
 import AllMediaPage from './utils/AllMediaPage';
 import EnvironmentInfoPage from './EnvironmentInfoPage';
+import MediaViewerPage from './MediaViewerPage';
 
 // Импорт страниц про мышцы
 import MuscleDetail from './MuscleDetail'      
@@ -52,6 +53,11 @@ import EntryDetail from './EntryDetail';
 import EntryEdit from './EntryEditPage';
 
 import './App.css';   //стили
+
+// Тестовые - потом можно удалить
+import TestPreview from './TestPreview';
+import TestRefreshLinks from './TestRefreshLinks';
+
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);  // ← Теперь useState определен
@@ -112,6 +118,13 @@ function App() {
             
             <Route path="/all-media" element={<AllMediaPage />} />	
             <Route path="/environment-info" element={<EnvironmentInfoPage />} />
+            
+            // Тестовые - потом можно удалить
+            <Route path="/test-preview" element={<TestPreview />} />
+            <Route path="/test-refresh" element={<TestRefreshLinks />} />  //Это полезно, лучше оставить, т.к. вызывается из AllMediaPage
+
+            // Добавьте маршрут для отдельного просмотра
+            <Route path="/media-viewer/:id" element={<MediaViewerPage />} />
           </Routes>
         </div>
         

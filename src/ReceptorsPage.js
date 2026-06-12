@@ -99,7 +99,7 @@ const renderReceptorCard = (receptor, index, actions, totalCount) => {
 const ReceptorsPage = createEntityList({
   entityName: 'Рецепторы',
   entityType: 'receptor',
-  tableName: 'receptors',
+  tableName: 'receptors',  // ← множественное число
   columns: [
     { field: 'name', label: 'Название', searchable: true },
     { field: 'location', label: 'Место нахождения', searchable: true },

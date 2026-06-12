@@ -1,8 +1,8 @@
 // ToolEditPage.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
 import MediaManager from './MediaManager';
+import API_URL from './config/api';
 
 function ToolEditPage() {
   const { id } = useParams();
@@ -31,20 +31,17 @@ function ToolEditPage() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        .from('tools')
-        .select('*')
-        .eq('id', id)
-        .single();
+      const response = await fetch(`${API_URL}/api/tools/${id}`);
+      const result = await response.json();
 
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
-      if (data) {
-        setTool(data);
+      if (result.data) {
+        setTool(result.data);
         setFormData({
-          name: data.name || '',
-          description: data.description || '',
-          display_order: data.display_order || 0
+          name: result.data.name || '',
+          description: result.data.description || '',
+          display_order: result.data.display_order || 0
         });
       }
     } catch (error) {
@@ -68,39 +65,33 @@ function ToolEditPage() {
     setSaving(true);
 
     try {
+      let url, method, successMessage;
+
       if (isNew) {
-        // Создание нового инструмента
-        const { data, error } = await supabase
-          .from('tools')
-          .insert([{
-            name: formData.name,
-            description: formData.description,
-            display_order: formData.display_order,
-            is_active: true,
-            created_at: new Date().toISOString()
-          }])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        alert('Инструмент успешно создан!');
-        navigate(`/tool/${data.id}`);
+        url = `${API_URL}/api/tools`;
+        method = 'POST';
+        successMessage = 'Инструмент успешно создан!';
       } else {
-        // Обновление существующего инструмента
-        const { error } = await supabase
-          .from('tools')
-          .update({
-            name: formData.name,
-            description: formData.description,
-            display_order: formData.display_order,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id);
+        url = `${API_URL}/api/tools/${id}`;
+        method = 'PUT';
+        successMessage = 'Инструмент успешно обновлен!';
+      }
 
-        if (error) throw error;
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
 
-        alert('Инструмент успешно обновлен!');
+      const result = await response.json();
+
+      if (!result.success) throw new Error(result.error);
+
+      alert(successMessage);
+      
+      if (isNew && result.id) {
+        navigate(`/tool/${result.id}`);
+      } else {
         navigate(`/tool/${id}`);
       }
     } catch (error) {
@@ -249,7 +240,9 @@ function ToolEditPage() {
           color: '#6c757d'
         }}>
           <p><strong>ID:</strong> {tool.id}</p>
-          <p><strong>Создан:</strong> {new Date(tool.created_at).toLocaleString('ru-RU')}</p>
+          {tool.created_at && (
+            <p><strong>Создан:</strong> {new Date(tool.created_at).toLocaleString('ru-RU')}</p>
+          )}
           {tool.updated_at && (
             <p><strong>Обновлен:</strong> {new Date(tool.updated_at).toLocaleString('ru-RU')}</p>
           )}

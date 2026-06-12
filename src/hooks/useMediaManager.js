@@ -1,7 +1,7 @@
 // hooks/useMediaManager.js
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../utils/supabaseClient';
-import API_URL from '../config/api';
+//import { supabase } from '../utils/supabaseClient';
+import API_URL, { config } from '../config/api'
 
 /**
  * Хук для управления медиафайлами сущности
@@ -31,65 +31,49 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
 
   // Загрузка медиафайлов
 	const fetchMedia = useCallback(async () => {
-	  if (!entityType || !entityId) return;
-	  
-	  try {
-		setLoading(true);
-		setError(null);
-		addDebugMessage('🔄 Загрузка медиафайлов...');
-		
-		// Универсальный API эндпоинт
-		const response = await fetch(`${API_URL}/api/media/${entityType}/${entityId}`);
-		
-		if (!response.ok) {
-		  throw new Error(`HTTP error! status: ${response.status}`);
-		}
-		
-		const result = await response.json();
-		
-		if (!result.success) {
-		  throw new Error(result.error || 'Unknown error');
-		}
-		
-		// ДЕБАГ: выводим данные, полученные с сервера
-		console.log('Данные медиа с сервера:', result.data);
-		addDebugMessage(`📊 Получено ${result.data?.length || 0} медиафайлов с сервера`);
-		
-		// Проверяем наличие поля thumbnail_updated_at в первом элементе
-		if (result.data && result.data.length > 0) {
-		  const firstItem = result.data[0];
-		  console.log('Первый медиафайл:', {
-			id: firstItem.id,
-			file_name: firstItem.file_name,
-			thumbnail_url: firstItem.thumbnail_url,
-			thumbnail_updated_at: firstItem.thumbnail_updated_at,
-			hasThumbnailUpdatedAt: 'thumbnail_updated_at' in firstItem,
-			allFields: Object.keys(firstItem)
-		  });
-		  
-		  addDebugMessage(`🔍 Проверка полей первого файла:`);
-		  addDebugMessage(`   - thumbnail_url: ${firstItem.thumbnail_url ? 'есть' : 'нет'}`);
-		  addDebugMessage(`   - thumbnail_updated_at: ${firstItem.thumbnail_updated_at || 'НЕТ'}`);
-		  addDebugMessage(`   - Все поля: ${Object.keys(firstItem).join(', ')}`);
-		}
-		
-		// Обрабатываем медиа для отображения
-		const processedMedia = processMediaForDisplay(result.data || []);
-		setMedia(processedMedia);
-		addDebugMessage(`✅ Загружено ${processedMedia.length} медиафайлов (универсальный API)`);
-		
-	  } catch (err) {
-		const errorMsg = `❌ Ошибка загрузки медиа: ${err.message}`;
-		setError(err.message);
-		addDebugMessage(errorMsg);
-		console.error('Error fetching media:', err);
-		
-		// Устанавливаем пустой массив в случае ошибки
-		setMedia([]);
-	  } finally {
-		setLoading(false);
-	  }
-	}, [entityType, entityId, addDebugMessage]);
+  if (!entityType || !entityId) return;
+  
+  const startTime = performance.now();
+  addDebugMessage(`🔄 [TIMER] Начало загрузки медиа для ${entityType}/${entityId}`);
+  
+  try {
+    setLoading(true);
+    setError(null);
+    
+    // Замер запроса к API
+    const apiStart = performance.now();
+    const response = await fetch(`${API_URL}/api/media/${entityType}/${entityId}`);
+    const apiEnd = performance.now();
+    addDebugMessage(`⏱️ [TIMER] Запрос к API занял: ${(apiEnd - apiStart).toFixed(0)} мс`);
+    
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Unknown error');
+    }
+    
+    // Замер обработки данных
+    const processStart = performance.now();
+    const processedMedia = processMediaForDisplay(result.data || []);
+    const processEnd = performance.now();
+    addDebugMessage(`⏱️ [TIMER] Обработка данных заняла: ${(processEnd - processStart).toFixed(0)} мс`);
+    
+    setMedia(processedMedia);
+    addDebugMessage(`✅ Загружено ${processedMedia.length} медиафайлов`);
+    
+    const totalEnd = performance.now();
+    addDebugMessage(`⏱️ [TIMER] ВСЕГО загрузка заняла: ${(totalEnd - startTime).toFixed(0)} мс`);
+    
+  } catch (err) {
+    const errorMsg = `❌ Ошибка загрузки медиа: ${err.message}`;
+    setError(err.message);
+    addDebugMessage(errorMsg);
+    console.error('Error fetching media:', err);
+    setMedia([]);
+  } finally {
+    setLoading(false);
+  }
+}, [entityType, entityId, addDebugMessage]);
 
 
   // Загрузка файла
@@ -670,35 +654,42 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
   };
 
   // Получение URL превью
-	 const getThumbnailUrl = (mediaItem) => {
-	  if (!mediaItem) return null;
-	  
-	  // Используем thumbnail_updated_at для обхода кэша
-	  // Добавляем timestamp к URL для принудительного обновления
-	  const cacheBuster = mediaItem.thumbnail_updated_at 
-		? `?t=${new Date(mediaItem.thumbnail_updated_at).getTime()}` 
-		: `?t=${Date.now()}`;
-	  
-	  // Для изображений: используем file_url как основной источник
-	  if (mediaItem.file_type === 'image' && mediaItem.file_url) {
-		const proxyUrl = createProxyUrl(mediaItem.file_url);
-		return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
-	  }
-	  
-	  // Для остальных типов: пробуем thumbnail_url
-	  if (mediaItem.thumbnail_url) {
-		const proxyUrl = createProxyUrl(mediaItem.thumbnail_url);
-		return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
-	  }
-	  
-	  // Для изображений без file_url: используем public_url
-	  if (mediaItem.file_type === 'image' && mediaItem.public_url) {
-		const proxyUrl = createProxyUrl(mediaItem.public_url);
-		return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
-	  }
-	  
-	  return null;
-	};
+const getThumbnailUrl =  async (mediaItem) => {
+  
+  if (!mediaItem) return null;
+  
+  if (config.YANDEX_DISK_MODE === 'embed') {
+    // Синхронно возвращаем URL эндпоинта с mode=embed
+    return `${API_URL}/api/yandex-preview?url=${encodeURIComponent(mediaItem.public_url)}&size=${config.YANDEX_PREVIEW_SIZE}&mode=embed`;
+  }
+  
+  // Ниже — старый код для legacy-режима (через прокси)
+  
+  // Используем thumbnail_updated_at для обхода кэша
+  const cacheBuster = mediaItem.thumbnail_updated_at 
+    ? `?t=${new Date(mediaItem.thumbnail_updated_at).getTime()}` 
+    : `?t=${Date.now()}`;
+  
+  // Для изображений: используем file_url как основной источник
+  if (mediaItem.file_type === 'image' && mediaItem.file_url) {
+    const proxyUrl = createProxyUrl(mediaItem.file_url);
+    return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
+  }
+  
+  // Для остальных типов: пробуем thumbnail_url
+  if (mediaItem.thumbnail_url) {
+    const proxyUrl = createProxyUrl(mediaItem.thumbnail_url);
+    return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
+  }
+  
+  // Для изображений без file_url: используем public_url
+  if (mediaItem.file_type === 'image' && mediaItem.public_url) {
+    const proxyUrl = createProxyUrl(mediaItem.public_url);
+    return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
+  }
+  
+  return null;
+};
 
   // Обработка медиа для отображения
   const processMediaForDisplay = (mediaArray) => {
@@ -712,6 +703,50 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
       isThumbnailExpired: isThumbnailExpired(item)
     }));
   };
+
+// Добавьте эту функцию в хук (внутрь return объекта)
+const getDisplayUrl = (mediaItem, type = 'view') => {
+  if (!mediaItem) return null;
+  
+  const mode = config.YANDEX_DISK_MODE;
+  const publicUrl = mediaItem.public_url;
+  
+  if (!publicUrl) {
+    // Если нет public_url, пробуем прямые ссылки
+    if (type === 'thumbnail' && mediaItem.thumbnail_url) return mediaItem.thumbnail_url;
+    if (type === 'file' && mediaItem.file_url) return mediaItem.file_url;
+    return null;
+  }
+  
+  switch (mode) {
+    case 'embed':
+      // Embed-ссылка для iframe
+      if (type === 'embed') {
+        // Конвертируем yadi.sk/d/... в yadi.sk/i/... для embed
+        return publicUrl.replace('https://yadi.sk/d/', 'https://yadi.sk/i/');
+      }
+      // Для превью в embed-режиме используем API с preview_size
+      if (type === 'thumbnail') {
+        return `${config.API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}`;
+      }
+      return publicUrl;
+      
+    case 'direct':
+      // Прямые ссылки (старый способ)
+      if (type === 'thumbnail') return mediaItem.thumbnail_url;
+      return mediaItem.file_url || publicUrl;
+      
+    case 'legacy':
+    default:
+      // Старый способ через прокси
+      if (type === 'thumbnail') {
+        const thumbUrl = mediaItem.thumbnail_url || publicUrl;
+        return `${config.API_URL}/api/proxy-image?url=${encodeURIComponent(thumbUrl)}`;
+      }
+      return `${config.API_URL}/api/proxy-image?url=${encodeURIComponent(publicUrl)}`;
+  }
+};
+
 
   // Загрузка медиа при изменении entityType или entityId
   useEffect(() => {
@@ -749,7 +784,11 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
     addDebugMessage,
     clearDebugMessages,
     createProxyUrl,
-    getThumbnailUrl,  
+    getThumbnailUrl, 
+    getDisplayUrl,
+      getEmbedUrl: (mediaItem) => getDisplayUrl(mediaItem, 'embed'),
+      getThumbnailUrl: (mediaItem) => getDisplayUrl(mediaItem, 'thumbnail'),
+      getFileUrl: (mediaItem) => getDisplayUrl(mediaItem, 'file'), 
     getFileIcon: (fileType) => {
       switch(fileType) {
         case 'image': return '🖼️';

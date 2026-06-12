@@ -1,8 +1,8 @@
 // ToolDetail.js - адаптивная версия с использованием существующих стилей
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
 import MediaManager from './MediaManager';
+import API_URL from './config/api';
 import './App.css';
 
 function ToolDetail() {
@@ -31,14 +31,14 @@ function ToolDetail() {
 
   const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('tools')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      setTool(data);
+      const response = await fetch(`${API_URL}/api/tools/${id}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setTool(result.data);
+      } else {
+        console.error('Error loading tool:', result.error);
+      }
     } catch (error) {
       console.error('Error loading tool:', error);
     } finally {
@@ -117,7 +117,9 @@ function ToolDetail() {
       <div className="separator" style={{ marginTop: '30px' }} />
       <div className="detail-id">
         <p><strong>ID инструмента:</strong> {tool.id}</p>
-        <p><strong>Создан:</strong> {new Date(tool.created_at).toLocaleString('ru-RU')}</p>
+        {tool.created_at && (
+          <p><strong>Создан:</strong> {new Date(tool.created_at).toLocaleString('ru-RU')}</p>
+        )}
         {tool.updated_at && (
           <p><strong>Обновлен:</strong> {new Date(tool.updated_at).toLocaleString('ru-RU')}</p>
         )}

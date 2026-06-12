@@ -1,18 +1,18 @@
 // DysfunctionDetail.js
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { supabase } from './utils/supabaseClient';
-import MediaManager from './MediaManager'; 
+import API_URL from './config/api';
+import MediaManager from './MediaManager';
 
 function DysfunctionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [dysfunction, setDysfunction] = useState(null);
-  const [muscles, setMuscles] = useState([]); // Все мышцы (прямые + из групп)
-  const [groups, setGroups] = useState([]); // Группы мышц с этой дисфункцией
-  const [relationships, setRelationships] = useState([]); // Взаимоотношения мышц
+  const [muscles, setMuscles] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [relationships, setRelationships] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('info'); // 'info', 'muscles', 'groups', 'relationships'
+  const [activeTab, setActiveTab] = useState('info');
 
   useEffect(() => {
     async function fetchData() {
@@ -20,171 +20,94 @@ function DysfunctionDetail() {
 
       try {
         // 1. Загружаем данные дисфункции
-        const { data: dysfunctionData, error: dysfunctionError } = await supabase
-          .from('dysfunctions')
-          .select('*')
-          .eq('id', id)
-          .single();
+        const dysfunctionRes = await fetch(`${API_URL}/api/dysfunctions/${id}`);
+        const dysfunctionData = await dysfunctionRes.json();                  
 
-        if (dysfunctionError) throw dysfunctionError;
-
-        // 2. Параллельно загружаем все связанные данные
-        const [
-          { data: directMusclesData },
-          { data: groupDysfunctionsData },
-          { data: relationshipLinksData },
-          { data: allGroupsData }
-        ] = await Promise.all([
-          // Прямые связи мышц с дисфункцией
-          supabase
-            .from('muscle_dysfunctions')
-            .select(`
-              muscle:muscles(
-                id,
-                name_ru,
-                name_lat,
-                origin,
-                insertion,
-                indicator,
-                notes,
-                pain_zones_text,
-                display_order
-              )
-            `)
-            .eq('dysfunction_id', id),
+        if (!dysfunctionData.success) throw new Error(dysfunctionData.error);
+        
+        // 2. Загружаем прямые связи
+        
+        const [directMusclesRes, groupsRes, relationshipsRes] = await Promise.all([
           
-          // Связи дисфункции с группами мышц
-          supabase
-            .from('muscle_group_dysfunctions')
-            .select(`
-              group_id,
-              muscle_groups(
-                id,
-                name,
-                description
-              )
-            `)
-            .eq('dysfunction_id', id),
-          
-          // Связи дисфункции с взаимоотношениями мышц
-          supabase
-            .from('synergists_dysfunction') 
-            .select(`
-              relationship_id,
-              muscle_relationships(
-                id,
-                note,
-                functions(name)
-              )
-            `)
-            .eq('dysfunction_id', id),
-          
-          // Все группы мышц для дальнейших запросов
-          supabase
-            .from('muscle_groups')
-            .select('id, name')
+          fetch(`${API_URL}/api/dysfunctions/${id}/muscles`),
+          fetch(`${API_URL}/api/dysfunctions/${id}/muscle-groups`),
+          fetch(`${API_URL}/api/dysfunctions/${id}/relationships`)
         ]);
+        
+        const directMusclesData = await directMusclesRes.json();
+        const groupsData = await groupsRes.json();
+        const relationshipsData = await relationshipsRes.json();
+        
+        const directMuscles = directMusclesData.success ? directMusclesData.data : [];
+        const groupDysfunctions = groupsData.success ? groupsData.data : [];
+        const relationshipLinks = relationshipsData.success ? relationshipsData.data : [];
 
-        // 3. Получаем мышцы из всех групп с этой дисфункцией
+        // 3. Получаем мышцы из всех групп
         const groupMuscles = [];
-
-        if (groupDysfunctionsData && groupDysfunctionsData.length > 0) {
-          
-          // Для каждой группы получаем все мышцы
-          for (const groupData of groupDysfunctionsData) {
+        
+        if (groupDysfunctions && groupDysfunctions.length > 0) {
+          for (const group of groupDysfunctions) {
+            const groupMusclesRes = await fetch(`${API_URL}/api/muscle-groups/${group.id}/muscles`);
+            const groupMusclesData = await groupMusclesRes.json();
             
-            const { data: groupMusclesData, error: groupMusclesError } = await supabase
-              .from('muscle_group_membership')
-              .select(`
-                muscle:muscles(
-                  id,
-                  name_ru,
-                  name_lat,
-                  origin,
-                  insertion,
-                  indicator,
-                  notes,
-                  pain_zones_text,
-                  display_order
-                )
-              `)
-              .eq('group_id', groupData.group_id);
-                            
-            if (groupMusclesError) {
-              console.error('Ошибка загрузки мышц группы:', groupMusclesError);
-              continue;
-            }
-            
-            if (groupMusclesData && groupMusclesData.length > 0) {
-              
-              groupMusclesData.forEach(item => {
-                
-                if (item.muscle) {
-                  // Добавляем информацию о группе к каждой мышце
-                  groupMuscles.push({
-                    ...item.muscle,
-                    viaGroup: true,
-                    groupName: groupData.muscle_groups?.name || 'Группа мышц',
-                    groupId: groupData.group_id
-                  });
-                } else {
-                  console.warn('У элемента нет поля muscle:', item);
-                }
+            if (groupMusclesData.success && groupMusclesData.data) {
+              groupMusclesData.data.forEach(muscle => {
+                groupMuscles.push({
+                  ...muscle,
+                  viaGroup: true,
+                  groupName: group.name || 'Группа мышц',
+                  groupId: group.id
+                });
               });
-            } else {
-              console.warn('В группе нет мышц или данные пустые');
             }
           }
         }
 
-        setDysfunction(dysfunctionData);
+        setDysfunction(dysfunctionData.data);
         
-        // Обрабатываем прямые связи мышц
-        const directMuscles = (directMusclesData?.map(item => ({
-          ...item.muscle,
+        // Обрабатываем прямые связи
+        const directMusclesList = directMuscles.map(muscle => ({
+          ...muscle,
           viaGroup: false,
           groupName: null,
           groupId: null
-        })) || []);
+        }));
         
         // Объединяем все мышцы
-        const allMuscles = [...directMuscles, ...groupMuscles];
-
-        // Удаляем дубликаты (если мышца есть и в прямой связи, и в групповой)
+        const allMuscles = [...directMusclesList, ...groupMuscles];
+        
+        // Удаляем дубликаты
         const uniqueMuscles = Array.from(new Set(allMuscles.map(m => m.id)))
           .map(muscleId => {
             const muscle = allMuscles.find(m => m.id === muscleId);
-            // Если мышца есть и в прямой, и в групповой связи, показываем как прямую
-            const muscleInDirect = directMuscles.find(m => m.id === muscleId);
+            const muscleInDirect = directMusclesList.find(m => m.id === muscleId);
             return muscleInDirect || muscle;
           })
-          // Сортируем по display_order
           .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
 
         setMuscles(uniqueMuscles);
         
-        // Сохраняем группы с этой дисфункцией
-        const groupsList = groupDysfunctionsData?.map(item => ({
-          id: item.group_id,
-          name: item.muscle_groups?.name || 'Группа мышц',
-          description: item.muscle_groups?.description
-        })) || [];
+        // Сохраняем группы
+        const groupsList = groupDysfunctions.map(group => ({
+          id: group.id,
+          name: group.name || 'Группа мышц',
+          description: group.description
+        }));
         setGroups(groupsList);
         
-        // Сохраняем взаимоотношения мышц
-        const relationshipsList = relationshipLinksData?.map(item => {
-          // Формируем полное название: "Функция Примечание"
-          const fullTitle = item.muscle_relationships?.functions?.name && item.muscle_relationships?.note
-            ? `${item.muscle_relationships.functions.name} ${item.muscle_relationships.note}`.trim()
-            : item.muscle_relationships?.note || item.muscle_relationships?.functions?.name || 'Без названия';
+        // Сохраняем взаимоотношения
+        const relationshipsList = relationshipLinks.map(relationship => {
+          const fullTitle = relationship.function_name && relationship.note
+            ? `${relationship.function_name} ${relationship.note}`.trim()
+            : relationship.note || relationship.function_name || 'Без названия';
           
           return {
-            id: item.relationship_id,
-            note: item.muscle_relationships?.note || 'Без названия',
-            functionName: item.muscle_relationships?.functions?.name || 'Не указано',
+            id: relationship.id,
+            note: relationship.note || 'Без названия',
+            functionName: relationship.function_name || 'Не указано',
             fullTitle: fullTitle
           };
-        }) || [];
+        });
         setRelationships(relationshipsList);
 
       } catch (error) {
@@ -258,7 +181,7 @@ function DysfunctionDetail() {
             cursor: 'pointer'
           }}
         >
-          ✏️ 
+          ✏️ Редактировать
         </button>
       </div>
 
@@ -320,65 +243,39 @@ function DysfunctionDetail() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '20px' }}>
-                {/* Визуальная диагностика */}
                 <div style={infoCardStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span role="img" aria-label="eye">👁️</span> Визуальная диагностика
-                  </h3>
+                  <h3 style={sectionTitleStyle}>👁️ Визуальная диагностика</h3>
                   <div style={{ lineHeight: '1.6' }}>
                     {renderMultilineText(dysfunction.visual_diagnosis)}
                   </div>
                 </div>
 
-                {/* Провокации */}
                 <div style={infoCardStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span role="img" aria-label="test">🧪</span> Провокации
-                  </h3>
+                  <h3 style={sectionTitleStyle}>🧪 Провокации</h3>
                   <div style={{ lineHeight: '1.6' }}>
                     {renderMultilineText(dysfunction.provocations_text)}
                   </div>
                 </div>
 
-                {/* Алгоритм */}
                 <div style={infoCardStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span role="img" aria-label="algorithm">⚙️</span> Алгоритм диагностики
-                  </h3>
+                  <h3 style={sectionTitleStyle}>⚙️ Алгоритм диагностики</h3>
                   <div style={{ lineHeight: '1.6' }}>
                     {renderMultilineText(dysfunction.main_algorithm)}
                   </div>
                 </div>
 
-                {/* Рецепторы */}
                 <div style={infoCardStyle}>
-                  <h3 style={sectionTitleStyle}>
-                    <span role="img" aria-label="receptors">🔬</span> Рецепторы
-                  </h3>
+                  <h3 style={sectionTitleStyle}>🔬 Рецепторы</h3>
                   <div style={{ display: 'grid', gap: '15px' }}>
                     <div>
-                      <h4 style={{ marginBottom: '5px', color: '#495057', fontSize: '16px' }}>
-                        Рецептор 1:
-                      </h4>
-                      <div style={{ 
-                        backgroundColor: '#e9f5ff', 
-                        padding: '10px', 
-                        borderRadius: '4px',
-                        borderLeft: '4px solid #007bff'
-                      }}>
+                      <h4 style={{ marginBottom: '5px', color: '#495057', fontSize: '16px' }}>Рецептор 1:</h4>
+                      <div style={{ backgroundColor: '#e9f5ff', padding: '10px', borderRadius: '4px', borderLeft: '4px solid #007bff' }}>
                         {dysfunction.receptor_1 || <span style={{ color: '#999', fontStyle: 'italic' }}>Не указан</span>}
                       </div>
                     </div>
                     <div>
-                      <h4 style={{ marginBottom: '5px', color: '#495057', fontSize: '16px' }}>
-                        Рецептор 2:
-                      </h4>
-                      <div style={{ 
-                        backgroundColor: '#e9f5ff', 
-                        padding: '10px', 
-                        borderRadius: '4px',
-                        borderLeft: '4px solid #007bff'
-                      }}>
+                      <h4 style={{ marginBottom: '5px', color: '#495057', fontSize: '16px' }}>Рецептор 2:</h4>
+                      <div style={{ backgroundColor: '#e9f5ff', padding: '10px', borderRadius: '4px', borderLeft: '4px solid #007bff' }}>
                         {dysfunction.receptor_2 || <span style={{ color: '#999', fontStyle: 'italic' }}>Не указан</span>}
                       </div>
                     </div>
@@ -403,11 +300,7 @@ function DysfunctionDetail() {
               </div>
 
               {muscles.length > 0 ? (
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-                  gap: '20px'
-                }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
                   {muscles.map(muscle => (
                     <div 
                       key={muscle.id}
@@ -416,108 +309,26 @@ function DysfunctionDetail() {
                         borderRadius: '8px',
                         padding: '20px',
                         backgroundColor: muscle.viaGroup ? '#f0fff4' : '#f9f9f9',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
                         borderLeft: muscle.viaGroup ? '4px solid #28a745' : '4px solid #ddd',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                       }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-                      }}
-                      title={muscle.viaGroup ? `Связь через группу: ${muscle.groupName}` : 'Прямая связь'}
                     >
-                      <h3 style={{ marginTop: 0, color: muscle.viaGroup ? '#28a745' : '#333' }}>
-                        <Link 
-                          to={`/muscle/${muscle.id}`}
-                          style={{ 
-                            color: 'inherit', 
-                            textDecoration: 'none',
-                            display: 'flex',
-                            alignItems: 'center'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                          onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                        >
-                          {muscle.name_ru}
+                      <h3 style={{ marginTop: 0 }}>
+                        <Link to={`/muscle/${muscle.id}`} style={{ color: muscle.viaGroup ? '#28a745' : '#333', textDecoration: 'none' }}>
+                          {muscle.name_ru || muscle.name}
                           {muscle.viaGroup && (
-                            <span style={{ 
-                              fontSize: '12px', 
-                              marginLeft: '8px',
-                              backgroundColor: '#28a745',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px'
-                            }}>
+                            <span style={{ fontSize: '12px', marginLeft: '8px', backgroundColor: '#28a745', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>
                               Группа
                             </span>
                           )}
                         </Link>
                       </h3>
-                      
-                      {muscle.name_lat && (
-                        <div style={{ 
-                          fontStyle: 'italic', 
-                          color: '#666', 
-                          marginBottom: '12px',
-                          fontSize: '14px'
-                        }}>
-                          {muscle.name_lat}
-                        </div>
-                      )}
-                      
-                     
-                      
-                      {muscle.notes && (
-                        <div style={{ fontSize: '14px', color: '#555', marginBottom: '8px' }}>
-                          <strong>Примечания:</strong> {muscle.notes}
-                        </div>
-                      )}
-                      
-                      {muscle.pain_zones_text && (
-                        <div style={{ fontSize: '14px', color: '#dc3545', marginBottom: '8px' }}>
-                          <strong>Зоны боли:</strong> {muscle.pain_zones_text}
-                        </div>
-                      )}
-                      
-                      {muscle.viaGroup && muscle.groupName && (
-                        <div style={{ 
-                          marginTop: '15px',
-                          fontSize: '13px',
-                          color: '#28a745',
-                          borderTop: '1px solid #e8f5e9',
-                          paddingTop: '10px',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}>
-                          <span style={{ fontWeight: 'bold', marginRight: '5px' }}>Связь через группу:</span>
-                          <Link 
-                            to={`/group/${muscle.groupId}`}
-                            style={{ color: '#28a745', textDecoration: 'none' }}
-                            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                            onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                          >
-                            {muscle.groupName}
-                          </Link>
-                        </div>
-                      )}
+                      {muscle.name_lat && <div style={{ fontStyle: 'italic', color: '#666' }}>{muscle.name_lat}</div>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ 
-                  textAlign: 'center', 
-                  padding: '40px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  border: '2px dashed #dee2e6'
-                }}>
-                  <h3>Нет связанных мышц</h3>
-                  <p>Эта дисфункция пока не связана ни с какими мышцами</p>
-                </div>
+                <div style={{ textAlign: 'center', padding: '40px' }}>Нет связанных мышц</div>
               )}
             </div>
           )}
@@ -525,59 +336,14 @@ function DysfunctionDetail() {
           {/* Вкладка: Группы мышц */}
           {activeTab === 'groups' && groups.length > 0 && (
             <div>
-              <h3 style={{ color: '#495057', marginBottom: '20px' }}>
-                Группы мышц, связанные с этой дисфункцией
-              </h3>
-              
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-                gap: '20px'
-              }}>
+              <h3>Группы мышц, связанные с этой дисфункцией</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                 {groups.map(group => (
-                  <div 
-                    key={group.id}
-                    style={{
-                      border: '1px solid #007bff',
-                      borderRadius: '8px',
-                      padding: '20px',
-                      backgroundColor: '#e7f3ff',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      boxShadow: '0 2px 4px rgba(0,123,255,0.1)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,123,255,0.2)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,123,255,0.1)';
-                    }}
-                  >
-                    <h4 style={{ margin: '0 0 15px 0', color: '#007bff' }}>
-                      <Link 
-                        to={`/group/${group.id}`}
-                        style={{ 
-                          color: 'inherit', 
-                          textDecoration: 'none',
-                          display: 'block'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                        onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                      >
-                        {group.name}
-                      </Link>
-                    </h4>
-                    
-                    {group.description && (
-                      <div style={{ 
-                        fontSize: '14px', 
-                        color: '#495057',
-                        lineHeight: '1.5'
-                      }}>
-                        {group.description}
-                      </div>
-                    )}
+                  <div key={group.id} style={{ border: '1px solid #007bff', borderRadius: '8px', padding: '20px', backgroundColor: '#e7f3ff' }}>
+                    <Link to={`/group/${group.id}`} style={{ color: '#007bff', textDecoration: 'none', fontSize: '18px', fontWeight: 'bold' }}>
+                      {group.name}
+                    </Link>
+                    {group.description && <div style={{ marginTop: '10px', color: '#495057' }}>{group.description}</div>}
                   </div>
                 ))}
               </div>
@@ -587,77 +353,12 @@ function DysfunctionDetail() {
           {/* Вкладка: Взаимоотношения */}
           {activeTab === 'relationships' && relationships.length > 0 && (
             <div>
-              <h3 style={{ color: '#495057', marginBottom: '20px' }}>
-                Взаимоотношения мышц, связанные с этой дисфункцией
-              </h3>
-              
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-                gap: '20px'
-              }}>
+              <h3>Взаимоотношения мышц, связанные с этой дисфункцией</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
                 {relationships.map(relationship => (
-                  <div 
-                    key={relationship.id}
-                    style={{
-                      border: '1px solid #17a2b8',
-                      borderRadius: '8px',
-                      padding: '20px',
-                      backgroundColor: '#d1ecf1',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      boxShadow: '0 2px 4px rgba(23,162,184,0.1)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(23,162,184,0.2)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(23,162,184,0.1)';
-                    }}
-                  >
-                    <h4 style={{ margin: '0 0 15px 0', color: '#0c5460' }}>
-                      {relationship.fullTitle}
-                    </h4>
-                    
-                    {relationship.functionName && (
-                      <div style={{ 
-                        fontSize: '14px', 
-                        color: '#0c5460',
-                        marginBottom: '10px'
-                      }}>
-                        <strong>Тип функции:</strong> {relationship.functionName}
-                      </div>
-                    )}
-                    
-                    {relationship.note && relationship.note !== relationship.functionName && (
-                      <div style={{ 
-                        fontSize: '14px', 
-                        color: '#0c5460',
-                        marginBottom: '10px'
-                      }}>
-                        <strong>Примечание:</strong> {relationship.note}
-                      </div>
-                    )}
-                    
-                    <div style={{ 
-                      marginTop: '15px',
-                      fontSize: '12px',
-                      color: '#6c757d',
-                      display: 'flex',
-                      justifyContent: 'flex-end'
-                    }}>
-                      <span style={{ 
-                        backgroundColor: '#17a2b8',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '500'
-                      }}>
-                        Взаимоотношение мышц
-                      </span>
-                    </div>
+                  <div key={relationship.id} style={{ border: '1px solid #17a2b8', borderRadius: '8px', padding: '20px', backgroundColor: '#d1ecf1' }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#0c5460' }}>{relationship.fullTitle}</h4>
+                    {relationship.functionName && <div><strong>Тип функции:</strong> {relationship.functionName}</div>}
                   </div>
                 ))}
               </div>
@@ -666,33 +367,16 @@ function DysfunctionDetail() {
         </div>
       </div>
 
-	 {/* ========== ДОБАВЛЯЕМ MEDIA MANAGER ДЛЯ ОРГАНА ========== */}
-	  <MediaManager 
-		entityType="dysfunction"
-		entityId={id}
-		entityName={dysfunction.name}
-		showTitle={true}
-		readonly={true}
-	  />
-	  {/* ========== КОНЕЦ ДОБАВЛЕНИЯ ========== */}
+      <MediaManager 
+        entityType="dysfunction"
+        entityId={id}
+        entityName={dysfunction.name}
+        showTitle={true}
+        readonly={true}
+      />
 
-
-      {/* Информация внизу страницы */}
-      <div style={{ 
-        marginTop: '40px',
-        paddingTop: '20px',
-        borderTop: '1px solid #eee',
-        fontSize: '12px',
-        color: '#999'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <strong>ID дисфункции:</strong> {dysfunction.id}
-          </div>
-          <div>
-            <strong>Связи:</strong> {muscles.length} мышц • {groups.length} групп • {relationships.length} взаимоотношений
-          </div>
-        </div>
+      <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #eee', fontSize: '12px', color: '#999' }}>
+        <div><strong>ID дисфункции:</strong> {dysfunction.id}</div>
       </div>
     </div>
   );

@@ -1,8 +1,14 @@
 // MediaManager.js
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMediaManager } from './hooks/useMediaManager';
 import { MediaList } from './MediaList';
 import MediaViewer from './MediaViewer';
+import API_URL, { config } from './config/api'
+
+
+console.log('[MediaManager] YANDEX_DISK_MODE from config:', config.YANDEX_DISK_MODE);
+console.log('[MediaManager] YANDEX_PREVIEW_SIZE from config:', config.YANDEX_PREVIEW_SIZE);
 
 /**
  * Универсальный компонент для управления медиафайлами
@@ -22,7 +28,8 @@ function MediaManager({
   showTitle = true,
   className = '',
   style = {},
-  readonly = false
+  readonly = false,
+  viewMode = 'inline'  // новый пропс: 'modal' или 'inline'  после успешной отладки везде используем 'inline'
 }) {
   // Используем хук для управления медиа
   const {
@@ -49,6 +56,19 @@ function MediaManager({
     clearDebugMessages
   } = useMediaManager(entityType, entityId);
 
+  // Добавляем замер времени загрузки
+    useEffect(() => {
+      let startTime = 0;
+      
+      if (loading) {
+        startTime = performance.now();
+        console.log(`[MediaManager] ⏱️ Начало загрузки для ${entityType}/${entityId}`);
+      } else if (!loading && media.length > 0) {
+        const duration = performance.now() - startTime;
+        console.log(`[MediaManager] ⏱️ Загрузка завершена за ${duration.toFixed(0)} мс, загружено ${media.length} файлов`);
+      }
+    }, [loading, media, entityType, entityId]);
+
   // Состояние компонента
   const [viewingMedia, setViewingMedia] = useState(null);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
@@ -64,6 +84,8 @@ function MediaManager({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFileType, setSelectedFileType] = useState('');
   const [autoScrollDebug, setAutoScrollDebug] = useState(true);
+
+  const navigate = useNavigate();
 
   // Реф для автоматической прокрутки логов
   const debugEndRef = useRef(null);
@@ -239,132 +261,162 @@ function MediaManager({
       );
     }
 
-    if (readonly) {
-      // ========== РЕЖИМ ТОЛЬКО ЧТЕНИЯ: простая сетка ==========
-      return (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
-          gap: '15px',
-          marginBottom: '20px'
-        }}>
-          {media.map(item => {
-            const thumbnailUrl = getThumbnailUrl(item);
-            
-            return (
-              <div 
-                key={item.id}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  backgroundColor: 'white',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onClick={() => setViewingMedia(item)}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-              >
-                {/* Превью */}
+  if (readonly) {
+    // ========== РЕЖИМ ТОЛЬКО ЧТЕНИЯ: простая сетка ==========
+    return (
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
+        gap: '15px',
+        marginBottom: '20px'
+      }}>
+        {media.map(item => {
+          // ДОБАВЬТЕ ЭТИ ЛОГИ СЮДА
+        console.log('[MediaManager] Item from server:', item);
+        console.log('[MediaManager] ID from media_files:', item.id);
+        console.log('[MediaManager] media_file_id:', item.media_file_id);
+          const thumbnailUrl = getThumbnailUrl(item);
+          const isImage = item.file_type === 'image';
+          const isVideo = item.file_type === 'video';
+          const isDocument = item.file_type === 'document';  // все документы (включая PDF)
+          
+          console.log('Mode:', config.YANDEX_DISK_MODE, 'Thumbnail URL в режиме Только Чтение:', thumbnailUrl);
+          console.log('[MediaManager] Item:', item.file_name);
+          console.log('[MediaManager] public_url:', item.public_url);
+          console.log('[MediaManager] thumbnailUrl from getThumbnailUrl:', thumbnailUrl);
+          
+          if (thumbnailUrl) {
+            console.log('[MediaManager] thumbnailUrl type:', typeof thumbnailUrl);
+            console.log('[MediaManager] thumbnailUrl starts with http?:', thumbnailUrl.startsWith('http'));
+          }
+          
+          const handleClick = () => {
+            console.log('[MediaManager] Item ID:', item.id);
+            console.log('[MediaManager] Item file_name:', item.file_name);
+            // Для изображений и видео → открываем в той же вкладке через маршрут
+            if (isImage || isVideo) {
+              navigate(`/media-viewer/${item.id}`);
+            } else {
+              // Для документов → модальное окно
+              setViewingMedia(item);
+            }
+          };
+          
+          return (
+            <div 
+              key={item.id}
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                backgroundColor: 'white',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onClick={handleClick}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
+            >
+              {/* Превью */}
+              <div style={{ 
+                height: '120px', 
+                backgroundColor: '#f0f0f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+                overflow: 'hidden'
+              }}>
+                {thumbnailUrl ? (
+                  <img 
+                    src={thumbnailUrl}
+                    alt=""
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover' 
+                    }}
+                    key={`thumb-${item.id}-${item.thumbnail_updated_at || 'no-date'}`}
+                    onError={(e) => {
+                      console.error('[MediaManager] Image failed to load:', thumbnailUrl);
+                      e.target.style.display = 'none';
+                      e.target.parentElement.innerHTML = getFileIcon(item.file_type);
+                    }}
+                  />
+                ) : (
+                  getFileIcon(item.file_type)
+                )}
+              </div>
+              
+              {/* Информация */}
+              <div style={{ 
+                padding: '10px',
+                fontSize: '12px'
+              }}>
                 <div style={{ 
-                  height: '120px', 
-                  backgroundColor: '#f0f0f0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '24px',
-                  overflow: 'hidden'
+                  fontWeight: 'bold',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  marginBottom: '4px'
                 }}>
-                  {thumbnailUrl ? (
-					  <img 
-						src={thumbnailUrl}
-						alt=""
-						style={{ 
-						  width: '100%', 
-						  height: '100%', 
-						  objectFit: 'cover' 
-						}}
-						key={`thumb-${item.id}-${item.thumbnail_updated_at || 'no-date'}`} // Ключ для принудительного обновления
-						onError={(e) => {
-						  e.target.style.display = 'none';
-						  e.target.parentElement.innerHTML = getFileIcon(item.file_type);
-						}}
-					  />
-					) : (
-					  getFileIcon(item.file_type)
-					)}
+                  {item.file_name}
                 </div>
                 
-                {/* Информация */}
                 <div style={{ 
-                  padding: '10px',
-                  fontSize: '12px'
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '11px',
+                  color: '#666'
                 }}>
-                  <div style={{ 
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    marginBottom: '4px'
+                  <span style={{
+                    padding: '2px 6px',
+                    backgroundColor: '#e9f7fe',
+                    borderRadius: '4px',
+                    fontWeight: 'bold'
                   }}>
-                    {item.file_name}
-                  </div>
+                    {item.file_type === 'image' ? 'Изобр.' :
+                    item.file_type === 'video' ? 'Видео' :
+                    item.file_type === 'audio' ? 'Аудио' : 'Док.'}
+                  </span>
                   
-                  <div style={{ 
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    fontSize: '11px',
-                    color: '#666'
-                  }}>
-                    <span style={{
-                      padding: '2px 6px',
-                      backgroundColor: '#e9f7fe',
-                      borderRadius: '4px',
-                      fontWeight: 'bold'
-                    }}>
-                      {item.file_type === 'image' ? 'Изобр.' :
-                       item.file_type === 'video' ? 'Видео' :
-                       item.file_type === 'audio' ? 'Аудио' : 'Док.'}
-                    </span>
-                    
-                    {item.file_size && (
-                      <span>{formatFileSize(item.file_size)}</span>
-                    )}
-                  </div>
-                  
-                  {item.description && (
-                    <div style={{
-                      marginTop: '4px',
-                      fontSize: '10px',
-                      color: '#888',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {item.description}
-                    </div>
+                  {item.file_size && (
+                    <span>{formatFileSize(item.file_size)}</span>
                   )}
                 </div>
+                
+                {item.description && (
+                  <div style={{
+                    marginTop: '4px',
+                    fontSize: '10px',
+                    color: '#888',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {item.description}
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
-      );
-    } else {
-      // ========== РЕЖИМ РЕДАКТИРОВАНИЯ: MediaList с DnD ==========
-      return (
-        <MediaList 
-          items={media}
-          onReorder={handleUpdateMediaOrder}
-          onDelete={handleDeleteClick}
-          onView={(item) => setViewingMedia(item)}
-          onEditDescription={handleEditDescriptionClick}
-        />
-      );
-    }
-  };
-  // ============ КОНЕЦ ФУНКЦИИ РЕНДЕРИНГА МЕДИА ============
+            </div>
+          );
+        })}
+      </div>
+    );
+  } else {
+    // ========== РЕЖИМ РЕДАКТИРОВАНИЯ: MediaList с DnD ==========
+    return (
+      <MediaList 
+        items={media}
+        onReorder={handleUpdateMediaOrder}
+        onDelete={handleDeleteClick}
+        onView={(item) => setViewingMedia(item)}
+        onEditDescription={handleEditDescriptionClick}
+      />
+    );
+  }  
+};
+// ============ КОНЕЦ ФУНКЦИИ РЕНДЕРИНГА МЕДИА ============
 
   // Если нет entityType или entityId, не рендерим компонент
   if (!entityType || !entityId) {

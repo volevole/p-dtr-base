@@ -1,7 +1,7 @@
-// factories/EntityDetailFactory.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// factories/EntityDetailFactory.js - исправленная версия
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabaseClient';
+import API_URL from '../config/api';
 import MediaManager from '../MediaManager';
 
 export function createEntityDetail(config) {
@@ -11,7 +11,6 @@ export function createEntityDetail(config) {
       entityType,
       tableName,
       fields = [],
-      relatedTables = [],
       hasMedia = true,
       renderCustomContent = null,
       fetchRelatedData = null,
@@ -23,6 +22,14 @@ export function createEntityDetail(config) {
     const [entity, setEntity] = useState(null);
     const [relatedData, setRelatedData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+      const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+      checkMobile();
+      window.addEventListener('resize', checkMobile);
+      return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     useEffect(() => {
       fetchData();
@@ -31,31 +38,15 @@ export function createEntityDetail(config) {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        // Основной запрос
-        let query = supabase
-          .from(tableName)
-          .select('*')
-          .eq('id', id);
+        const response = await fetch(`${API_URL}/api/${tableName}/${id}`);
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error);
+        if (!result.data) throw new Error(`${entityName} не найден`);
 
-        if (relatedTables.length > 0) {
-          const relatedFields = relatedTables.map(rel => 
-            `${rel.table}(${rel.fields || '*'})`
-          ).join(',');
-          
-          query = query.select(`*, ${relatedFields}`);
-        }
+        setEntity(result.data);
 
-        const { data, error } = await query.single();
-
-        if (error) throw error;
-        if (!data) throw new Error(`${entityName} не найден`);
-
-        setEntity(data);
-
-        // Загружаем связанные данные (если указано)
         if (fetchRelatedData) {
-          const related = await fetchRelatedData(data);
+          const related = await fetchRelatedData(result.data);
           setRelatedData(related);
         }
       } catch (error) {
@@ -65,96 +56,60 @@ export function createEntityDetail(config) {
       }
     };
 
-    if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
-    if (!entity) return <div style={{ padding: '2rem' }}>{entityName} не найден</div>;
-
-    // Ключевое исправление: правильный путь для кнопки редактирования
-    const editPath = `/${entityType}/${id}/edit`;
-    const backPath = `/${entityType}s`;
+    if (loading) return <div className="detail-container">Загрузка...</div>;
+    if (!entity) return <div className="detail-container">{entityName} не найден</div>;
 
     return (
-      <div style={{ padding: '2rem', maxWidth: '1000px', margin: 'auto' }}>
-        {/* Навигация и кнопка редактирования */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px' 
-        }}>
-          <Link to={backPath}>← Назад к списку</Link>
+      <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
+        <div className="detail-navigation">
+          <Link to={config.listPath || `/${entityType}s`} className="link-text">← Назад к списку</Link>
           <button 
-            onClick={() => navigate(editPath)}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
+            onClick={() => navigate(`/${entityType}/${id}/edit`)}
+            className="action-btn edit-btn"
+            title="Редактировать"
           >
-            ✏️ Редактировать
+            ✏️
           </button>
         </div>
 
-        {/* Заголовок */}
-        <h1 style={{ marginBottom: '20px' }}>{entity.name}</h1>
+        <h1 className="detail-title">{entity.name}</h1>
 
-        {/* Основная информация */}
-        <div style={{ 
-          backgroundColor: '#f8f9fa',
-          padding: '20px',
-          borderRadius: '8px',
-          marginBottom: '30px',
-          border: '1px solid #dee2e6'
-        }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '180px 1fr',
-            gap: '15px',
-            alignItems: 'start'
-          }}>
+        <div className="detail-content">
+          <table className="detail-table">
+            <tbody>
+              {fields.map(field => {
+                const value = entity[field.name];
+                if (!value && value !== 0) return null;
+                return (
+                  <tr key={field.name}>
+                    <td className="detail-label">{field.label}:</td>
+                    <td className={`detail-value ${field.type === 'textarea' ? 'description-text' : ''}`}>
+                      {field.render ? field.render(value, entity) : value}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          
+          <div className="mobile-detail">
             {fields.map(field => {
-              if (!entity[field.name]) return null;
-              
+              const value = entity[field.name];
+              if (!value && value !== 0) return null;
               return (
-                <React.Fragment key={field.name}>
-                  <div style={{ 
-                    display: 'flex',
-                    alignItems: field.type === 'textarea' ? 'flex-start' : 'center',
-                    height: '100%',
-                    fontWeight: 'bold', 
-                    color: '#495057',
-                    textAlign: 'left'
-                  }}>
-                    {field.label}:
-                  </div>
-                  <div style={{ 
-                    color: '#212529',
-                    textAlign: 'left',
-                    ...(field.type === 'textarea' ? {
-                      lineHeight: '1.6',
-                      whiteSpace: 'pre-wrap'
-                    } : {})
-                  }}>
-                    {field.render 
-                      ? field.render(entity[field.name], entity)
-                      : entity[field.name]
-                    }
-                  </div>
-                </React.Fragment>
+                <div key={field.name} className="mobile-detail-item">
+                  <span className="mobile-detail-label">{field.label}:</span>
+                  <span className={`mobile-detail-value ${field.type === 'textarea' ? 'description-text' : ''}`}>
+                    {field.render ? field.render(value, entity) : value}
+                  </span>
+                </div>
               );
             })}
           </div>
         </div>
 
-        {/* Кастомный контент */}
         {renderCustomContent && renderCustomContent(entity, relatedData)}
 
-        {/* Медиафайлы */}
         {hasMedia && (
           <MediaManager 
             entityType={entityType}
@@ -165,23 +120,14 @@ export function createEntityDetail(config) {
           />
         )}
 
-        {/* Связанные данные */}
         {renderRelatedData && renderRelatedData(relatedData, entity)}
 
-        {/* Техническая информация */}
-        <div style={{ 
-          marginTop: '30px', 
-          paddingTop: '20px',
-          borderTop: '1px solid #dee2e6',
-          fontSize: '14px',
-          color: '#6c757d'
-        }}>
-          <p><strong>ID:</strong> {entity.id}</p>
-          <p><strong>Создан:</strong> {new Date(entity.created_at).toLocaleString('ru-RU')}</p>
-          {entity.updated_at && (
-            <p><strong>Обновлен:</strong> {new Date(entity.updated_at).toLocaleString('ru-RU')}</p>
-          )}
-        </div>
+        <hr className="separator" />
+        <p className="detail-id"><strong>ID:</strong> {entity.id}</p>
+        <p className="detail-id"><strong>Создан:</strong> {new Date(entity.created_at).toLocaleString('ru-RU')}</p>
+        {entity.updated_at && (
+          <p className="detail-id"><strong>Обновлен:</strong> {new Date(entity.updated_at).toLocaleString('ru-RU')}</p>
+        )}
       </div>
     );
   };
