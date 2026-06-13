@@ -840,46 +840,54 @@ function MediaManager({
 
       {/* Модальные окна */}
 
-      {/* Модальное окно просмотра медиа */}
-      {viewingMedia && (
+      {/* Модальное окно просмотра медиа — полноэкранное */}
+    {viewingMedia && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'black',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000
+      }} onClick={() => setViewingMedia(null)}>
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.8)',
+          position: 'relative',
+          width: '100%',
+          height: '100%',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }} onClick={() => setViewingMedia(null)}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '8px',
-            maxWidth: '90vw',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }} onClick={e => e.stopPropagation()}>
-            <MediaViewer media={viewingMedia} />
-            <button 
-              onClick={() => setViewingMedia(null)}
-              style={{
-                marginTop: '10px',
-                padding: '8px 16px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Закрыть
-            </button>
-          </div>
+          justifyContent: 'center'
+        }} onClick={e => e.stopPropagation()}>
+          
+          {/* Кнопка закрытия */}
+          <button 
+            onClick={() => setViewingMedia(null)}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              zIndex: 100,
+              padding: '8px 16px',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            ✖ Закрыть
+          </button>
+          
+          {/* Контент на весь экран */}
+          <MediaViewer media={viewingMedia} />
         </div>
-      )}
+      </div>
+    )}
 
       {/* Модальное окно подтверждения удаления */}
       {deleteConfirmItem && (

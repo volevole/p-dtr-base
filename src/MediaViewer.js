@@ -11,6 +11,49 @@ function MediaViewer({ media }) {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
+// Добавьте в начало компонента MediaViewer
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleZoomIn = () => setScale(prev => Math.min(prev + 0.5, 5));
+  const handleZoomOut = () => setScale(prev => Math.max(prev - 0.5, 1));
+  const handleReset = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
+
+  const handleMouseDown = (e) => {
+    if (scale > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isDragging && scale > 1) {
+      setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+    }
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  // Для touch (мобильные)
+  const handleTouchStart = (e) => {
+    if (scale > 1 && e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.touches[0].clientX - position.x, y: e.touches[0].clientY - position.y });
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (isDragging && scale > 1 && e.touches.length === 1) {
+      //e.preventDefault();
+      setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
+    }
+  };
+
+  const handleTouchEnd = () => setIsDragging(false);
+
+
   // Определяем мобильное устройство
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
@@ -216,29 +259,76 @@ function MediaViewer({ media }) {
     );
   };
 
-  const renderImage = () => {
-    if (imageError) {
-      return (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ fontSize: '48px' }}>🖼️</div>
-          <div>Изображение не загрузилось</div>
-          {media.public_url && (
-            <a href={media.public_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: '20px', padding: '10px 20px', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
-              Открыть на Яндекс.Диске
-            </a>
-          )}
-        </div>
-      );
-    }
-
+ const renderImage = () => {
+  if (imageError) {
     return (
-      <div>
-        <img src={displayUrl} alt={media.description || "Изображение"} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} onError={() => setImageError(true)} />
-        <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '6px', textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-            {media.width && media.height && <div><strong>Размеры:</strong> {media.width} × {media.height}px</div>}
-            {media.file_size && <div><strong>Размер файла:</strong> {formatFileSize(media.file_size)}</div>}
-          </div>
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '48px' }}>🖼️</div>
+        <div>Изображение не загрузилось</div>
+        {media.public_url && (
+          <a href={media.public_url} target="_blank" rel="noopener noreferrer">Открыть на Яндекс.Диске</a>
+        )}
+      </div>
+    );
+  }
+
+  return (
+      <div style={{ 
+        position: 'relative', 
+        width: '100%', 
+        height: '100%', 
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        {/* Кнопки зума */}
+        <div style={{
+          position: 'absolute',
+          top: '60px',
+          right: '20px',
+          zIndex: 20,
+          display: 'flex',
+          gap: '10px',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          padding: '8px',
+          borderRadius: '8px'
+        }}>
+          <button onClick={handleZoomIn} style={{ padding: '8px 12px', fontSize: '18px', cursor: 'pointer' }}>➕</button>
+          <button onClick={handleZoomOut} style={{ padding: '8px 12px', fontSize: '18px', cursor: 'pointer' }}>➖</button>
+          <button onClick={handleReset} style={{ padding: '8px 12px', fontSize: '14px', cursor: 'pointer' }}>⟳</button>
+        </div>
+        
+        <div
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            cursor: scale > 1 ? 'grab' : 'default',
+            overflow: 'hidden'
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <img
+            src={displayUrl}
+            alt={media.description || "Изображение"}
+            style={{
+              transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+              transition: isDragging ? 'none' : 'transform 0.2s',
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain'
+            }}
+            draggable={false}
+          />
         </div>
       </div>
     );
@@ -251,23 +341,63 @@ function MediaViewer({ media }) {
     return renderImage();
   };
 
+
+  
+  // MediaViewer.js — обёртка
+ // MediaViewer.js — возвращаем структуру с единой информационной панелью
   return (
-    <div style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto' }}>
-      {renderMediaContent()}
-      
-      {media.description && (
-        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '6px', textAlign: 'left' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Описание:</div>
-          <div>{media.description}</div>
-        </div>
-      )}
-      
-      <div style={{ marginTop: '15px', fontSize: '12px', color: '#999', fontStyle: 'italic', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '6px', textAlign: 'left' }}>
-        <div><strong>Имя файла:</strong> {media.file_name}</div>
-        <div><strong>Тип:</strong> {getFileTypeName()}</div>
-        {media.created_at && <div><strong>Загружен:</strong> {new Date(media.created_at).toLocaleString('ru-RU')}</div>}
-        <div><strong>Режим:</strong> {config.YANDEX_DISK_MODE === 'embed' ? 'blob (on-the-fly)' : 'legacy (cached)'}</div>
+    <div style={{ 
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'black'
+    }}>
+      {/* Контент (изображение/видео/документ) */}
+      <div style={{ 
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '100%',
+        height: '100%'
+      }}>
+        {renderMediaContent()}
       </div>
+      
+     {/* Единая информационная панель — справа от центра */}
+    <div style={{
+      position: 'absolute',
+      bottom: '20px',
+      right: '20px',
+      maxWidth: '400px',  // ограничиваем ширину
+      backgroundColor: 'rgba(9, 165, 79, 0.01)',
+      color: 'white',
+      padding: '10px 15px',
+      borderRadius: '8px',
+      fontSize: '13px',
+      zIndex: 10,
+      backdropFilter: 'blur(8px)',
+      textAlign: 'right'  // текст выровнять вправо
+    }}>
+      {media.description && (
+        <div style={{ marginBottom: '8px', padding: '8px', borderRadius: '6px', fontSize: '14px', textAlign: 'right' }}>            
+          {media.description}
+        </div>
+      )}        
+      <div style={{ fontSize: '11px', opacity: 0.7, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+        <span>{media.file_name}</span>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <span>{media.file_type === 'image' ? '🖼️ Изображение' : media.file_type === 'video' ? '🎬 Видео' : '📄 Документ'}</span>
+          {media.width && media.height && <span>📐 {media.width}×{media.height} px</span>}
+          {media.file_size && <span>💾 {(media.file_size / 1024).toFixed(1)} KB</span>}
+          {media.duration_seconds && <span>⏱️ {Math.floor(media.duration_seconds / 60)}:{String(media.duration_seconds % 60).padStart(2, '0')}</span>}
+        </div>
+      </div>
+    </div>
     </div>
   );
 }

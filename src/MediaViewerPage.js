@@ -1,5 +1,4 @@
 // MediaViewerPage.js
-// Страница для просмотра медиафайлов (изображения и видео)
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import MediaViewer from './MediaViewer';
@@ -15,10 +14,8 @@ function MediaViewerPage() {
   useEffect(() => {
     const fetchMedia = async () => {
       try {
-        console.log('[MediaViewerPage] Fetching media with id:', id);
         const response = await fetch(`${API_URL}/api/media-file/${id}`);
         const data = await response.json();
-        console.log('[MediaViewerPage] Response:', data);
         
         if (data.success) {
           setMedia(data.file);
@@ -26,7 +23,6 @@ function MediaViewerPage() {
           setError(data.error || 'Media not found');
         }
       } catch (err) {
-        console.error('[MediaViewerPage] Error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -43,27 +39,47 @@ function MediaViewerPage() {
   if (!media) return <div style={{ padding: '2rem' }}>Медиафайл не найден</div>;
 
   return (
-    <div style={{ padding: '20px' }}>
-      {/* Кнопка "Назад" */}
+    <div style={{ 
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'black',
+      display: 'flex',
+      flexDirection: 'column',
+      zIndex: 1000
+    }}>
+      {/* Кнопка закрытия */}
       <button 
         onClick={() => navigate(-1)}
         style={{
-          marginBottom: '20px',
+          position: 'absolute',
+          top: '20px',
+          right: '20px',  // ← меняем с left на right
+          zIndex: 100,
           padding: '8px 16px',
-          backgroundColor: '#6c757d',
+          backgroundColor: 'rgba(0,0,0,0.5)',
           color: 'white',
           border: 'none',
           borderRadius: '4px',
           cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px'
+          fontSize: '16px'
         }}
       >
         ← Назад
       </button>
       
-      <MediaViewer media={media} />
+      {/* Контент на весь экран */}
+      <div style={{ 
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'auto'
+      }}>
+        <MediaViewer media={media} />
+      </div>
     </div>
   );
 }
