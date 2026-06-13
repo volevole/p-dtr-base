@@ -1,51 +1,70 @@
 // src/config/api.js
 
-// Определяем, нужно ли использовать удаленный сервер
+// Р РµР¶РёРј API: 'local' (Р»РѕРєР°Р»СЊРЅС‹Р№ СЃРµСЂРІРµСЂ) РёР»Рё 'remote' (СѓРґР°Р»РµРЅРЅС‹Р№)
+// РџСЂРёРѕСЂРёС‚РµС‚: REACT_APP_API_MODE > REACT_APP_USE_REMOTE_SERVER > NODE_ENV
+const apiMode = process.env.REACT_APP_API_MODE; // 'local' РёР»Рё 'remote'
 const useRemoteServer = process.env.REACT_APP_USE_REMOTE_SERVER === 'true';
 
-// Базовый URL в зависимости от окружения и настройки
+// Р‘Р°Р·РѕРІС‹Рµ URL РґР»СЏ СЂР°Р·РЅС‹С… СЂРµР¶РёРјРѕРІ
+const URLS = {
+  local: 'http://localhost:3001',
+  //remote: 'https://p-dtr-base.onrender.com'
+  remote: 'http://194.226.165.244:3001'  
+};
+
+// РћРїСЂРµРґРµР»СЏРµРј Р±Р°Р·РѕРІС‹Р№ URL
 let baseURL;
 
 if (process.env.NODE_ENV === 'production') {
-  // Продакшен — всегда удаленный сервер
-  baseURL = 'https://p-dtr-base.onrender.com';
+  // РџСЂРѕРґР°РєС€РµРЅ вЂ” РІСЃРµРіРґР° СѓРґР°Р»РµРЅРЅС‹Р№ СЃРµСЂРІРµСЂ
+  baseURL = URLS.remote;
 } else {
-  // Разработка — смотрим на REACT_APP_USE_REMOTE_SERVER
-  if (useRemoteServer) {
-    baseURL = 'https://p-dtr-base.onrender.com';
+  // Р Р°Р·СЂР°Р±РѕС‚РєР° вЂ” РїСЂРёРѕСЂРёС‚РµС‚ Сѓ REACT_APP_API_MODE
+  if (apiMode === 'local') {
+    baseURL = URLS.local;
+  } else if (apiMode === 'remote') {
+    baseURL = URLS.remote;
+  } else if (useRemoteServer) {
+    // РЎС‚Р°СЂС‹Р№ СЃРїРѕСЃРѕР± РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё
+    baseURL = URLS.remote;
   } else {
-    baseURL = 'http://localhost:3001';
+    baseURL = URLS.local;
   }
 }
 
 const API_URL = baseURL;
 
-// Объект с дополнительными настройками
+// РћР±СЉРµРєС‚ СЃ РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹РјРё РЅР°СЃС‚СЂРѕР№РєР°РјРё
 const config = {
-  // Базовый URL для API
+  // Р‘Р°Р·РѕРІС‹Р№ URL РґР»СЏ API
   API_URL: API_URL,
   
-  // Режим работы с Яндекс.Диском:
-  // 'legacy' - старый способ (через прокси и прямые ссылки)
-  // 'embed' - встраивание через iframe (без прямых ссылок)
-  // 'direct' - прямая ссылка на публичную страницу
-  YANDEX_DISK_MODE: process.env.REACT_APP_YANDEX_DISK_MODE || 'legacy',
+  // Р РµР¶РёРј СЂР°Р±РѕС‚С‹ СЃ РЇРЅРґРµРєСЃ.Р”РёСЃРєРѕРј:
+  // 'legacy' - СЃС‚Р°СЂС‹Р№ СЃРїРѕСЃРѕР± (С‡РµСЂРµР· РїСЂРѕРєСЃРё Рё РїСЂСЏРјС‹Рµ СЃСЃС‹Р»РєРё)
+  // 'embed' - РІСЃС‚СЂР°РёРІР°РЅРёРµ С‡РµСЂРµР· iframe (Р±РµР· РїСЂСЏРјС‹С… СЃСЃС‹Р»РѕРє)
+  // 'direct' - РїСЂСЏРјР°СЏ СЃСЃС‹Р»РєР° РЅР° РїСѓР±Р»РёС‡РЅСѓСЋ СЃС‚СЂР°РЅРёС†Сѓ
+  YANDEX_DISK_MODE: process.env.REACT_APP_YANDEX_DISK_MODE || 'embed',  // СЃРјРµРЅРёР» default РЅР° embed
   
-  // Размер превью для embed-режима: S, M, L, XL, XXL
+  // Р Р°Р·РјРµСЂ РїСЂРµРІСЊСЋ РґР»СЏ embed-СЂРµР¶РёРјР°: S, M, L, XL, XXL
   YANDEX_PREVIEW_SIZE: process.env.REACT_APP_YANDEX_PREVIEW_SIZE || 'M',
+  
+  // РўРµРєСѓС‰РёР№ СЂРµР¶РёРј API (РґР»СЏ РѕС‚Р»Р°РґРєРё)
+  API_MODE: apiMode || (useRemoteServer ? 'remote' : 'local'),
+  ENVIRONMENT: process.env.NODE_ENV || 'development'
 };
 
 if (typeof window !== 'undefined') {
   window.YANDEX_DISK_MODE = config.YANDEX_DISK_MODE;
   window.YANDEX_PREVIEW_SIZE = config.YANDEX_PREVIEW_SIZE;
+  window.API_MODE = config.API_MODE;
 }
 
 console.log(`[API Config] NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`[API Config] REACT_APP_USE_REMOTE_SERVER: ${useRemoteServer}`);
+console.log(`[API Config] API_MODE: ${config.API_MODE}`);
 console.log(`[API Config] API_URL: ${API_URL}`);
 console.log(`[API Config] YANDEX_DISK_MODE: ${config.YANDEX_DISK_MODE}`);
 console.log(`[API Config] YANDEX_PREVIEW_SIZE: ${config.YANDEX_PREVIEW_SIZE}`);
 
-// Экспортируем и строку (для обратной совместимости), и объект (для новых настроек)
+// Р­РєСЃРїРѕСЂС‚РёСЂСѓРµРј Рё СЃС‚СЂРѕРєСѓ (РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё), Рё РѕР±СЉРµРєС‚ (РґР»СЏ РЅРѕРІС‹С… РЅР°СЃС‚СЂРѕРµРє)
 export default API_URL;
 export { config };
