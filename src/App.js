@@ -57,6 +57,7 @@ import './App.css';   //стили
 // Тестовые - потом можно удалить
 import TestPreview from './TestPreview';
 import TestRefreshLinks from './TestRefreshLinks';
+import TestImage from './TestImage';
 
 
 function App() {
@@ -122,6 +123,7 @@ function App() {
             // Тестовые - потом можно удалить
             <Route path="/test-preview" element={<TestPreview />} />
             <Route path="/test-refresh" element={<TestRefreshLinks />} />  //Это полезно, лучше оставить, т.к. вызывается из AllMediaPage
+            <Route path="/test-image" element={<TestImage />} />
 
             // Добавьте маршрут для отдельного просмотра
             <Route path="/media-viewer/:id" element={<MediaViewerPage />} />

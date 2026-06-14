@@ -1,7 +1,7 @@
 // server.js
 // 1. Импорты
 require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
+//const { createClient } = require('@supabase/supabase-js');
 const express = require('express');
 const multer = require('multer');
 const fetch = require('node-fetch').default;
@@ -9,9 +9,9 @@ const cors = require('cors');
 
 // 2. Инициализация
 const app = express();
-const supabaseUrl = 'https://btqttycwerqqbvfzmqlo.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0cXR0eWN3ZXJxcWJ2ZnptcWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODEwMjgsImV4cCI6MjA2ODE1NzAyOH0.Y5btj0hHvC2fUK2oxjWyQHfAno75KlNAvRytTWVgfX8';
-const supabase = createClient(supabaseUrl, supabaseKey);
+// const supabaseUrl = 'https://btqttycwerqqbvfzmqlo.supabase.co';
+// const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0cXR0eWN3ZXJxcWJ2ZnptcWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1ODEwMjgsImV4cCI6MjA2ODE1NzAyOH0.Y5btj0hHvC2fUK2oxjWyQHfAno75KlNAvRytTWVgfX8';
+// const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ========== НОВЫЙ КОД ДЛЯ РАБОТЫ С POSTGRESQL НА REG.RU ==========
 const { Client } = require('pg');
@@ -4506,23 +4506,7 @@ app.post('/api/media/link', async (req, res) => {
   }
 });
 
-// GET /api/proxy-image — прокси для изображений
-app.get('/api/proxy-image', async (req, res) => {
-  const { url } = req.query;
-  if (!url) {
-    return res.status(400).json({ error: 'URL parameter is required' });
-  }
-  
-  try {
-    const response = await fetch(url);
-    const buffer = await response.arrayBuffer();
-    res.set('Content-Type', response.headers.get('content-type'));
-    res.send(buffer);
-  } catch (error) {
-    console.error('[ERROR] GET /api/proxy-image:', error.message);
-    res.status(500).json({ error: 'Failed to fetch image' });
-  }
-});
+
 
 // Вспомогательная функция для определения типа файла
 function getFileType(filename) {

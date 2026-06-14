@@ -317,36 +317,57 @@ function MediaManager({
               onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
               onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
             >
-              {/* Превью */}
-              <div style={{ 
-                height: '120px', 
-                backgroundColor: '#f0f0f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '24px',
-                overflow: 'hidden'
-              }}>
-                {thumbnailUrl ? (
-                  <img 
-                    src={thumbnailUrl}
-                    alt=""
-                    style={{ 
-                      width: '100%', 
-                      height: '100%', 
-                      objectFit: 'cover' 
-                    }}
-                    key={`thumb-${item.id}-${item.thumbnail_updated_at || 'no-date'}`}
-                    onError={(e) => {
-                      console.error('[MediaManager] Image failed to load:', thumbnailUrl);
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = getFileIcon(item.file_type);
-                    }}
-                  />
-                ) : (
-                  getFileIcon(item.file_type)
-                )}
-              </div>
+             {/* Превью */}
+            <div style={{ 
+              height: '120px', 
+              backgroundColor: '#f0f0f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '24px',
+              overflow: 'hidden'
+            }}>
+              {thumbnailUrl ? (
+                <img 
+                  ref={img => {
+                    if (img && !img.src) {
+                      // Загружаем изображение с правильным Referer
+                      fetch(thumbnailUrl, {
+                        headers: { 'Referer': 'https://disk.yandex.ru/' }
+                      })
+                      .then(res => {
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        return res.blob();
+                      })
+                      .then(blob => {
+                        const objectUrl = URL.createObjectURL(blob);
+                        img.src = objectUrl;
+                        img.onload = () => URL.revokeObjectURL(objectUrl);
+                      })
+                      .catch(err => {
+                        console.error('[MediaManager] Failed to load image:', err);
+                        img.style.display = 'none';
+                        img.parentElement.innerHTML = getFileIcon(item.file_type);
+                      });
+                    }
+                  }}
+                  alt=""
+                  style={{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover' 
+                  }}
+                  key={`thumb-${item.id}-${item.thumbnail_updated_at || 'no-date'}`}
+                  onError={(e) => {
+                    console.error('[MediaManager] Image failed to load:', thumbnailUrl);
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = getFileIcon(item.file_type);
+                  }}
+                />
+              ) : (
+                getFileIcon(item.file_type)
+              )}
+            </div>
               
               {/* Информация */}
               <div style={{ 
@@ -416,6 +437,10 @@ function MediaManager({
     );
   }  
 };
+
+
+
+
 // ============ КОНЕЦ ФУНКЦИИ РЕНДЕРИНГА МЕДИА ============
 
   // Если нет entityType или entityId, не рендерим компонент

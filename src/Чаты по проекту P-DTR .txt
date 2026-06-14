@@ -1,3 +1,11 @@
+Запуск проекта на локале в разных режимах
+# Режим с локальным бекендом
+REACT_APP_API_MODE=local npm start
+
+# Режим с удаленным бекендом
+REACT_APP_API_MODE=remote npm start
+
+
 30-05-26
 Удобная админка для БД:
 http://194.226.165.244/phppgadmin/
@@ -40,7 +48,7 @@ DNS: ns5.hosting.reg.ru • ns6.hosting.reg.ru
 
 06-05-26
 
-QAZxsw$123QAZxsw$123QAZxsw$123  - пароль к новой базе в новом регионе
+QAZxsw$123QAZxsw$123QAZxsw$123  - пароль к новой базе в новом регионе для supabase  - уже не актуально
 xMCv8KngDBXEOdcg   URL   https://hwlfgdtyzfkozzafisjx.supabase.co
 
 02-05-2026
