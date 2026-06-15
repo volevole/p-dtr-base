@@ -93,7 +93,7 @@ function MediaViewer({ media }) {
         setBlobUrl(url);
         
       } catch (err) {
-        console.error('Error loading file via blob:', err);
+        console.error('MediaViewer - Error loading file via blob:', err);
         setLoadError(true);
         setBlobUrl(media.file_url || media.public_url);
       } finally {

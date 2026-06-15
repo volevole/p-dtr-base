@@ -50,7 +50,7 @@ function Sidebar({ isOpen, onToggle }) {
     if (path.startsWith('/meridian')) return 'meridian';
     if (path.startsWith('/dysfunction')) return 'dysfunction';
     if (path.startsWith('/group')) return 'group';
-    if (path.startsWith('/receptor-class')) return 'receptor-classes';
+    if (path.startsWith('/receptor-class')) return 'receptor_classes';
     if (path.startsWith('/receptor')) return 'receptor';
     if (path.startsWith('/tool')) return 'tool';
     if (path.startsWith('/entry')) return 'entry';
@@ -68,14 +68,14 @@ function Sidebar({ isOpen, onToggle }) {
       {/* Кнопка закрытия внутри сайдбара - видна только на мобильных только когда меню открыто */}    
       
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>
-      <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
-        <FaBars style={{ marginRight: '10px' }} />
+      <h3 style={{ marginBottom: '20px', display: 'flex', alignItems: 'right' }}>
+        <FaBars style={{ marginRight: '40px' }} />
         Ларчик P-DTR
       </h3>
         
         {/* Все пункты меню в одном списке */}
         <div>
-          <h4 style={{ fontSize: '14px', color: '#6c757d', marginBottom: '10px' }}>Сущности</h4>
+          <h4 style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>Сущности</h4>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             
             {/* Мышцы как пункт меню с подменю */}
@@ -213,15 +213,15 @@ function Sidebar({ isOpen, onToggle }) {
                   <ul style={{ listStyle: 'none', padding: 0 }}>
                     <li style={{ marginBottom: '5px' }}>
                       <Link 
-                        to="/receptor-classes" 
+                        to="/receptor_classes" 
                         style={{ 
                           display: 'flex', 
                           alignItems: 'center',
-                          color: activeEntity === 'receptor-class' ? '#007bff' : '#495057',
+                          color: activeEntity === 'receptor_class' ? '#007bff' : '#495057',
                           textDecoration: 'none',
                           padding: '6px 8px',
                           borderRadius: '4px',
-                          backgroundColor: activeEntity === 'receptor-class' ? '#e3f2fd' : 'transparent',
+                          backgroundColor: activeEntity === 'receptor_class' ? '#e3f2fd' : 'transparent',
                           fontSize: '14px'
                         }}
                         onClick={(e) => e.stopPropagation()}
@@ -229,7 +229,7 @@ function Sidebar({ isOpen, onToggle }) {
                         <div style={{ 
                           width: '6px', 
                           height: '6px', 
-                          backgroundColor: activeEntity === 'receptor-class' ? '#007bff' : '#6c757d',
+                          backgroundColor: activeEntity === 'receptor_class' ? '#007bff' : '#6c757d',
                           borderRadius: '50%',
                           marginRight: '10px'
                         }} />
@@ -362,7 +362,7 @@ function Sidebar({ isOpen, onToggle }) {
 
         {/* Настройки и сервис как пункт меню с подменю */}
         <div style={{ marginTop: '20px' }}>
-          <h4 style={{ fontSize: '14px', color: '#6c757d', marginBottom: '10px' }}>Система</h4>
+          <h4 style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>Система</h4>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             
             <li style={{ marginBottom: '8px' }}>

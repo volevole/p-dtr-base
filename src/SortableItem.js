@@ -1,4 +1,4 @@
-﻿// SortableItem.js
+﻿// SortableItem.js — исправленная версия
 import React, { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -9,7 +9,7 @@ export function SortableItem({
   item, 
   onDelete, 
   onView, 
-  onEditDescription
+  onEditDescription 
 }) {
   const {
     attributes,
@@ -23,13 +23,12 @@ export function SortableItem({
   const [thumbnailError, setThumbnailError] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Увеличиваем высоту для 4 строк информации
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     width: '150px',
-    height: '250px', // Увеличили с 210px до 240px
+    height: '250px',
     position: 'relative',
     backgroundColor: '#f8f9fa',
     borderRadius: '8px',
@@ -40,217 +39,58 @@ export function SortableItem({
     flexDirection: 'column',
   };
 
-
-  // Функция для получения URL для thumbnail
-  const getThumbnailUrl = () => {
-    // Если есть thumbnail_url от Яндекс.Диска
-    if (item.thumbnail_url) {
-      return `${API_URL}/api/proxy-image?url=${encodeURIComponent(item.thumbnail_url)}`;
-    }
-    
-    // Для изображений используем само изображение
-    if (item.file_type === 'image' && item.public_url) {
-      return `${API_URL}/api/proxy-image?url=${encodeURIComponent(item.public_url)}`;
-    }
-    
-    return null;
-  };
-
-  // Функция для получения URL для изображения
-  const getImageUrl = () => {
-    if (item.proxyUrl) {
-      return item.proxyUrl;
-    }
-    
-    if (item.file_type === 'image' && item.public_url) {
-      return `${API_URL}/api/proxy-image?url=${encodeURIComponent(item.public_url)}`;
-    }
-    
-    return item.file_url;
-  };
+  // Используем готовый thumbnailUrl из item
+  const thumbnailUrl = item.thumbnailUrl;
+  const fileTypeIcon = item.fileTypeIcon;
+  const formattedSize = item.formattedSize;
 
   // Функция для рендеринга thumbnail
-  const renderThumbnail = () => {
-    const thumbnailUrl = getThumbnailUrl();
-    const imageUrl = getImageUrl();
-    
-    // Для видео с thumbnail от Яндекс.Диска
-    if (item.file_type === 'video' && thumbnailUrl && !thumbnailError) {
-      return (
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          <img
-            src={thumbnailUrl}
-            alt="Video thumbnail"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={() => setThumbnailError(true)}
-          />
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            fontSize: '24px',
-            color: 'white',
-            background: 'rgba(0,0,0,0.5)',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            ▶
-          </div>
-          {/* Длительность видео */}
-          {item.duration_seconds && (
-            <div style={{
-              position: 'absolute',
-              bottom: '5px',
-              right: '5px',
-              background: 'rgba(0,0,0,0.7)',
-              color: 'white',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '10px'
-            }}>
-              {formatDuration(item.duration_seconds)}
-            </div>
-          )}
-        </div>
-      );
-    }
-    
-    // Для PDF с thumbnail от Яндекс.Диска
-    if (item.file_type === 'document' && thumbnailUrl && !thumbnailError) {
-      return (
-        <img
-          src={thumbnailUrl}
-          alt="Document preview"
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={() => setThumbnailError(true)}
-        />
-      );
-    }
-    
-    // Для видео без thumbnail (иконка)
-    if (item.file_type === 'video') {
-      return (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative'
-        }}>
-          <div style={{ fontSize: '32px', color: 'white' }}>▶</div>
-          {item.duration_seconds && (
-            <div style={{
-              position: 'absolute',
-              bottom: '5px',
-              right: '5px',
-              background: 'rgba(0,0,0,0.7)',
-              color: 'white',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '10px'
-            }}>
-              {formatDuration(item.duration_seconds)}
-            </div>
-          )}
-        </div>
-      );
-    }
-    
-    // Для изображений
-    if (item.file_type === 'image') {
-      if (imageUrl && !imageError) {
-        return (
-          <img
-            src={imageUrl}
-            alt={item.description || `Изображение ${item.id}`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={() => setImageError(true)}
-          />
-        );
-      } else {
-        // Fallback на иконку
-        return (
-          <div style={{
-            width: '100%',
-            height: '100%',
-            backgroundColor: '#f0f0f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px'
-          }}>
-            {getFileTypeIcon(item.file_type)}
-          </div>
-        );
-      }
-    }
-    
-    // Для остальных типов файлов - иконка
+ // SortableItem.js — никакой логики получения URL, только отображение
+const renderThumbnail = () => {
+  // thumbnailUrl уже вычислен в MediaList и передан через item
+  const thumbnailUrl = item.thumbnailUrl;
+  
+  if (thumbnailUrl) {
     return (
-      <div style={{
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#f0f0f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '24px'
-      }}>
-        {getFileTypeIcon(item.file_type)}
-      </div>
+      <img
+        src={thumbnailUrl}
+        alt=""
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        onError={(e) => {
+          e.target.style.display = 'none';
+          e.target.parentElement.innerHTML = getFileTypeIcon(item.file_type);
+        }}
+      />
     );
-  };
+  }
+  
+  // Fallback на иконку
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      backgroundColor: '#f0f0f0',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '24px'
+    }}>
+      {getFileTypeIcon(item.file_type)}
+    </div>
+  );
+};
 
-  // Функция для получения иконки типа файла
+  // Вспомогательные функции
   const getFileTypeIcon = (fileType) => {
     switch (fileType) {
-      case 'image':
-        return '🖼️';
-      case 'video':
-        return '🎬';
-      case 'audio':
-        return '🎵';
-      case 'document':
-        return '📄';
-      default:
-        return '📎';
+      case 'image': return '🖼️';
+      case 'video': return '🎬';
+      case 'audio': return '🎵';
+      case 'document': return '📄';
+      default: return '📎';
     }
   };
 
-  // Функция для форматирования даты
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Не обновлялась';
-    
-    try {
-      const date = new Date(dateString);
-      const now = new Date();
-      const isToday = date.toDateString() === now.toDateString();
-      
-      if (isToday) {
-        return `Сегодня в ${date.toLocaleTimeString('ru-RU', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })}`;
-      } else {
-        return date.toLocaleDateString('ru-RU', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-      }
-    } catch (error) {
-      return 'Ошибка даты';
-    }
-  };
-
-  // Функция для форматирования длительности
   const formatDuration = (seconds) => {
     if (!seconds) return '';
     const mins = Math.floor(seconds / 60);
@@ -258,15 +98,59 @@ export function SortableItem({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Функция для форматирования размера файла
-  const formatFileSize = (bytes) => {
-    if (!bytes) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Не обновлялась';
+    const date = new Date(dateString);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    if (isToday) {
+      return `Сегодня в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  // Обработчики событий
+  const getShortFileName = () => {
+  if (!item.file_name) return 'Без названия';
+  
+  // Получаем оригинальное имя файла (последнюю часть после последнего '_')
+  const parts = item.file_name.split('_');
+  
+  // Если есть timestamp (число из 13 цифр в конце), берём имя до него
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (/^\d+$/.test(parts[i]) && parts[i].length >= 13) {
+      // Это timestamp, берём всё, что до него
+      const nameParts = parts.slice(0, i);
+      if (nameParts.length > 0) {
+        return nameParts.join('_');
+      }
+      break;
+    }
+  }
+  
+  // Если не нашли timestamp, показываем оригинальное имя (обрезаем если длинное)
+  if (item.file_name.length > 30) {
+    return item.file_name.substring(0, 27) + '...';
+  }
+  
+  return item.file_name;
+};
+
+  const getFileTypeDisplay = () => {
+    switch (item.file_type) {
+      case 'image': return 'Изображение';
+      case 'video': return 'Видео';
+      case 'audio': return 'Аудио';
+      case 'document': return 'Документ';
+      default: return 'Файл';
+    }
+  };
+
+  useEffect(() => {
+    setThumbnailError(false);
+    setImageError(false);
+  }, [item.id, item.thumbnail_url]);
+
+  // Обработчики с двойным кликом
   const handleDoubleClickDelete = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -285,69 +169,6 @@ export function SortableItem({
     onView(item);
   };
 
-  // Получаем информацию о типе файла
-  const getFileTypeDisplay = () => {
-    switch (item.file_type) {
-      case 'image':
-        return 'Изображение';
-      case 'video':
-        return 'Видео';
-      case 'audio':
-        return 'Аудио';
-      case 'document':
-        return 'Документ';
-      default:
-        return 'Файл';
-    }
-  };
-
-  // Функция для сокращения имени файла (убираем префикс)
-  const getShortFileName = () => {
-    if (!item.file_name) return 'Без названия';
-    
-    // Убираем префикс типа "organ_00d45015-6527-4507-bba0-e6de8f783ba7_1767266616752.jpg"
-    const parts = item.file_name.split('_');
-    
-    if (parts.length > 2) {
-      // Оставляем только последнюю часть с timestamp и расширением
-      const timestampPart = parts[parts.length - 1];
-      const extension = timestampPart.split('.').pop();
-      const timestamp = timestampPart.split('.')[0];
-      
-      // Форматируем дату из timestamp, если это timestamp
-      if (timestamp.length >= 13) {
-        try {
-          const date = new Date(parseInt(timestamp));
-          const formattedDate = date.toLocaleDateString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          return `Загружен ${formattedDate}.${extension}`;
-        } catch (e) {
-          // Если не удалось распарсить timestamp
-        }
-      }
-      
-      // Или показываем только расширение
-      return `Файл.${extension}`;
-    }
-    
-    // Или показываем оригинальное имя, если оно короткое
-    if (item.file_name.length > 20) {
-      return item.file_name.substring(0, 17) + '...';
-    }
-    
-    return item.file_name;
-  };
-
-  // Сбрасываем состояние ошибок при смене item
-  useEffect(() => {
-    setThumbnailError(false);
-    setImageError(false);
-  }, [item.id]);
-
   return (
     <div
       ref={setNodeRef}
@@ -356,10 +177,7 @@ export function SortableItem({
       {...listeners}
       role="button"
       tabIndex={0}
-      aria-disabled={false}
-      aria-roledescription="sortable"
     >
-      {/* Контейнер для thumbnail */}
       <div 
         style={{ 
           width: '100%', 
@@ -369,11 +187,9 @@ export function SortableItem({
           flexShrink: 0
         }} 
         onDoubleClick={handleDoubleClickView}
-        title="Двойной клик для просмотра"
       >
         {renderThumbnail()}
-        
-        {/* Иконка типа файла в углу */}
+  
         <div style={{
           position: 'absolute',
           top: '8px',
@@ -386,10 +202,9 @@ export function SortableItem({
           fontWeight: 'bold',
           zIndex: 2
         }}>
-          {getFileTypeIcon(item.file_type)}
+          {fileTypeIcon || getFileTypeIcon(item.file_type)}
         </div>
         
-        {/* Кнопка редактирования описания */}
         <button
           title="Двойной клик для редактирования описания"
           style={{
@@ -414,7 +229,6 @@ export function SortableItem({
           ✏️
         </button>
         
-        {/* Кнопка удаления */}
         <button
           title="Двойной клик для удаления"
           style={{
@@ -439,7 +253,6 @@ export function SortableItem({
           ×
         </button>
         
-        {/* Описание файла */}
         {item.description && (
           <div
             title={item.description}
@@ -463,7 +276,6 @@ export function SortableItem({
           </div>
         )}
         
-        {/* Размер файла */}
         {item.file_size && (
           <div style={{
             position: 'absolute',
@@ -476,32 +288,29 @@ export function SortableItem({
             fontSize: '9px',
             zIndex: 1
           }}>
-            {formatFileSize(item.file_size)}
+            {formattedSize}
           </div>
         )}
       </div>
       
-      {/* Блок с информацией - УВЕЛИЧЕН для 4 строк */}
       <div style={{ 
-        padding: '10px 8px 8px 8px', // Увеличили верхний padding
+        padding: '10px 8px 8px 8px',
         fontSize: '10px',
         color: '#444',
-        lineHeight: '1.5', // Увеличили межстрочный интервал
+        lineHeight: '1.5',
         backgroundColor: 'white',
         flexGrow: 1,
         borderTop: '1px solid #eee',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        minHeight: '90px' // Минимальная высота для 4 строк
+        minHeight: '90px'
       }}>
-        {/* Первая строка: Тип файла */}
         <div style={{ marginBottom: '4px' }}>
           <span style={{ fontWeight: 'bold', color: '#333' }}>Тип:</span> 
           <span style={{ marginLeft: '4px' }}>{getFileTypeDisplay()}</span>
         </div>
         
-        {/* Вторая строка: Длительность видео ИЛИ Размеры изображения */}
         {item.duration_seconds ? (
           <div style={{ marginBottom: '4px' }}>
             <span style={{ fontWeight: 'bold', color: '#333' }}>Длительность:</span> 
@@ -513,20 +322,16 @@ export function SortableItem({
             <span style={{ marginLeft: '4px' }}>{item.width} × {item.height}px</span>
           </div>
         ) : (
-          <div style={{ marginBottom: '4px', minHeight: '16px' }}>
-            {/* Пустая строка для выравнивания */}
-          </div>
+          <div style={{ marginBottom: '4px', minHeight: '16px' }} />
         )}
         
-        {/* Третья строка: Дата загрузки */}
         <div style={{ marginBottom: '4px' }}>
           <span style={{ fontWeight: 'bold', color: '#333' }}>Загружен:</span> 
           <span style={{ marginLeft: '4px' }}>{formatDate(item.created_at)}</span>
         </div>
         
-        {/* Четвертая строка: Имя файла (в самом конце) */}
         <div style={{ 
-          marginTop: 'auto', // Прижимаем к низу
+          marginTop: 'auto',
           paddingTop: '3px',
           borderTop: '1px dashed #eee',
           fontSize: '9px',
@@ -541,7 +346,6 @@ export function SortableItem({
           </div>
         </div>
         
-        {/* Пятая строка (опционально): Дата обновления, если отличается от загрузки */}
         {item.updated_at && item.updated_at !== item.created_at && (
           <div style={{ 
             marginTop: '2px',

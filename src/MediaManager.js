@@ -122,7 +122,7 @@ function MediaManager({
     try {
       await uploadFile(file, '');
     } catch (error) {
-      alert(`Ошибка загрузки: ${error.message}`);
+      alert(`Ошибка загрузки handleFileUpload: ${error.message}`);
     }
   };
 
@@ -230,94 +230,63 @@ function MediaManager({
   }, [searchTerm, selectedFileType, showAddMediaModal]);
 
   // ============ ФУНКЦИЯ РЕНДЕРИНГА МЕДИА ============
-  const renderMediaContent = () => {
-    if (loading && media.length === 0) {
-      return (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
-          backgroundColor: '#f8f9fa', 
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>⏳</div>
-          <p>Загрузка медиафайлов...</p>
-        </div>
-      );
-    }
 
-    if (media.length === 0) {
-      return (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
-          backgroundColor: '#f8f9fa', 
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>📷</div>
-          <p>Нет медиафайлов</p>
-        </div>
-      );
-    }
-
-  if (readonly) {
-    // ========== РЕЖИМ ТОЛЬКО ЧТЕНИЯ: простая сетка ==========
+// Функция для рендеринга сетки превью (общая для всех режимов)
+const renderMediaGrid = (withControls = false) => {
+  if (loading && media.length === 0) {
     return (
       <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
-        gap: '15px',
+        textAlign: 'center', 
+        padding: '40px', 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: '8px',
         marginBottom: '20px'
       }}>
-        {media.map(item => {
-          // ДОБАВЬТЕ ЭТИ ЛОГИ СЮДА
-        console.log('[MediaManager] Item from server:', item);
-        console.log('[MediaManager] ID from media_files:', item.id);
-        console.log('[MediaManager] media_file_id:', item.media_file_id);
-          const thumbnailUrl = getThumbnailUrl(item);
-          const isImage = item.file_type === 'image';
-          const isVideo = item.file_type === 'video';
-          const isDocument = item.file_type === 'document';  // все документы (включая PDF)
-          
-          console.log('Mode:', config.YANDEX_DISK_MODE, 'Thumbnail URL в режиме Только Чтение:', thumbnailUrl);
-          console.log('[MediaManager] Item:', item.file_name);
-          console.log('[MediaManager] public_url:', item.public_url);
-          console.log('[MediaManager] thumbnailUrl from getThumbnailUrl:', thumbnailUrl);
-          
-          if (thumbnailUrl) {
-            console.log('[MediaManager] thumbnailUrl type:', typeof thumbnailUrl);
-            console.log('[MediaManager] thumbnailUrl starts with http?:', thumbnailUrl.startsWith('http'));
-          }
-          
-          const handleClick = () => {
-            console.log('[MediaManager] Item ID:', item.id);
-            console.log('[MediaManager] Item file_name:', item.file_name);
-            // Для изображений и видео → открываем в той же вкладке через маршрут
-            if (isImage || isVideo) {
-              navigate(`/media-viewer/${item.id}`);
-            } else {
-              // Для документов → модальное окно
-              setViewingMedia(item);
-            }
-          };
-          
-          return (
-            <div 
-              key={item.id}
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                backgroundColor: 'white',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-              onClick={handleClick}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-            >
-             {/* Превью */}
+        <div style={{ fontSize: '48px', marginBottom: '10px' }}>⏳</div>
+        <p>Загрузка медиафайлов...</p>
+      </div>
+    );
+  }
+
+  if (media.length === 0) {
+    return (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '40px', 
+        backgroundColor: '#f8f9fa', 
+        borderRadius: '8px',
+        marginBottom: '20px'
+      }}>
+        <div style={{ fontSize: '48px', marginBottom: '10px' }}>📷</div>
+        <p>Нет медиафайлов</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ 
+      display: 'grid', 
+      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
+      gap: '15px',
+      marginBottom: '20px'
+    }}>
+      {media.map(item => {
+        const thumbnailUrl = getThumbnailUrl(item);
+        
+        return (
+          <div 
+            key={item.id}
+            style={{
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              backgroundColor: 'white',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={() => setViewingMedia(item)}
+          >
+            {/* Превью */}
             <div style={{ 
               height: '120px', 
               backgroundColor: '#f0f0f0',
@@ -329,28 +298,7 @@ function MediaManager({
             }}>
               {thumbnailUrl ? (
                 <img 
-                  ref={img => {
-                    if (img && !img.src) {
-                      // Загружаем изображение с правильным Referer
-                      fetch(thumbnailUrl, {
-                        headers: { 'Referer': 'https://disk.yandex.ru/' }
-                      })
-                      .then(res => {
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                        return res.blob();
-                      })
-                      .then(blob => {
-                        const objectUrl = URL.createObjectURL(blob);
-                        img.src = objectUrl;
-                        img.onload = () => URL.revokeObjectURL(objectUrl);
-                      })
-                      .catch(err => {
-                        console.error('[MediaManager] Failed to load image:', err);
-                        img.style.display = 'none';
-                        img.parentElement.innerHTML = getFileIcon(item.file_type);
-                      });
-                    }
-                  }}
+                  src={thumbnailUrl}
                   alt=""
                   style={{ 
                     width: '100%', 
@@ -359,7 +307,6 @@ function MediaManager({
                   }}
                   key={`thumb-${item.id}-${item.thumbnail_updated_at || 'no-date'}`}
                   onError={(e) => {
-                    console.error('[MediaManager] Image failed to load:', thumbnailUrl);
                     e.target.style.display = 'none';
                     e.target.parentElement.innerHTML = getFileIcon(item.file_type);
                   }}
@@ -368,80 +315,140 @@ function MediaManager({
                 getFileIcon(item.file_type)
               )}
             </div>
-              
-              {/* Информация */}
+            
+            {/* Информация о файле */}
+            <div style={{ padding: '10px' }}>
               <div style={{ 
-                padding: '10px',
+                fontWeight: 'bold', 
+                whiteSpace: 'nowrap', 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis',
                 fontSize: '12px'
               }}>
-                <div style={{ 
-                  fontWeight: 'bold',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  marginBottom: '4px'
+                {item.file_name}
+              </div>
+              
+              <div style={{ 
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                color: '#666',
+                marginTop: '4px'
+              }}>
+                <span style={{
+                  padding: '2px 6px',
+                  backgroundColor: '#e9f7fe',
+                  borderRadius: '4px',
+                  fontWeight: 'bold'
                 }}>
-                  {item.file_name}
-                </div>
+                  {item.file_type === 'image' ? 'Изобр.' :
+                   item.file_type === 'video' ? 'Видео' :
+                   item.file_type === 'audio' ? 'Аудио' : 'Док.'}
+                </span>
                 
-                <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '11px',
-                  color: '#666'
-                }}>
-                  <span style={{
-                    padding: '2px 6px',
-                    backgroundColor: '#e9f7fe',
-                    borderRadius: '4px',
-                    fontWeight: 'bold'
-                  }}>
-                    {item.file_type === 'image' ? 'Изобр.' :
-                    item.file_type === 'video' ? 'Видео' :
-                    item.file_type === 'audio' ? 'Аудио' : 'Док.'}
-                  </span>
-                  
-                  {item.file_size && (
-                    <span>{formatFileSize(item.file_size)}</span>
-                  )}
-                </div>
-                
-                {item.description && (
-                  <div style={{
-                    marginTop: '4px',
-                    fontSize: '10px',
-                    color: '#888',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {item.description}
-                  </div>
+                {item.file_size && (
+                  <span>{formatFileSize(item.file_size)}</span>
                 )}
               </div>
+              
+              {item.description && (
+                <div style={{
+                  marginTop: '4px',
+                  fontSize: '10px',
+                  color: '#888',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {item.description}
+                </div>
+              )}
             </div>
-          );
-        })}
+            
+            {/* Кнопки управления (только если withControls=true) */}
+            {withControls && (
+              <div style={{ 
+                display: 'flex', 
+                gap: '5px', 
+                padding: '8px',
+                borderTop: '1px solid #eee',
+                backgroundColor: '#fafafa'
+              }}>
+                <button
+                  onClick={() => handleEditDescriptionClick(item)}
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  ✏️ Описание
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(item)}
+                  style={{
+                    flex: 1,
+                    padding: '4px 8px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '11px'
+                  }}
+                >
+                  🗑️ Удалить
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+  // MediaManager.js — исправленная функция renderMediaContent
+
+// В renderMediaContent:
+const renderMediaContent = () => {
+  if (readonly) {
+    // Режим только чтения: только сетка без кнопок
+    return renderMediaGrid(false);
+  } else {
+    // Режим редактирования: сетка с кнопками + DnD
+    return (
+      <div>
+        {renderMediaGrid(true)}
+        
+        <div style={{ marginTop: '20px', borderTop: '2px solid #eee', paddingTop: '20px' }}>
+          <h4 style={{ marginBottom: '10px' }}>Управление файлами (перетаскивание для сортировки)</h4>
+          <MediaList 
+            items={media}
+            onReorder={handleUpdateMediaOrder}
+            onDelete={handleDeleteClick}
+            onView={(item) => setViewingMedia(item)}
+            onEditDescription={handleEditDescriptionClick}
+            getThumbnailUrl={getThumbnailUrl}
+          />
+        </div>
       </div>
     );
-  } else {
-    // ========== РЕЖИМ РЕДАКТИРОВАНИЯ: MediaList с DnD ==========
-    return (
-      <MediaList 
-        items={media}
-        onReorder={handleUpdateMediaOrder}
-        onDelete={handleDeleteClick}
-        onView={(item) => setViewingMedia(item)}
-        onEditDescription={handleEditDescriptionClick}
-      />
-    );
-  }  
+  }
 };
 
 
 
 
 // ============ КОНЕЦ ФУНКЦИИ РЕНДЕРИНГА МЕДИА ============
+
+
+
 
   // Если нет entityType или entityId, не рендерим компонент
   if (!entityType || !entityId) {

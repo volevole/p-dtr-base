@@ -67,7 +67,7 @@ function EntryDetail() {
           className="action-btn edit-btn"
           title="Редактировать"
         >
-          ✏️ Редактировать
+          ✏️ 
         </button>
       </div>
 

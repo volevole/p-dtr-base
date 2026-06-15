@@ -133,7 +133,7 @@ export function createEntityEdit(config) {
             entityId={id}
             entityName={entity.name}
             showTitle={true}
-            readonly={true}
+            readonly={false} 
           />
         )}
 

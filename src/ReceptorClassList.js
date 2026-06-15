@@ -30,7 +30,7 @@ const renderReceptorClassCard = (cls, index, actions, totalCount) => {
         <div style={{ flex: 1 }}>
           <h3 style={{ margin: '0 0 5px 0' }}>
             <Link 
-              to={`/receptor-class/${cls.id}`}
+              to={`/receptor_class/${cls.id}`}
               style={{ 
                 color: '#007bff',
                 textDecoration: 'none',
@@ -180,7 +180,7 @@ const renderReceptorClassCard = (cls, index, actions, totalCount) => {
 
 const ReceptorClassList = createEntityList({
   entityName: 'Классы рецепторов',
-  entityType: 'receptor-class',
+  entityType: 'receptor_class',
   tableName: 'receptor-classes',
   columns: [
     { field: 'name', label: 'Название', searchable: true },

@@ -151,6 +151,28 @@ export function createEntityList({
       }
     };
 
+    //Создание нового
+    const handleAdd = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/${tableName}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: `Новый ${entityName}` })
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+          navigate(`/${entityType}/${result.id}/edit`);
+        } else {
+          alert('Ошибка при создании: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Ошибка создания:', error);
+        alert('Ошибка при создании: ' + error.message);
+      }
+    };
+
+
     const handleMoveDown = async (index) => {
       if (index === filteredItems.length - 1) return;
       
@@ -196,7 +218,7 @@ export function createEntityList({
             )}
           </div>
           
-          <button onClick={() => navigate(`/${entityType}/new`)} style={styles.addButton}>
+          <button onClick={handleAdd} style={styles.addButton}>
             <FaPlus /> Добавить {entityName.toLowerCase()}
           </button>
         </div>
@@ -215,7 +237,7 @@ export function createEntityList({
           {filteredItems.length === 0 ? (
             <div style={styles.empty}>
               <p>Нет {entityName.toLowerCase()}ов</p>
-              <button onClick={() => navigate(`/${entityType}/new`)} style={styles.addButton}>
+              <button onClick={handleAdd} style={styles.addButton}>
                 <FaPlus /> Добавить первый {entityName.toLowerCase()}
               </button>
             </div>
@@ -229,7 +251,6 @@ export function createEntityList({
                 onMoveDown: enableMove ? () => handleMoveDown(index) : null
               };
               
-              // Кастомный renderCard получает полный контроль над карточкой
               return renderCard(item, index, actions, filteredItems.length);
             })
           )}

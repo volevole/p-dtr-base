@@ -101,9 +101,9 @@ function App() {
             <Route path="/dysfunction/:id" element={<DysfunctionDetail />} />
             <Route path="/groups" element={<GroupsPage />} />
             
-            <Route path="/receptor-classes" element={<ReceptorClassList />} />	  
-            <Route path="/receptor-class/:id" element={<ReceptorClassDetail />} />
-            <Route path="/receptor-class/:id/edit" element={<ReceptorClassEditPage />} />
+            <Route path="/receptor_classes" element={<ReceptorClassList />} />	  
+            <Route path="/receptor_class/:id" element={<ReceptorClassDetail />} />
+            <Route path="/receptor_class/:id/edit" element={<ReceptorClassEditPage />} />
             
             <Route path="/receptors" element={<ReceptorsPage />} />
             <Route path="/receptor/:id" element={<ReceptorDetail />} />

@@ -171,17 +171,10 @@ function DysfunctionDetail() {
         <Link to="/dysfunctions">← Назад к списку</Link>
         <button 
           onClick={() => navigate(`/dysfunction/${id}/edit`)}
-          style={{
-            marginLeft: '15px',
-            padding: '5px 10px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          className="action-btn edit-btn"
+          
         >
-          ✏️ Редактировать
+          ✏️ 
         </button>
       </div>
 

@@ -3,9 +3,9 @@ import { createEntityDetail } from './factories/EntityDetailFactory';
 
 const ReceptorClassDetail = createEntityDetail({
   entityName: 'Класс рецепторов',
-  entityType: 'receptor-class',
+  entityType: 'receptor_class',
   tableName: 'receptor-classes',
-  listPath: '/receptor-classes',  // ← явно указываем правильный путь
+  listPath: '/receptor_classes',  // ← явно указываем правильный путь
   fields: [
     { name: 'name', label: 'Название' },
     { name: 'antistimulus', label: 'Антистимул' },

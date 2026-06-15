@@ -4,6 +4,8 @@ import MediaViewer from '../MediaViewer';
 import { getFileIcon, formatFileSize } from './mediaUtils';
 import API_URL from '../config/api';
 
+
+
 function AllMediaPage() {
   const [mediaFiles, setMediaFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,11 +16,76 @@ function AllMediaPage() {
   const [updatingPreviews, setUpdatingPreviews] = useState(false);
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  const [forceUpdating, setForceUpdating] = useState(false);
 
   const showToast = (message, type = 'info') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
   };
+
+  // Проверка, нужно ли обновить превью (устарело или отсутствует)
+   const isPreviewExpired = (file) => {
+  // Больше НЕ исключаем изображения
+  // if (file.file_type === 'image') return false;  // ← УДАЛИТЬ ЭТУ СТРОКУ
+  
+  // Если нет thumbnail_url — точно нужно обновить
+  if (!file.thumbnail_url) return true;
+  
+  // Если нет даты обновления — нужно обновить
+  if (!file.thumbnail_updated_at) return true;
+  
+  // Проверяем, сколько дней прошло с последнего обновления
+  const updatedAt = new Date(file.thumbnail_updated_at);
+  const now = new Date();
+  const daysDiff = (now - updatedAt) / (1000 * 60 * 60 * 24);
+  
+  // Превью устаревает через 7 дней
+  return daysDiff > 7;
+};
+
+    // Принудительное обновление превью для ВСЕХ файлов (игнорируем дату)
+    const handleForceUpdatePreviews = async () => {
+      // Теперь ВСЕ файлы (включая изображения)
+      const filesToUpdate = mediaFiles.filter(f => true);  // или просто mediaFiles
+      
+      if (filesToUpdate.length === 0) {
+        showToast('Нет файлов для обновления', 'info');
+        return;
+    }
+      
+      if (!window.confirm(`ПРИНУДИТЕЛЬНО обновить превью для ${filesToUpdate.length} файлов?\n\nЭто может занять несколько минут.`)) return;
+      
+      setForceUpdating(true);
+      showToast(`Принудительное обновление превью для ${filesToUpdate.length} файлов...`, 'info');
+      
+      try {
+        const mediaIds = filesToUpdate.map(f => f.id);
+        const response = await fetch(`${API_URL}/api/update-media-previews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mediaIds,
+            entityType: 'all',
+            entityId: null,
+            force: true  // добавляем флаг принудительного обновления
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          const successCount = result.results.filter(r => r.success).length;
+          showToast(`Принудительно обновлено превью для ${successCount} файлов`, 'success');
+          await fetchMediaFiles();
+        } else {
+          showToast('Ошибка: ' + result.error, 'error');
+        }
+      } catch (error) {
+        showToast('Ошибка: ' + error.message, 'error');
+      } finally {
+        setForceUpdating(false);
+      }
+    };
 
   const fetchMediaFiles = async () => {
     try {
@@ -78,6 +145,8 @@ function AllMediaPage() {
     }
   };
 
+  // ========== УНИФИЦИРОВАННЫЕ МЕТОДЫ (как в useMediaManager) ==========
+
   // Обновление прямой ссылки для одного файла
   const handleUpdateSingleLink = async (file) => {
     if (!file.public_url) {
@@ -107,7 +176,6 @@ function AllMediaPage() {
       const result = await response.json();
       
       if (result.success && result.results?.[0]?.success) {
-        // Обновляем данные файла в локальном состоянии
         const updated = result.results[0];
         setMediaFiles(prev => prev.map(f => 
           f.id === file.id 
@@ -129,7 +197,7 @@ function AllMediaPage() {
     }
   };
 
-  // Обновление превью для одного файла
+  // Обновление превью для одного файла (через массовый эндпоинт с одним ID)
   const handleUpdateSinglePreview = async (file) => {
     if (!file.public_url) {
       showToast('Нет public_url для этого файла', 'warning');
@@ -140,43 +208,25 @@ function AllMediaPage() {
     showToast(`Обновление превью для ${file.file_name}...`, 'info');
 
     try {
-      // Получаем свежее превью через API
-      const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(file.public_url)}&preview_size=M`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
+      const response = await fetch(`${API_URL}/api/update-media-previews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mediaIds: [file.id],
+          entityType: 'all',
+          entityId: null
+        })
+      });
       
-      let previewUrl = null;
-      if (data.preview) {
-        if (typeof data.preview === 'string') {
-          previewUrl = data.preview;
-        } else if (data.preview.M) {
-          previewUrl = data.preview.M;
-        } else if (data.preview.S) {
-          previewUrl = data.preview.S;
-        }
-      }
+      const result = await response.json();
       
-      if (previewUrl) {
-        // Обновляем в базе
-        const updateResponse = await fetch(`${API_URL}/api/media/${file.id}/update-metadata`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ thumbnail_url: previewUrl, thumbnail_updated_at: new Date().toISOString() })
-        });
-        
-        const updateResult = await updateResponse.json();
-        if (updateResult.success) {
-          setMediaFiles(prev => prev.map(f => 
-            f.id === file.id 
-              ? { ...f, thumbnail_url: previewUrl, thumbnail_updated_at: new Date().toISOString() } 
-              : f
-          ));
-          showToast(`Превью обновлено для ${file.file_name}`, 'success');
-        } else {
-          showToast('Ошибка сохранения превью', 'error');
-        }
+      if (result.success && result.results?.[0]?.success) {
+        // Перезагружаем данные для получения обновлённого thumbnail_url
+        await fetchMediaFiles();
+        showToast(`Превью обновлено для ${file.file_name}`, 'success');
       } else {
-        showToast('Не удалось получить превью от Яндекса', 'warning');
+        const error = result.results?.[0]?.error || 'Ошибка обновления превью';
+        showToast(error, 'error');
       }
     } catch (error) {
       showToast('Ошибка: ' + error.message, 'error');
@@ -233,52 +283,40 @@ function AllMediaPage() {
 
   // Массовое обновление превью
   const handleUpdatePreviews = async () => {
-    const filesWithoutPreview = mediaFiles.filter(f => !f.thumbnail_url && f.file_type !== 'image');
+    // Теперь тоже ВСЕ файлы, но только устаревшие
+    const filesToUpdate = mediaFiles.filter(f => isPreviewExpired(f));
     
-    if (filesWithoutPreview.length === 0) {
-      showToast('Нет файлов без превью', 'info');
+    if (filesToUpdate.length === 0) {
+      showToast('Нет файлов с устаревшими или отсутствующими превью', 'info');
       return;
     }
     
-    if (!window.confirm(`Обновить превью для ${filesWithoutPreview.length} файлов?`)) return;
+    if (!window.confirm(`Обновить превью для ${filesToUpdate.length} файлов?`)) return;
     
     setUpdatingPreviews(true);
-    showToast(`Обновляю превью для ${filesWithoutPreview.length} файлов...`, 'info');
+    showToast(`Обновляю превью для ${filesToUpdate.length} файлов...`, 'info');
     
     try {
-      // По очереди обновляем каждое превью
-      let successCount = 0;
-      for (const file of filesWithoutPreview) {
-        const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(file.public_url)}&preview_size=M`;
-        const response = await fetch(apiUrl);
-        const data = await response.json();
-        
-        let previewUrl = null;
-        if (data.preview) {
-          if (typeof data.preview === 'string') {
-            previewUrl = data.preview;
-          } else if (data.preview.M) {
-            previewUrl = data.preview.M;
-          } else if (data.preview.S) {
-            previewUrl = data.preview.S;
-          }
-        }
-        
-        if (previewUrl) {
-          await fetch(`${API_URL}/api/media/${file.id}/update-metadata`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ thumbnail_url: previewUrl, thumbnail_updated_at: new Date().toISOString() })
-          });
-          successCount++;
-        }
-        
-        // Небольшая пауза между запросами
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
+      const mediaIds = filesToUpdate.map(f => f.id);
+      const response = await fetch(`${API_URL}/api/update-media-previews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mediaIds,
+          entityType: 'all',
+          entityId: null
+        })
+      });
       
-      showToast(`Превью обновлено для ${successCount} файлов`, 'success');
-      await fetchMediaFiles();
+      const result = await response.json();
+      
+      if (result.success) {
+        const successCount = result.results.filter(r => r.success).length;
+        showToast(`Превью обновлено для ${successCount} файлов`, 'success');
+        await fetchMediaFiles();
+      } else {
+        showToast('Ошибка: ' + result.error, 'error');
+      }
     } catch (error) {
       showToast('Ошибка: ' + error.message, 'error');
     } finally {
@@ -288,9 +326,6 @@ function AllMediaPage() {
 
   // Новая функция: открыть тестовую страницу для файла
   const openTestPage = (mediaItem) => {
-    //localStorage.setItem('test_media_id', mediaItem.id);
-    //window.open('/test-refresh', '_blank');
-    // Передаём ID через URL параметр, а не через localStorage
     window.open(`/test-refresh?id=${mediaItem.id}`, '_blank');
   };
 
@@ -350,9 +385,18 @@ function AllMediaPage() {
           onClick={handleUpdatePreviews} 
           disabled={updatingPreviews} 
           style={buttonStyle('#17a2b8', updatingPreviews)}
-          title="Обновить превью для всех файлов"
+          title="Обновить превью для файлов с устаревшими или отсутствующими превью (включая изображения)"
         >
-          {updatingPreviews ? '⏳ Обновление...' : `🖼️ Обновить все превью (${mediaFiles.filter(f => !f.thumbnail_url).length})`}
+          {updatingPreviews ? '⏳ Обновление...' : `🖼️ Обновить устаревшие (${mediaFiles.filter(f => isPreviewExpired(f)).length})`}
+        </button>
+
+        <button 
+          onClick={handleForceUpdatePreviews} 
+          disabled={forceUpdating || updatingPreviews} 
+          style={buttonStyle('#dc3545', forceUpdating || updatingPreviews)}
+          title="ПРИНУДИТЕЛЬНО обновить превью для ВСЕХ файлов (включая изображения)"
+        >
+          {forceUpdating ? '⏳ Обновление...' : `⚡ Принудительно (${mediaFiles.length})`}
         </button>
       </div>
 
@@ -384,7 +428,10 @@ function AllMediaPage() {
           📄 Документы: {mediaFiles.filter(f => f.file_type === 'document').length}
         </span>
         <span style={{ padding: '4px 10px', backgroundColor: '#fff3cd', borderRadius: '20px' }}>
-          ⚠️ Без превью: {mediaFiles.filter(f => !f.thumbnail_url).length}
+          ⚠️ Без превью: {mediaFiles.filter(f => !f.thumbnail_url && f.file_type !== 'image').length}
+        </span>
+        <span style={{ padding: '4px 10px', backgroundColor: '#fff3cd', borderRadius: '20px' }}>
+    ⚠️ Требуют обновления превью: {mediaFiles.filter(f => isPreviewExpired(f)).length}
         </span>
       </div>
 

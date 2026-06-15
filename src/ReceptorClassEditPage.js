@@ -55,7 +55,7 @@ function ReceptorClassFormFields({ formData, handleChange, isNew, entity }) {
 
 const ReceptorClassEditPage = createEntityEdit({
   entityName: 'Класс рецепторов',
-  entityType: 'receptor-class',
+  entityType: 'receptor_class',
   tableName: 'receptor-classes',
   fields: [
     { name: 'name', label: 'Название', required: true },
