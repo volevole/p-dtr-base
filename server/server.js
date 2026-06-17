@@ -81,6 +81,19 @@ async function connectDB() {
 
 // 3. Middleware
 app.use(express.json());
+// app.use([
+//   '/api/dysfunctions',
+//   '/api/meridians',
+//   '/api/muscles',
+//   '/api/organs',
+//   '/api/groups',
+//   '/api/entries',
+//   '/api/tools',
+//   '/api/receptors',
+//   '/api/functions',
+//   '/api/nerves',
+//   '/api/vertebrae'
+// ], express.json());
 
 // Настройка CORS
 const corsOptions = {
@@ -103,7 +116,20 @@ app.use(cors(corsOptions));
 // Обработка preflight запросов для всех API endpoints
 //app.options('*', cors(corsOptions));  // ? Это обработает ВСЕ OPTIONS запросы
 
-app.use(express.urlencoded({ extended: true }));
+// app.use(express.urlencoded({ extended: true }));
+ app.use([
+  '/api/dysfunctions',
+  '/api/meridians',
+  '/api/muscles',
+  '/api/organs',
+  '/api/groups',
+  '/api/entries',
+  '/api/tools',
+  '/api/receptors',
+  '/api/functions',
+  '/api/nerves',
+  '/api/vertebrae'
+], express.urlencoded({ extended: true }));
 
 // 4. Multer middleware
 const upload = multer({ storage: multer.memoryStorage() });
@@ -3522,8 +3548,9 @@ app.get('/api/media/all', async (req, res) => {
 app.get('/api/yandex-preview', async (req, res) => {
   const { url, size = 'M', mode = 'embed' } = req.query;
   
+  console.log('[DEBUG] YANDEX_TOKEN exists:', !!process.env.YANDEX_TOKEN);
   if (!url) {
-    return res.status(400).json({ error: 'URL parameter is required' });
+    return res.status(400).json({ error: '/api/yandex-preview  URL parameter is required' });
   }
   
   try {

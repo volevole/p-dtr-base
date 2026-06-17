@@ -900,8 +900,8 @@ const renderMediaContent = () => {
             onClick={() => setViewingMedia(null)}
             style={{
               position: 'absolute',
-              top: '20px',
-              right: '20px',
+              top: '55px',
+              right: '42px',
               zIndex: 100,
               padding: '8px 16px',
               backgroundColor: 'rgba(0,0,0,0.5)',

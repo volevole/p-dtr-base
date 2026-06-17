@@ -1,3 +1,33 @@
+Обновление GIT для рег.ру.
+В папке проекта C:\Users\there\muscule-app
+
+git branch 	Убедитесь, что вы в правильной ветке Должна быть звёздочка * напротив feature/migrate-to-regru-local-db
+git status 	Вы увидите список изменённых файлов.
+git add .  	Добавьте все изменения
+git commit -m "Major update: migrate to Reg.ru DB"   Любое название коммита
+git push origin feature/migrate-to-regru-local-db  Отправьте изменения на GitHub
+
+ssh root@194.226.165.244
+cd /var/www/muscule-app			Перейдите в папку проекта 
+git pull origin feature/migrate-to-regru-local-db  и обновите код
+npm run build  Пересоберите фронтенд
+pm2 restart muscule-app Перезапустите бэкенд
+systemctl restart nodejs  или так, если ещё не был запущен бэкенд 
+pm2 status Проверьте, что сервер запустился
+
+Быстрая проверка после деплоя
+curl -I http://194.226.165.244   # Проверьте, что фронтенд доступен
+curl http://194.226.165.244:3001/api/muscles   # Проверьте, что бэкенд API работает
+
+
+И зайти на сайт в браузере: http://194.226.165.244/
+
+
+На Гите сейчас есть два репозитория
+ https://github.com/volevole/p-dtr-base   этот проекта
+https://github.com/volevole/IvanThai  по Тайскому массажу Запускать https://volevole.github.io//IvanThai/ 
+
+
 Запуск проекта на локале в разных режимах
 # Режим с локальным бекендом
 REACT_APP_API_MODE=local npm start
@@ -8,7 +38,7 @@ REACT_APP_API_MODE=remote npm start
 
 30-05-26
 Удобная админка для БД:
-http://194.226.165.244/phppgadmin/
+http://194.226.165.244/phppgadmin/  она работает плохо, когда развёрнуты фронт и бэк на сервере. поэтому теперь установлено локальное приложение DBeaver
 
 09-05-26
 

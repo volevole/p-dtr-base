@@ -239,15 +239,35 @@ function MediaViewer({ media }) {
   const renderDocument = () => {
     if (isPdf) {
       return (
-        <div>
-          <div style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: '10px' }}>{media.file_name}</div>
-          <iframe src={displayUrl} style={{ width: '100%', height: '70vh', border: '1px solid #ddd', borderRadius: '8px' }} title={media.file_name} />
-          <div style={{ textAlign: 'center', marginTop: '10px' }}>
-            <a href={media.public_url || displayUrl} target="_blank" rel="noopener noreferrer">Открыть на Яндекс.Диске</a>
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          <iframe 
+            src={displayUrl} 
+            style={{ 
+              width: '97%', 
+              height: '93%', 
+              border: 'none',
+              backgroundColor: 'black'
+            }} 
+            title={media.file_name} 
+          />
+          {/* Имя файла поверх iframe (опционально) */}
+          <div style={{
+            position: 'absolute',
+            bottom: '20px',
+            left: '20px',
+            right: '20px',
+            color: 'white',
+            textShadow: '0 0 10px rgba(0,0,0,0.8)',
+            fontSize: '14px',
+            textAlign: 'center',
+            pointerEvents: 'none'
+          }}>
+            {media.file_name}
           </div>
         </div>
       );
     }
+
     return (
       <div style={{ textAlign: 'center', padding: '40px' }}>
         <div style={{ fontSize: '64px' }}>{renderFileIcon()}</div>
@@ -285,7 +305,7 @@ function MediaViewer({ media }) {
         {/* Кнопки зума */}
         <div style={{
           position: 'absolute',
-          top: '60px',
+          top: '90px',
           right: '20px',
           zIndex: 20,
           display: 'flex',
