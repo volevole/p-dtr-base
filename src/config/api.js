@@ -44,6 +44,11 @@ const config = {
   // 'legacy' - старый способ (через прокси и прямые ссылки)
   // 'embed' - встраивание через iframe (без прямых ссылок)
   // 'direct' - прямая ссылка на публичную страницу
+  //Режим работы с Яндекс.Диском: legacy, embed, direct
+// Режимы:
+// 'embed' - редирект на Яндекс (для локала)
+// 'legacy' - старый прокси (с обновлением ссылок)  
+// 'curl' - новый прокси через curl (для продакшена)
   YANDEX_DISK_MODE: process.env.REACT_APP_YANDEX_DISK_MODE || 'embed',  // сменил default на embed
   
   // Размер превью для embed-режима: S, M, L, XL, XXL

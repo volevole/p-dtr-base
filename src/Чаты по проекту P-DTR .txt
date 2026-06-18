@@ -1,4 +1,17 @@
-Обновление GIT для рег.ру.
+Или без ГИТ обновление небольшое  ================================
+
+# На локальной машине
+cd C:\Users\there\muscule-app
+npm run build
+scp -r build/* root@194.226.165.244:/var/www/muscule-app/build/
+scp server/server.js root@194.226.165.244:/var/www/muscule-app/server/
+и
+ssh root@194.226.165.244
+pm2 restart muscule-app
+systemctl restart nginx
+
+
+Обновление GIT для рег.ру.    ================================
 В папке проекта C:\Users\there\muscule-app
 
 git branch 	Убедитесь, что вы в правильной ветке Должна быть звёздочка * напротив feature/migrate-to-regru-local-db
@@ -6,6 +19,7 @@ git status 	Вы увидите список изменённых файлов.
 git add .  	Добавьте все изменения
 git commit -m "Major update: migrate to Reg.ru DB"   Любое название коммита
 git push origin feature/migrate-to-regru-local-db  Отправьте изменения на GitHub
+Это не делать виснет сервер   git push regru feature/migrate-to-regru-local-db:main   Или в два места, чтобы сразу был деплой на рег.ру
 
 ssh root@194.226.165.244
 cd /var/www/muscule-app			Перейдите в папку проекта 
@@ -23,7 +37,7 @@ curl http://194.226.165.244:3001/api/muscles   # Проверьте, что бэ
 И зайти на сайт в браузере: http://194.226.165.244/
 
 
-На Гите сейчас есть два репозитория
+На Гите сейчас есть два репозитория    ================================
  https://github.com/volevole/p-dtr-base   этот проекта
 https://github.com/volevole/IvanThai  по Тайскому массажу Запускать https://volevole.github.io//IvanThai/ 
 

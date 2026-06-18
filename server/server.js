@@ -3580,28 +3580,77 @@ app.get('/api/yandex-preview', async (req, res) => {
       return res.redirect(previewUrl);
     }
     
-    // Режим legacy: используем curl для скачивания изображения
-    
-        exec(`curl -s -H "Referer: https://disk.yandex.ru/" -H "User-Agent: Mozilla/5.0" "${previewUrl}"`, 
-      { maxBuffer: 50 * 1024 * 1024, encoding: 'binary' },
-      (error, stdout) => {
-        console.log('[DEBUG] /api/yandex-preview curl stdout length:', stdout ? stdout.length : 0);
-        console.log('[DEBUG] /api/yandex-preview curl error:', error);
-        if (error) {
-          console.error('[ERROR] /api/yandex-preview curl failed:', error);
-          return res.status(500).json({ error: error.message });
-        }
-        res.set('Content-Type', 'image/jpeg');
-        res.send(Buffer.from(stdout, 'binary'));
+    // Режим legacy: проксируем изображение (для обратной совместимости)
+    const imageResponse = await fetch(previewUrl, {
+      headers: {
+        'Referer': 'https://disk.yandex.ru/',
+        'User-Agent': 'Mozilla/5.0'
       }
-    );
+    });
+    
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(imageBuffer);
     
   } catch (error) {
     console.error('[ERROR] /api/yandex-preview:', error.message);
     res.status(500).json({ error: error.message });
   }
-});
+});    
 
+  
+
+// Новый прокси через curl для режима 'curl'
+  app.get('/api/curl-proxy-image', async (req, res) => {
+    const { url, size = 'M' } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ error: '/api/curl-proxy-image  URL parameter is required' });
+    }
+    
+    try {
+      // Получаем previewUrl от Яндекса
+      const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(url)}&preview_size=${size}`;
+      const yandexRes = await fetch(apiUrl);
+      const yandexData = await yandexRes.json();
+      
+      let previewUrl = null;
+      if (yandexData.preview) {
+        if (typeof yandexData.preview === 'string') {
+          previewUrl = yandexData.preview;
+        } else if (yandexData.preview[size]) {
+          previewUrl = yandexData.preview[size];
+        } else if (yandexData.preview.S) {
+          previewUrl = yandexData.preview.S;
+        }
+      }
+      
+      if (!previewUrl) {
+        return res.status(404).json({ error: '/api/curl-proxy-image Preview not found' });
+      }
+      
+      // Используем curl для скачивания
+      //const { exec } = require('child_process');
+      exec(`curl -s -H "Referer: https://disk.yandex.ru/" -H "User-Agent: Mozilla/5.0" "${previewUrl}"`, 
+        { maxBuffer: 50 * 1024 * 1024, encoding: 'binary' },
+        (error, stdout) => {
+          if (error) {
+            console.error('[ERROR] /api/curl-proxy-image curl failed:', error);
+            return res.status(500).json({ error: error.message });
+          }
+          res.set('Content-Type', 'image/jpeg');
+          res.send(Buffer.from(stdout, 'binary'));
+        }
+      );
+      
+    } catch (error) {
+      console.error('[ERROR] /api/curl-proxy-image:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
 
 // Тестовый эндпоинт для отладки превью
 app.get('/api/test-preview', async (req, res) => {

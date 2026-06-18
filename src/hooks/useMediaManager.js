@@ -172,7 +172,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
       return uploadedMedia;
       
     } catch (err) {
-      const errorMsg = `❌ Ошибка загрузки: ${err.message}`;
+      const errorMsg = `❌ Ошибка загрузки в хуке uploadFile: ${err.message}`;
       setError(err.message);
       addDebugMessage(errorMsg);
       throw err;
@@ -654,42 +654,51 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
   };
 
   // Получение URL превью
-const getThumbnailUrl =  async (mediaItem) => {
-  
-  if (!mediaItem) return null;
-  
-  if (config.YANDEX_DISK_MODE === 'embed') {
-    // Синхронно возвращаем URL эндпоинта с mode=embed
-    return `${API_URL}/api/yandex-preview?url=${encodeURIComponent(mediaItem.public_url)}&size=${config.YANDEX_PREVIEW_SIZE}&mode=embed`;
-  }
-  
-  // Ниже — старый код для legacy-режима (через прокси)
-  
-  // Используем thumbnail_updated_at для обхода кэша
-  const cacheBuster = mediaItem.thumbnail_updated_at 
-    ? `?t=${new Date(mediaItem.thumbnail_updated_at).getTime()}` 
-    : `?t=${Date.now()}`;
-  
-  // Для изображений: используем file_url как основной источник
-  if (mediaItem.file_type === 'image' && mediaItem.file_url) {
-    const proxyUrl = createProxyUrl(mediaItem.file_url);
-    return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
-  }
-  
-  // Для остальных типов: пробуем thumbnail_url
-  if (mediaItem.thumbnail_url) {
-    const proxyUrl = createProxyUrl(mediaItem.thumbnail_url);
-    return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
-  }
-  
-  // Для изображений без file_url: используем public_url
-  if (mediaItem.file_type === 'image' && mediaItem.public_url) {
-    const proxyUrl = createProxyUrl(mediaItem.public_url);
-    return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
-  }
-  
-  return null;
-};
+  const getThumbnailUrl = async (mediaItem) => {
+    if (!mediaItem) return null;
+    
+    const mode = config.YANDEX_DISK_MODE;
+    const publicUrl = mediaItem.public_url;
+    
+    // Режим embed: редирект на Яндекс
+    if (mode === 'embed') {
+      return `${API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}&mode=embed`;
+    }
+    
+    // Режим curl: новый прокси через curl (для продакшена)
+    if (mode === 'curl') {
+      const urlToProxy = mediaItem.thumbnail_url || publicUrl;
+      return `${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(urlToProxy)}&size=${config.YANDEX_PREVIEW_SIZE}`;
+    }
+    
+    // Режим legacy: старый прокси с обновлением ссылок
+    if (mode === 'legacy') {
+      // Используем thumbnail_updated_at для обхода кэша
+      const cacheBuster = mediaItem.thumbnail_updated_at 
+        ? `?t=${new Date(mediaItem.thumbnail_updated_at).getTime()}` 
+        : `?t=${Date.now()}`;
+      
+      // Для изображений: используем file_url как основной источник
+      if (mediaItem.file_type === 'image' && mediaItem.file_url) {
+        const proxyUrl = createProxyUrl(mediaItem.file_url);
+        return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
+      }
+      
+      // Для остальных типов: пробуем thumbnail_url
+      if (mediaItem.thumbnail_url) {
+        const proxyUrl = createProxyUrl(mediaItem.thumbnail_url);
+        return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
+      }
+      
+      // Для изображений без file_url: используем public_url
+      if (mediaItem.file_type === 'image' && mediaItem.public_url) {
+        const proxyUrl = createProxyUrl(mediaItem.public_url);
+        return proxyUrl ? `${proxyUrl}${cacheBuster}` : null;
+      }
+    }
+    
+    return null;
+  };
 
   // Обработка медиа для отображения
   const processMediaForDisplay = (mediaArray) => {
@@ -705,47 +714,55 @@ const getThumbnailUrl =  async (mediaItem) => {
   };
 
 // Добавьте эту функцию в хук (внутрь return объекта)
-const getDisplayUrl = (mediaItem, type = 'view') => {
-  if (!mediaItem) return null;
-  
-  const mode = config.YANDEX_DISK_MODE;
-  const publicUrl = mediaItem.public_url;
-  
-  if (!publicUrl) {
-    // Если нет public_url, пробуем прямые ссылки
-    if (type === 'thumbnail' && mediaItem.thumbnail_url) return mediaItem.thumbnail_url;
-    if (type === 'file' && mediaItem.file_url) return mediaItem.file_url;
-    return null;
-  }
-  
-  switch (mode) {
-    case 'embed':
-      // Embed-ссылка для iframe
-      if (type === 'embed') {
-        // Конвертируем yadi.sk/d/... в yadi.sk/i/... для embed
-        return publicUrl.replace('https://yadi.sk/d/', 'https://yadi.sk/i/');
-      }
-      // Для превью в embed-режиме используем API с preview_size
-      if (type === 'thumbnail') {
-        return `${config.API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}`;
-      }
-      return publicUrl;
-      
-    case 'direct':
-      // Прямые ссылки (старый способ)
-      if (type === 'thumbnail') return mediaItem.thumbnail_url;
-      return mediaItem.file_url || publicUrl;
-      
-    case 'legacy':
-    default:
-      // Старый способ через прокси
-      if (type === 'thumbnail') {
-        const thumbUrl = mediaItem.thumbnail_url || publicUrl;
-        return `${config.API_URL}/api/proxy-image?url=${encodeURIComponent(thumbUrl)}`;
-      }
-      return `${config.API_URL}/api/proxy-image?url=${encodeURIComponent(publicUrl)}`;
-  }
-};
+  const getDisplayUrl = (mediaItem, type = 'view') => {
+    if (!mediaItem) return null;
+    
+    const mode = config.YANDEX_DISK_MODE;
+    const publicUrl = mediaItem.public_url;
+    
+    if (!publicUrl) {
+      // Если нет public_url, пробуем прямые ссылки
+      if (type === 'thumbnail' && mediaItem.thumbnail_url) return mediaItem.thumbnail_url;
+      if (type === 'file' && mediaItem.file_url) return mediaItem.file_url;
+      return null;
+    }
+    
+    switch (mode) {
+      case 'embed':
+        // Embed-ссылка для iframe
+        if (type === 'embed') {
+          return publicUrl.replace('https://yadi.sk/d/', 'https://yadi.sk/i/');
+        }
+        // Для превью в embed-режиме используем API с preview_size
+        if (type === 'thumbnail') {
+          return `${config.API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}`;
+        }
+        return publicUrl;
+        
+      case 'curl':
+        // Новый режим curl-прокси (для продакшена)
+        if (type === 'thumbnail') {
+          const thumbUrl = mediaItem.thumbnail_url || publicUrl;
+          return `${config.API_URL}/api/curl-proxy-image?url=${encodeURIComponent(thumbUrl)}&size=${config.YANDEX_PREVIEW_SIZE}`;
+        }
+        // Для файлов используем тот же curl-прокси
+        return `${config.API_URL}/api/curl-proxy-image?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}`;
+        
+      case 'direct':
+        // Прямые ссылки (старый способ)
+        if (type === 'thumbnail') return mediaItem.thumbnail_url;
+        return mediaItem.file_url || publicUrl;
+        
+      case 'legacy':
+      default:
+        // Старый способ через прокси
+        if (type === 'thumbnail') {
+          const thumbUrl = mediaItem.thumbnail_url || publicUrl;
+          return `${config.API_URL}/api/proxy-image?url=${encodeURIComponent(thumbUrl)}`;
+        }
+        return `${config.API_URL}/api/proxy-image?url=${encodeURIComponent(publicUrl)}`;
+    }
+  };
 
 
   // Загрузка медиа при изменении entityType или entityId

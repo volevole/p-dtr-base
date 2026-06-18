@@ -14,29 +14,27 @@ function TestImage() {
   };
 
   // Вариант 2: fetch + blob через ваш прокси (с явным указанием mode)
-const testFetchBlob = async () => {
-  setLoading(true);
-  setError('');
-  try {
-    // Явно передаём mode=legacy
-    const response = await fetch(`${API_URL}/api/yandex-preview?url=${encodeURIComponent(url)}&size=M&mode=legacy`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    setBlobUrl(objectUrl);
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  const testFetchBlob = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/api/yandex-preview?url=${encodeURIComponent(url)}&size=M&mode=legacy`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setBlobUrl(objectUrl);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Вариант 3: прямой вызов API Яндекса из браузера (через CORS-прокси или fetch)
+  // Вариант 3: прямой вызов API Яндекса из браузера
   const testDirectYandexApi = async () => {
     setLoading(true);
     setError('');
     try {
-      // 1. Получаем previewUrl через API Яндекса (публичное API, поддерживает CORS)
       const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(url)}&preview_size=M`;
       const yandexResponse = await fetch(apiUrl);
       if (!yandexResponse.ok) throw new Error(`Yandex API HTTP ${yandexResponse.status}`);
@@ -55,10 +53,7 @@ const testFetchBlob = async () => {
         throw new Error('Preview URL not found');
       }
       
-      // 2. Загружаем изображение по прямой ссылке (через CORS-прокси, если нужно)
-      // Пробуем напрямую
       setBlobUrl(previewUrl);
-      
     } catch (err) {
       console.error('Direct API error:', err);
       setError(err.message);
@@ -67,12 +62,11 @@ const testFetchBlob = async () => {
     }
   };
 
-  // Вариант 4: через общедоступный CORS-прокси (если Яндекс блокирует CORS)
+  // Вариант 4: через общедоступный CORS-прокси
   const testCorsProxy = async () => {
     setLoading(true);
     setError('');
     try {
-      // Получаем previewUrl через API Яндекса
       const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(url)}&preview_size=M`;
       const yandexResponse = await fetch(apiUrl);
       const yandexData = await yandexResponse.json();
@@ -90,10 +84,25 @@ const testFetchBlob = async () => {
         throw new Error('Preview URL not found');
       }
       
-      // Используем общедоступный CORS-прокси (https://corsproxy.io/)
       const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(previewUrl)}`;
       setBlobUrl(proxyUrl);
-      
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Вариант 5: новый curl-прокси (для продакшена)
+  const testCurlProxy = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(url)}&size=M`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setBlobUrl(objectUrl);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -120,6 +129,7 @@ const testFetchBlob = async () => {
         <button onClick={testFetchBlob}>2. Fetch + blob (ваш прокси)</button>
         <button onClick={testDirectYandexApi}>3. Прямой API Яндекс + img</button>
         <button onClick={testCorsProxy}>4. Через CORS-прокси (corsproxy.io)</button>
+        <button onClick={testCurlProxy}>5. Новый curl-прокси</button>
       </div>
 
       <div style={{ marginTop: '20px' }}>
