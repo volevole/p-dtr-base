@@ -65,7 +65,7 @@ function MediaManager({
         console.log(`[MediaManager] ⏱️ Начало загрузки для ${entityType}/${entityId}`);
       } else if (!loading && media.length > 0) {
         const duration = performance.now() - startTime;
-        console.log(`[MediaManager] ⏱️ Загрузка завершена за ${duration.toFixed(0)} мс, загружено ${media.length} файлов`);
+        console.log(`[function  MediaManager] ⏱️ Загрузка завершена за ${duration.toFixed(0)} мс, загружено ${media.length} файлов`);
       }
     }, [loading, media, entityType, entityId]);
 
@@ -271,7 +271,10 @@ const renderMediaGrid = (withControls = false) => {
       marginBottom: '20px'
     }}>
       {media.map(item => {
-        const thumbnailUrl = getThumbnailUrl(item);
+	console.log('[MediaManager] getThumbnailUrl до :', item.file_name);        
+	const thumbnailUrl = getThumbnailUrl(item);
+	console.log('[MediaManager] getThumbnailUrl returned:', thumbnailUrl, 'for', item.file_name);
+
         
         return (
           <div 

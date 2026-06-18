@@ -654,7 +654,8 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
   };
 
   // Получение URL превью
-  const getThumbnailUrl = async (mediaItem) => {
+  const getThumbnailUrl = (mediaItem) => {
+	console.log('[useMediaManager] getThumbnailUrl called for:', mediaItem?.file_name);
     if (!mediaItem) return null;
     
     const mode = config.YANDEX_DISK_MODE;
@@ -662,13 +663,15 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
     
     // Режим embed: редирект на Яндекс
     if (mode === 'embed') {
+	console.log('[getThumbnailUrl] curl mode URL до :', publicUrl);
       return `${API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}&mode=embed`;
+	console.log('[getThumbnailUrl] curl mode URL после :', url);
+
     }
     
     // Режим curl: новый прокси через curl (для продакшена)
     if (mode === 'curl') {
-      const urlToProxy = mediaItem.thumbnail_url || publicUrl;
-      return `${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(urlToProxy)}&size=${config.YANDEX_PREVIEW_SIZE}`;
+      return `${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}`;
     }
     
     // Режим legacy: старый прокси с обновлением ссылок
@@ -702,7 +705,8 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
 
   // Обработка медиа для отображения
   const processMediaForDisplay = (mediaArray) => {
-    if (!Array.isArray(mediaArray)) return [];
+	  console.log('[processMediaForDisplay] Processing', mediaArray?.length, 'items');
+	  if (!Array.isArray(mediaArray)) return [];
     
     return mediaArray.map(item => ({
       ...item,
@@ -715,6 +719,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
 
 // Добавьте эту функцию в хук (внутрь return объекта)
   const getDisplayUrl = (mediaItem, type = 'view') => {
+	console.log('[getDisplayUrl] Called with type:', type, 'mediaItem:', mediaItem?.file_name);
     if (!mediaItem) return null;
     
     const mode = config.YANDEX_DISK_MODE;
@@ -803,9 +808,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
     createProxyUrl,
     getThumbnailUrl, 
     getDisplayUrl,
-      getEmbedUrl: (mediaItem) => getDisplayUrl(mediaItem, 'embed'),
-      getThumbnailUrl: (mediaItem) => getDisplayUrl(mediaItem, 'thumbnail'),
-      getFileUrl: (mediaItem) => getDisplayUrl(mediaItem, 'file'), 
+    getEmbedUrl: (mediaItem) => getDisplayUrl(mediaItem, 'embed'),      
     getFileIcon: (fileType) => {
       switch(fileType) {
         case 'image': return '🖼️';
