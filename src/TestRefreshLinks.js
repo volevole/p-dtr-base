@@ -1,5 +1,6 @@
 // src/TestRefreshLinks.js
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import API_URL from './config/api';
 
 function TestRefreshLinks() {
@@ -37,49 +38,66 @@ function TestRefreshLinks() {
   const [refreshResult, setRefreshResult] = useState(null);
 
   // Получить информацию о файле из БД по ID
-  const fetchFileInfo = async (id) => {
-    if (!id) {
-      setError('Введите ID медиафайла');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setMediaInfo(null);
-
-    try {
-      const response = await fetch(`${API_URL}/api/media-file/${id}`);
-      const data = await response.json();
-
-      if (data.success) {
-        const file = data.file;
-        setMediaInfo(file);
-        setPublicUrl(file.public_url || '');
-        setCurrentFileUrl(file.file_url || '');
-        setCurrentThumbnailUrl(file.thumbnail_url || '');
-        setFileName(file.file_name || '');
-        setFileType(file.file_type || '');
-        setFileSize(file.file_size);
-        setMimeType(file.mime_type || '');
-        setWidth(file.width);
-        setHeight(file.height);
-        setDurationSeconds(file.duration_seconds);
-        setDescription(file.description || '');
-        setDisplayOrder(file.display_order || 0);
-        setCreatedAt(file.created_at);
-        setUpdatedAt(file.updated_at);
-        setIsActive(file.is_active !== false);
-        setThumbnailUpdatedAt(file.thumbnail_updated_at);
-		setFileUrlUpdatedAt(file.file_url_updated_at);
-      } else {
-        setError(data.error || 'Файл не найден');
+    const fetchFileInfo = async (id) => {
+      if (!id) {
+        setError('Введите ID медиафайла');
+        return;
       }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      setLoading(true);
+      setError('');
+      setMediaInfo(null);
+
+      try {
+        // Получаем информацию о файле
+        const response = await fetch(`${API_URL}/api/media-file/${id}`);
+        const data = await response.json();
+        console.log('[fetchFileInfo] Response data:', data);
+
+        if (data.success) {
+          console.log('[fetchFileInfo] File data:', data.file);
+          const file = data.file;
+          
+          // Получаем связи файла
+          const connectionsResponse = await fetch(`${API_URL}/api/media-connections/${id}`);
+          const connectionsData = await connectionsResponse.json();
+          
+          // Добавляем связи в объект файла
+          const fileWithConnections = {
+            ...file,
+            connections: connectionsData.success ? connectionsData.data : []
+          };
+          
+          // Устанавливаем все состояния
+          setMediaInfo(fileWithConnections);
+          setPublicUrl(file.public_url || '');
+          setCurrentFileUrl(file.file_url || '');
+          setCurrentThumbnailUrl(file.thumbnail_url || '');
+          setFileName(file.file_name || '');
+          setFileType(file.file_type || '');
+          setFileSize(file.file_size);
+          setMimeType(file.mime_type || '');
+          setWidth(file.width);
+          setHeight(file.height);
+          setDurationSeconds(file.duration_seconds);
+          setDescription(file.description || '');
+          setDisplayOrder(file.display_order || 0);
+          setCreatedAt(file.created_at);
+          setUpdatedAt(file.updated_at);
+          setIsActive(file.is_active !== false);
+          setThumbnailUpdatedAt(file.thumbnail_updated_at);
+          setFileUrlUpdatedAt(file.file_url_updated_at);
+          
+        } else {
+          setError(data.error || 'Файл не найден');
+        }
+      } catch (err) {
+        console.error('Error fetching file info:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
   // При загрузке страницы
   useEffect(() => {
@@ -350,7 +368,148 @@ function TestRefreshLinks() {
 		  )}</div>
 		</div>
 		
-		{/* Превью */}
+      {/* ===== ДОБАВИТЬ БЛОК СВЯЗЕЙ ===== */}
+      <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '2px solid #b0c4de' }}>
+        <h4 style={{ marginBottom: '10px', color: '#0d47a1' }}>
+          🔗 Связи медиафайла с сущностями
+        </h4>
+        
+        {mediaInfo.connections && mediaInfo.connections.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {mediaInfo.connections.map((conn, idx) => {
+              // Определяем, существует ли сущность (если entity_name отсутствует или равен null)
+              const isEntityMissing = !conn.entity_name || conn.entity_name === 'null' || conn.entity_name === '';
+              
+              return (
+                <div 
+                  key={idx}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: isEntityMissing ? '#fff3cd' : 'white',
+                    borderRadius: '4px',
+                    border: isEntityMissing ? '1px solid #ffc107' : '1px solid #dee2e6',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '13px'
+                  }}
+                >
+                  <span>
+                    <strong style={{ color: '#0d47a1' }}>
+                      {conn.entity_type === 'muscle' ? '💪' :
+                      conn.entity_type === 'organ' ? '🫀' :
+                      conn.entity_type === 'meridian' ? '🌀' :
+                      conn.entity_type === 'dysfunction' ? '⚠️' :
+                      conn.entity_type === 'muscle_group' ? '👥' :
+                      conn.entity_type === 'entry' ? '🚪' :
+                      conn.entity_type === 'tool' ? '🔧' : '📌'} 
+                      {conn.entity_type}
+                    </strong>
+                    {isEntityMissing ? (
+                      // Если сущность не существует - показываем только ID без ссылки
+                      <span style={{ color: '#856404', fontWeight: 'bold', marginLeft: '8px' }}>
+                        {conn.entity_id}
+                        <span style={{ fontSize: '11px', color: '#856404', marginLeft: '5px' }}>
+                          (сущность не найдена)
+                        </span>
+                      </span>
+                    ) : (
+                      // Если сущность существует - показываем ссылку
+                      <Link 
+                        to={`/${conn.entity_type === 'muscle_group' ? 'group' : conn.entity_type}/${conn.entity_id}`}
+                        style={{ 
+                          color: '#007bff',
+                          textDecoration: 'none',
+                          fontWeight: '500',
+                          marginLeft: '8px'
+                        }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        {conn.entity_name || conn.entity_id}
+                      </Link>
+                    )}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {isEntityMissing && (
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Удалить связь с несуществующей сущностью ${conn.entity_type} (ID: ${conn.entity_id})?`)) {
+                            try {
+                              const response = await fetch(`${API_URL}/api/media/${mediaId}`, {
+                                method: 'DELETE',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  entityType: conn.entity_type,
+                                  entityId: conn.entity_id
+                                })
+                              });
+                              
+                              const result = await response.json();
+                              
+                              if (result.success) {
+                                alert('✅ Связь успешно удалена');
+                                // Обновляем информацию о файле
+                                fetchFileInfo(mediaId);
+                              } else {
+                                alert('❌ Ошибка: ' + (result.error || 'Неизвестная ошибка'));
+                              }
+                            } catch (err) {
+                              alert('❌ Ошибка: ' + err.message);
+                            }
+                          }
+                        }}
+                        style={{
+                          padding: '4px 12px',
+                          backgroundColor: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: '500'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#c82333'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = '#dc3545'}
+                      >
+                        🗑️ Удалить связь
+                      </button>
+                    )}
+                    <span style={{ fontSize: '11px', color: '#999', wordBreak: 'break-all' }}>
+                      ID: {conn.entity_id}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ 
+            padding: '12px', 
+            backgroundColor: '#fff3cd', 
+            borderRadius: '4px',
+            color: '#856404',
+            fontSize: '13px'
+          }}>
+            ⚠️ Нет связанных сущностей
+          </div>
+        )}
+        
+        <div style={{ 
+          fontSize: '11px', 
+          color: '#666', 
+          marginTop: '8px',
+          fontStyle: 'italic'
+        }}>
+          Всего связей: {mediaInfo.connections?.length || 0}
+          {mediaInfo.connections?.some(c => !c.entity_name) && 
+            ` (${mediaInfo.connections.filter(c => !c.entity_name).length} несуществующих)`
+          }
+        </div>
+      </div>
+      {/* ===== КОНЕЦ БЛОКА СВЯЗЕЙ ===== */}
+
+		  {/* Превью */}
 		{currentThumbnailUrl && (
 		  <div style={{ marginTop: '15px', textAlign: 'center' }}>
 			<strong>Превью (из базы данных):</strong><br/>
@@ -372,7 +531,7 @@ function TestRefreshLinks() {
 				}
 			  }}
 			/>
-		  </div>
+		</div>
 		)}
 		
 		{/* Прямая ссылка для просмотра */}

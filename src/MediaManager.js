@@ -130,6 +130,8 @@ function MediaManager({
   const handleDeleteMedia = async (mediaId) => {
     if (readonly) return;
     try {
+      // Для MediaManager всегда передаём entityType и entityId
+      // Эндпоинт сам решит: если это последняя связь — удалит файл
       await deleteFile(mediaId);
       setDeleteConfirmItem(null);
     } catch (error) {
@@ -140,7 +142,15 @@ function MediaManager({
   // Обработчик клика на удаление
   const handleDeleteClick = (item) => {
     if (readonly) return;
-    setDeleteConfirmItem(item);
+    // Добавляем информацию о сущности
+    setDeleteConfirmItem({
+      ...item,
+      entityInfo: {
+        name: entityName || 'неизвестная сущность',
+        type: entityType || 'неизвестный тип',
+        id: entityId
+      }
+    });
   };
 
   // Подтверждение удаления
@@ -924,7 +934,8 @@ const renderMediaContent = () => {
       </div>
     )}
 
-      {/* Модальное окно подтверждения удаления */}
+
+      {/* Модальное окно подтверждения удаления */}  
       {deleteConfirmItem && (
         <div style={{
           position: 'fixed',
@@ -942,19 +953,55 @@ const renderMediaContent = () => {
             backgroundColor: 'white',
             padding: '25px',
             borderRadius: '12px',
-            textAlign: 'center'
+            textAlign: 'center',
+            maxWidth: '500px'
           }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ color: '#d32f2f' }}>Подтверждение удаления</h3>
-            <p>Удалить {deleteConfirmItem.file_type === 'image' ? 'изображение' : 'файл'}?</p>
-            <p style={{ fontSize: '14px', color: '#666' }}>
+            <h3 style={{ color: '#d32f2f' }}>Подтверждение удаления связи</h3>
+            
+            <p style={{ marginBottom: '10px' }}>
+              Вы хотите удалить связь файла
+            </p>
+            
+            <p style={{ 
+              fontWeight: 'bold', 
+              wordBreak: 'break-all',
+              backgroundColor: '#f5f5f5',
+              padding: '8px',
+              borderRadius: '4px',
+              marginBottom: '10px'
+            }}>
               {deleteConfirmItem.file_name}
             </p>
+            
+            <p>
+              с сущностью <strong>{deleteConfirmItem.entityInfo?.name || 'неизвестной'}</strong>
+              {deleteConfirmItem.entityInfo?.type && (
+                <span style={{ fontSize: '12px', color: '#666', display: 'block', marginTop: '4px' }}>
+                  (тип: {deleteConfirmItem.entityInfo.type})
+                </span>
+              )}
+            </p>
+            
+            <div style={{ 
+              fontSize: '13px', 
+              color: '#666', 
+              marginTop: '15px',
+              padding: '10px',
+              backgroundColor: '#fff3cd',
+              borderRadius: '4px',
+              textAlign: 'left'
+            }}>
+              <span style={{ fontWeight: 'bold' }}>⚠️ Примечание:</span>
+              Удаляется только связь файла с этой сущностью. 
+              Сам файл остаётся в системе и может быть связан с другими сущностями.
+            </div>
+            
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px' }}>
-              <button onClick={cancelDelete} style={{ padding: '10px 20px', backgroundColor: '#757575', color: 'white', border: 'none', borderRadius: '6px' }}>
+              <button onClick={cancelDelete} style={{ padding: '10px 20px', backgroundColor: '#757575', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                 Отмена
               </button>
-              <button onClick={confirmDelete} style={{ padding: '10px 20px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '6px' }}>
-                Удалить
+              <button onClick={confirmDelete} style={{ padding: '10px 20px', backgroundColor: '#d32f2f', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                Удалить связь
               </button>
             </div>
           </div>

@@ -3012,11 +3012,11 @@ app.post('/api/refresh-links', async (req, res) => {
 // GET /api/media/:entityType/:entityId — получить все медиа для сущности
 app.get('/api/media/:entityType/:entityId', async (req, res) => {
   const start = Date.now();
-  const { entityType, entityId } = req.params;  
-  //console.log(`[TIMER] /api/media/:entityType/:entityId  START: ${entityType}/${entityId}`);
-
+  const { entityType, entityId } = req.params;
+  console.log(`[TIMER] /api/media/:entityType/:entityId  START: ${entityType}/${entityId}`);
+  
   const client = await connectDB();
-  //console.log(`[TIMER] DB connected: ${Date.now() - start} ms`);
+  console.log(`[TIMER] DB connected: ${Date.now() - start} ms`);
   
   
   try {
@@ -3030,8 +3030,9 @@ app.get('/api/media/:entityType/:entityId', async (req, res) => {
       [entityType, entityId]
     );
     
-    //console.log(`[TIMER] Query executed: ${Date.now() - queryStart} ms, rows: ${result.rows.length}    `);
-    //console.log(`[TIMER] TOTAL: ${Date.now() - start} ms`);
+    console.log(`[TIMER] Query executed: ${Date.now() - queryStart} ms, rows: ${result.rows.length}
+    `);
+    console.log(`[TIMER] TOTAL: ${Date.now() - start} ms`);
 
     // Убедимся, что возвращается m.id, а не em.id
     // В запросе SELECT m.* уже включает m.id
@@ -3106,7 +3107,7 @@ app.post('/api/media/upload', upload.fields([
     const { entityType, entityId, description = '' } = req.body;
     const file = mainFile;
 
-    //console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
+    console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
 
     // Поддерживаемые типы сущностей
     const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group', 'receptor', 'receptor_class', 'tool', 'entry'];
@@ -3231,12 +3232,12 @@ app.post('/api/media/upload', upload.fields([
                 console.log(`[UNIVERSAL UPLOAD] Got S-size preview`);
               } else if (previewData.preview.M) {
                 thumbnailUrl = previewData.preview.M;
-                //console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
+                console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
               } else {
                 const firstSize = Object.values(previewData.preview)[0];
                 if (firstSize) {
                   thumbnailUrl = firstSize;
-                  //console.log(`[UNIVERSAL UPLOAD] Got first available preview size`);
+                  console.log(`[UNIVERSAL UPLOAD] Got first available preview size`);
                 }
               }
             }
@@ -3378,96 +3379,25 @@ app.post('/api/media/upload', upload.fields([
   }
 });
 
-// GET /api/media-connections/:id — получить связи медиафайла
-  app.get('/api/media-connections/:id', async (req, res) => {
-    const client = await connectDB();
-    const { id } = req.params;
-    
-    try {
-      const result = await client.query(`
-        SELECT 
-          em.entity_type,
-          em.entity_id,
-          em.relation_type,
-          CASE 
-            WHEN em.entity_type = 'muscle' THEN (SELECT name_ru FROM muscles WHERE id = em.entity_id)
-            WHEN em.entity_type = 'organ' THEN (SELECT name FROM organs WHERE id = em.entity_id)
-            WHEN em.entity_type = 'meridian' THEN (SELECT name FROM meridians WHERE id = em.entity_id)
-            WHEN em.entity_type = 'dysfunction' THEN (SELECT name FROM dysfunctions WHERE id = em.entity_id)
-            WHEN em.entity_type = 'muscle_group' THEN (SELECT name FROM muscle_groups WHERE id = em.entity_id)
-            WHEN em.entity_type = 'entry' THEN (SELECT name FROM entries WHERE id = em.entity_id)
-            WHEN em.entity_type = 'tool' THEN (SELECT name FROM tools WHERE id = em.entity_id)
-            WHEN em.entity_type = 'receptor' THEN (SELECT name FROM receptors WHERE id = em.entity_id)
-            WHEN em.entity_type = 'receptor_class' THEN (SELECT name FROM receptor_classes WHERE id = em.entity_id)
-            ELSE 'Unknown'
-          END as entity_name
-        FROM entity_media em
-        WHERE em.media_file_id = $1
-        ORDER BY em.entity_type, em.entity_id
-      `, [id]);
-      
-      res.json({ success: true, data: result.rows });
-    } catch (error) {
-      console.error('[ERROR] GET /api/media-connections/:id:', error.message);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
 
-// DELETE /api/media/:id — удаление медиафайла (или только связи)
-  app.delete('/api/media/:id', async (req, res) => {
-    const client = await connectDB();
-    const { id } = req.params;
+
+// DELETE /api/media/:id — удаление медиафайла
+app.delete('/api/media/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  
+  try {
+    // Удаляем связи
+    await client.query('DELETE FROM entity_media WHERE media_file_id = $1', [id]);
+    // Удаляем файл
+    await client.query('DELETE FROM media_files WHERE id = $1', [id]);
     
-    // Если тело не передано — используем пустой объект
-    const body = req.body || {};
-    const { entityType, entityId } = body;
-    
-    try {
-      // 1. Если переданы entityType и entityId — удаляем только связь
-      if (entityType && entityId) {
-        // Удаляем конкретную связь
-        await client.query(
-          'DELETE FROM entity_media WHERE media_file_id = $1 AND entity_type = $2 AND entity_id = $3',
-          [id, entityType, entityId]
-        );
-      } else {
-        // 2. Если не переданы — удаляем все связи (для AllMediaPage)
-        await client.query('DELETE FROM entity_media WHERE media_file_id = $1', [id]);
-      }
-      
-      // 3. Проверяем, остались ли ещё связи у этого файла
-      const checkResult = await client.query(
-        'SELECT COUNT(*) FROM entity_media WHERE media_file_id = $1',
-        [id]
-      );
-      
-      const remainingLinks = parseInt(checkResult.rows[0].count);
-      
-      // 4. Если связей больше нет — удаляем файл
-      if (remainingLinks === 0) {
-        await client.query('DELETE FROM media_files WHERE id = $1', [id]);
-        
-        return res.json({ 
-          success: true, 
-          message: 'Media file and all links deleted successfully',
-          fileDeleted: true,
-          linksRemaining: 0
-        });
-      } else {
-        // Если связи остались — файл не удаляем
-        return res.json({ 
-          success: true, 
-          message: `Link deleted successfully. File still has ${remainingLinks} other link(s)`,
-          fileDeleted: false,
-          linksRemaining: remainingLinks
-        });
-      }
-      
-    } catch (error) {
-      console.error('[ERROR] DELETE /api/media/:id:', error.message);
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
+    res.json({ success: true, message: 'Media deleted successfully' });
+  } catch (error) {
+    console.error('[ERROR] DELETE /api/media/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // POST /api/media/reorder — изменение порядка медиафайлов
 app.post('/api/media/reorder', async (req, res) => {
@@ -3619,7 +3549,7 @@ app.get('/api/media/all', async (req, res) => {
 app.get('/api/yandex-preview', async (req, res) => {
   const { url, size = 'M', mode = 'embed' } = req.query;
   
-  //console.log('[DEBUG] /api/yandex-preview YANDEX_TOKEN exists:', !!process.env.YANDEX_TOKEN);
+  console.log('[DEBUG] /api/yandex-preview YANDEX_TOKEN exists:', !!process.env.YANDEX_TOKEN);
   if (!url) {
     return res.status(400).json({ error: '/api/yandex-preview URL parameter is required' });
   }
@@ -3734,7 +3664,7 @@ app.get('/api/yandex-preview', async (req, res) => {
     try {
       // 1. Получаем прямую ссылку на файл через API Яндекса
       const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(url)}`;
-      //console.log('[PROXY-FILE] Fetching download URL from Yandex');
+      console.log('[PROXY-FILE] Fetching download URL from Yandex');
       
       const yandexRes = await fetch(apiUrl);
       const yandexData = await yandexRes.json();
@@ -3744,7 +3674,7 @@ app.get('/api/yandex-preview', async (req, res) => {
       }
       
       const fileUrl = yandexData.href;
-      //console.log('[PROXY-FILE] Got file URL, downloading...');
+      console.log('[PROXY-FILE] Got file URL, downloading...');
       
       // 2. Скачиваем файл через fetch (работает везде)
       const fileResponse = await fetch(fileUrl, {

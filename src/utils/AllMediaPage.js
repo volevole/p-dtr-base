@@ -98,13 +98,17 @@ function AllMediaPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Удалить файл?')) return;
+    if (!window.confirm('Удалить медиафайл (все его связи с сущностями и строку описания медиафайла) ?')) return;
     try {
-      const response = await fetch(`${API_URL}/api/media/${id}`, { method: 'DELETE' });
+      // Не передаём entityType и entityId — значит полное удаление
+      const response = await fetch(`${API_URL}/api/media/${id}`, { 
+        method: 'DELETE' 
+      });
       const result = await response.json();
+      
       if (result.success) {
         setMediaFiles(prev => prev.filter(f => f.id !== id));
-        showToast('Файл удалён', 'success');
+        showToast('Медиафайл удалён', 'success');
       } else {
         showToast('Ошибка: ' + result.error, 'error');
       }
@@ -396,6 +400,9 @@ function AllMediaPage() {
         <span style={{ padding: '4px 10px', backgroundColor: '#e9ecef', borderRadius: '20px' }}>
           📄 Документы: {mediaFiles.filter(f => f.file_type === 'document').length}
         </span>
+        <span style={{ padding: '4px 10px', backgroundColor: '#e9ecef', borderRadius: '20px' }}>
+        🔗 Всего связей: {mediaFiles.reduce((sum, f) => sum + Number(f.connection_count || 0), 0)}
+      </span>
         <span style={{ padding: '4px 10px', backgroundColor: '#fff3cd', borderRadius: '20px' }}>
           ⚠️ Без превью: {mediaFiles.filter(f => !f.thumbnail_url && f.file_type !== 'image').length}
         </span>
@@ -537,6 +544,37 @@ function AllMediaPage() {
                     </div>
                   )}
                   
+                  {/* Количество связей */}
+                    <div style={{ 
+                      fontSize: '10px', 
+                      marginTop: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      {item.connection_count > 0 ? (
+                        <span 
+                          style={{ 
+                            color: '#28a745',
+                            cursor: 'help',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}
+                          title="Количество сущностей, связанных с этим медиафайлом"
+                        >
+                          🔗 {item.connection_count} 
+                          <span style={{ color: '#888', fontSize: '9px' }}>
+                            {item.connection_count === 1 ? 'связь' : 'связей'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: '#999', fontSize: '9px' }}>
+                          нет связей
+                        </span>
+                      )}
+                    </div>
+
                   {/* Кнопки */}
                   <div style={{ 
                     display: 'flex', 
@@ -558,7 +596,7 @@ function AllMediaPage() {
                         fontSize: '10px',
                         opacity: isUpdating ? 0.6 : 1
                       }}
-                      title="Обновить прямую ссылку на файл"
+                      title="Обновить прямую ссылку на файл, хранимую в БД"
                     >
                       🔗 Ссылку
                     </button>
@@ -575,7 +613,7 @@ function AllMediaPage() {
                         fontSize: '10px',
                         opacity: isUpdating ? 0.6 : 1
                       }}
-                      title="Обновить превью"
+                      title="Обновить ссылку на превью, хранимую в БД"
                     >
                       🖼️ Превью
                     </button>
@@ -590,9 +628,9 @@ function AllMediaPage() {
                         cursor: 'pointer',
                         fontSize: '10px'
                       }}
-                      title="Открыть в тестовой странице с 3 вариантами"
+                      title="Открыть Тестовую страницу с вариантами отображения и подробностями о медиафайле"
                     >
-                      🧪 Тест
+                      🧪 Тест-Инфо
                     </button>
                     <button
                       onClick={() => handleDelete(item.id)}
@@ -607,6 +645,7 @@ function AllMediaPage() {
                         fontSize: '10px',
                         opacity: isUpdating ? 0.6 : 1
                       }}
+                      title="Удалить строку описания медиафайла и все его связи с сущностями"
                     >
                       🗑️
                     </button>
