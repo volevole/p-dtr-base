@@ -3012,9 +3012,9 @@ app.post('/api/refresh-links', async (req, res) => {
 // GET /api/media/:entityType/:entityId — получить все медиа для сущности
 app.get('/api/media/:entityType/:entityId', async (req, res) => {
   const start = Date.now();
-  const { entityType, entityId } = req.params;
+  const { entityType, entityId } = req.params;  
   console.log(`[TIMER] /api/media/:entityType/:entityId  START: ${entityType}/${entityId}`);
-  
+
   const client = await connectDB();
   console.log(`[TIMER] DB connected: ${Date.now() - start} ms`);
   
@@ -3107,7 +3107,7 @@ app.post('/api/media/upload', upload.fields([
     const { entityType, entityId, description = '' } = req.body;
     const file = mainFile;
 
-    console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
+    //console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
 
     // Поддерживаемые типы сущностей
     const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group', 'receptor', 'receptor_class', 'tool', 'entry'];
@@ -3232,12 +3232,12 @@ app.post('/api/media/upload', upload.fields([
                 console.log(`[UNIVERSAL UPLOAD] Got S-size preview`);
               } else if (previewData.preview.M) {
                 thumbnailUrl = previewData.preview.M;
-                console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
+                //console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
               } else {
                 const firstSize = Object.values(previewData.preview)[0];
                 if (firstSize) {
                   thumbnailUrl = firstSize;
-                  console.log(`[UNIVERSAL UPLOAD] Got first available preview size`);
+                  //console.log(`[UNIVERSAL UPLOAD] Got first available preview size`);
                 }
               }
             }
@@ -3549,7 +3549,7 @@ app.get('/api/media/all', async (req, res) => {
 app.get('/api/yandex-preview', async (req, res) => {
   const { url, size = 'M', mode = 'embed' } = req.query;
   
-  console.log('[DEBUG] /api/yandex-preview YANDEX_TOKEN exists:', !!process.env.YANDEX_TOKEN);
+  //console.log('[DEBUG] /api/yandex-preview YANDEX_TOKEN exists:', !!process.env.YANDEX_TOKEN);
   if (!url) {
     return res.status(400).json({ error: '/api/yandex-preview URL parameter is required' });
   }
@@ -3651,6 +3651,62 @@ app.get('/api/yandex-preview', async (req, res) => {
       res.status(500).json({ error: error.message });
     }
   });
+
+// Прокси для полного файла через curl
+  // Универсальный прокси для полного файла (работает на любой платформе)
+  app.get('/api/curl-proxy-file', async (req, res) => {
+    const { url, size = 'M' } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'URL parameter is required' });
+    }
+    
+    try {
+      // 1. Получаем прямую ссылку на файл через API Яндекса
+      const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(url)}`;
+      //console.log('[PROXY-FILE] Fetching download URL from Yandex');
+      
+      const yandexRes = await fetch(apiUrl);
+      const yandexData = await yandexRes.json();
+      
+      if (!yandexData.href) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      
+      const fileUrl = yandexData.href;
+      //console.log('[PROXY-FILE] Got file URL, downloading...');
+      
+      // 2. Скачиваем файл через fetch (работает везде)
+      const fileResponse = await fetch(fileUrl, {
+        headers: {
+          'Referer': 'https://disk.yandex.ru/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to download file: ${fileResponse.status}`);
+      }
+      
+      const buffer = await fileResponse.arrayBuffer();
+      const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
+      const contentLength = fileResponse.headers.get('content-length');
+      
+      console.log('[PROXY-FILE] Downloaded:', buffer.byteLength, 'bytes, type:', contentType);
+      
+      res.set('Content-Type', contentType);
+      if (contentLength) {
+        res.set('Content-Length', contentLength);
+      }
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.send(Buffer.from(buffer));
+      
+    } catch (error) {
+      console.error('[ERROR] /api/curl-proxy-file:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
 
 // Тестовый эндпоинт для отладки превью
 app.get('/api/test-preview', async (req, res) => {

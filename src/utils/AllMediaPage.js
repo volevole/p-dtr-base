@@ -2,9 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import MediaViewer from '../MediaViewer';
 import { getFileIcon, formatFileSize } from './mediaUtils';
-import API_URL from '../config/api';
-
-
+import API_URL, { config } from '../config/api';
 
 function AllMediaPage() {
   const [mediaFiles, setMediaFiles] = useState([]);
@@ -18,81 +16,58 @@ function AllMediaPage() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [forceUpdating, setForceUpdating] = useState(false);
 
+  const isCurlMode = config.YANDEX_DISK_MODE === 'curl';
+
   const showToast = (message, type = 'info') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'info' }), 3000);
   };
 
-  // Проверка, нужно ли обновить превью (устарело или отсутствует)
-   const isPreviewExpired = (file) => {
-  // Больше НЕ исключаем изображения
-  // if (file.file_type === 'image') return false;  // ← УДАЛИТЬ ЭТУ СТРОКУ
-  
-  // Если нет thumbnail_url — точно нужно обновить
-  if (!file.thumbnail_url) return true;
-  
-  // Если нет даты обновления — нужно обновить
-  if (!file.thumbnail_updated_at) return true;
-  
-  // Проверяем, сколько дней прошло с последнего обновления
-  const updatedAt = new Date(file.thumbnail_updated_at);
-  const now = new Date();
-  const daysDiff = (now - updatedAt) / (1000 * 60 * 60 * 24);
-  
-  // Превью устаревает через 7 дней
-  return daysDiff > 7;
-};
+  const isPreviewExpired = (file) => {
+    if (!file.thumbnail_url) return true;
+    if (!file.thumbnail_updated_at) return true;
+    const updatedAt = new Date(file.thumbnail_updated_at);
+    const now = new Date();
+    const daysDiff = (now - updatedAt) / (1000 * 60 * 60 * 24);
+    return daysDiff > 7;
+  };
 
-    // Принудительное обновление превью для ВСЕХ файлов (игнорируем дату)
-    const handleForceUpdatePreviews = async () => {
-      // Теперь ВСЕ файлы (включая изображения)
-      const filesToUpdate = mediaFiles.filter(f => true);  // или просто mediaFiles
-      
-      if (filesToUpdate.length === 0) {
-        showToast('Нет файлов для обновления', 'info');
-        return;
+  const handleForceUpdatePreviews = async () => {
+    const filesToUpdate = mediaFiles;
+    if (filesToUpdate.length === 0) {
+      showToast('Нет файлов для обновления', 'info');
+      return;
     }
-      
-      if (!window.confirm(`ПРИНУДИТЕЛЬНО обновить превью для ${filesToUpdate.length} файлов?\n\nЭто может занять несколько минут.`)) return;
-      
-      setForceUpdating(true);
-      showToast(`Принудительное обновление превью для ${filesToUpdate.length} файлов...`, 'info');
-      
-      try {
-        const mediaIds = filesToUpdate.map(f => f.id);
-        const response = await fetch(`${API_URL}/api/update-media-previews`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mediaIds,
-            entityType: 'all',
-            entityId: null,
-            force: true  // добавляем флаг принудительного обновления
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          const successCount = result.results.filter(r => r.success).length;
-          showToast(`Принудительно обновлено превью для ${successCount} файлов`, 'success');
-          await fetchMediaFiles();
-        } else {
-          showToast('Ошибка: ' + result.error, 'error');
-        }
-      } catch (error) {
-        showToast('Ошибка: ' + error.message, 'error');
-      } finally {
-        setForceUpdating(false);
+    if (!window.confirm(`ПРИНУДИТЕЛЬНО обновить превью для ${filesToUpdate.length} файлов?\n\nЭто может занять несколько минут.`)) return;
+    setForceUpdating(true);
+    showToast(`Принудительное обновление превью для ${filesToUpdate.length} файлов...`, 'info');
+    try {
+      const mediaIds = filesToUpdate.map(f => f.id);
+      const response = await fetch(`${API_URL}/api/update-media-previews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaIds, entityType: 'all', entityId: null, force: true })
+      });
+      const result = await response.json();
+      if (result.success) {
+        const successCount = result.results.filter(r => r.success).length;
+        showToast(`Принудительно обновлено превью для ${successCount} файлов`, 'success');
+        await fetchMediaFiles();
+      } else {
+        showToast('Ошибка: ' + result.error, 'error');
       }
-    };
+    } catch (error) {
+      showToast('Ошибка: ' + error.message, 'error');
+    } finally {
+      setForceUpdating(false);
+    }
+  };
 
   const fetchMediaFiles = async () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/api/media/all`);
       const result = await response.json();
-      
       if (result.success) {
         setMediaFiles(result.data);
         showToast(`Загружено ${result.data.length} файлов`, 'success');
@@ -111,6 +86,16 @@ function AllMediaPage() {
   useEffect(() => {
     fetchMediaFiles();
   }, []);
+
+  // Функция для получения URL превью в зависимости от режима
+  const getPreviewUrl = (item) => {
+    if (!item.public_url) return null;
+    if (isCurlMode) {
+      return `${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(item.public_url)}&size=${config.YANDEX_PREVIEW_SIZE || 'M'}`;
+    }
+    // Для embed режима — используем thumbnail_url из БД
+    return item.thumbnail_url || null;
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Удалить файл?')) return;
@@ -145,18 +130,13 @@ function AllMediaPage() {
     }
   };
 
-  // ========== УНИФИЦИРОВАННЫЕ МЕТОДЫ (как в useMediaManager) ==========
-
-  // Обновление прямой ссылки для одного файла
   const handleUpdateSingleLink = async (file) => {
     if (!file.public_url) {
       showToast('Нет public_url для этого файла', 'warning');
       return;
     }
-
     setUpdatingItemId(file.id);
     showToast(`Обновление ссылки для ${file.file_name}...`, 'info');
-
     try {
       const mediaItems = [{
         id: file.id,
@@ -166,24 +146,17 @@ function AllMediaPage() {
         fileName: file.file_name,
         fileType: file.file_type
       }];
-      
       const response = await fetch(`${API_URL}/api/refresh-links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaItems })
       });
-      
       const result = await response.json();
-      
       if (result.success && result.results?.[0]?.success) {
         const updated = result.results[0];
         setMediaFiles(prev => prev.map(f => 
           f.id === file.id 
-            ? { 
-                ...f, 
-                file_url: updated.updatedFileUrl || f.file_url,
-                thumbnail_url: updated.updatedThumbnailUrl || f.thumbnail_url
-              } 
+            ? { ...f, file_url: updated.updatedFileUrl || f.file_url, thumbnail_url: updated.updatedThumbnailUrl || f.thumbnail_url } 
             : f
         ));
         showToast(`Ссылка обновлена для ${file.file_name}`, 'success');
@@ -197,31 +170,21 @@ function AllMediaPage() {
     }
   };
 
-  // Обновление превью для одного файла (через массовый эндпоинт с одним ID)
   const handleUpdateSinglePreview = async (file) => {
     if (!file.public_url) {
       showToast('Нет public_url для этого файла', 'warning');
       return;
     }
-
     setUpdatingItemId(file.id);
     showToast(`Обновление превью для ${file.file_name}...`, 'info');
-
     try {
       const response = await fetch(`${API_URL}/api/update-media-previews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mediaIds: [file.id],
-          entityType: 'all',
-          entityId: null
-        })
+        body: JSON.stringify({ mediaIds: [file.id], entityType: 'all', entityId: null })
       });
-      
       const result = await response.json();
-      
       if (result.success && result.results?.[0]?.success) {
-        // Перезагружаем данные для получения обновлённого thumbnail_url
         await fetchMediaFiles();
         showToast(`Превью обновлено для ${file.file_name}`, 'success');
       } else {
@@ -235,20 +198,15 @@ function AllMediaPage() {
     }
   };
 
-  // Массовое обновление ссылок
   const handleUpdateLinks = async () => {
     const filesToUpdate = mediaFiles.filter(f => f.public_url);
-    
     if (filesToUpdate.length === 0) {
       showToast('Нет файлов для обновления (нет public_url)', 'warning');
       return;
     }
-    
     if (!window.confirm(`Обновить ссылки для ${filesToUpdate.length} файлов?\n\nЭто займёт около ${Math.ceil(filesToUpdate.length * 0.5)} секунд.`)) return;
-    
     setUpdatingLinks(true);
     showToast(`Начинаю обновление ${filesToUpdate.length} файлов...`, 'info');
-    
     try {
       const mediaItems = filesToUpdate.map(f => ({
         id: f.id,
@@ -258,15 +216,12 @@ function AllMediaPage() {
         fileName: f.file_name,
         fileType: f.file_type
       }));
-      
       const response = await fetch(`${API_URL}/api/refresh-links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mediaItems })
       });
-      
       const result = await response.json();
-      
       if (result.success) {
         const successCount = result.results.filter(r => r.success && r.updated).length;
         showToast(`Обновлено: ${successCount} из ${filesToUpdate.length} файлов`, 'success');
@@ -281,35 +236,23 @@ function AllMediaPage() {
     }
   };
 
-  // Массовое обновление превью
   const handleUpdatePreviews = async () => {
-    // Теперь тоже ВСЕ файлы, но только устаревшие
     const filesToUpdate = mediaFiles.filter(f => isPreviewExpired(f));
-    
     if (filesToUpdate.length === 0) {
       showToast('Нет файлов с устаревшими или отсутствующими превью', 'info');
       return;
     }
-    
     if (!window.confirm(`Обновить превью для ${filesToUpdate.length} файлов?`)) return;
-    
     setUpdatingPreviews(true);
     showToast(`Обновляю превью для ${filesToUpdate.length} файлов...`, 'info');
-    
     try {
       const mediaIds = filesToUpdate.map(f => f.id);
       const response = await fetch(`${API_URL}/api/update-media-previews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mediaIds,
-          entityType: 'all',
-          entityId: null
-        })
+        body: JSON.stringify({ mediaIds, entityType: 'all', entityId: null })
       });
-      
       const result = await response.json();
-      
       if (result.success) {
         const successCount = result.results.filter(r => r.success).length;
         showToast(`Превью обновлено для ${successCount} файлов`, 'success');
@@ -324,7 +267,6 @@ function AllMediaPage() {
     }
   };
 
-  // Новая функция: открыть тестовую страницу для файла
   const openTestPage = (mediaItem) => {
     window.open(`/test-refresh?id=${mediaItem.id}`, '_blank');
   };
@@ -343,7 +285,38 @@ function AllMediaPage() {
     <div style={{ padding: '2rem', maxWidth: '1400px', margin: 'auto' }}>
       <h1>Все медиафайлы</h1>
       
-      {/* Toast уведомления */}
+      {/* Информационный блок о режиме */}
+      <div style={{
+        marginBottom: '20px',
+        padding: '12px 20px',
+        backgroundColor: isCurlMode ? '#e3f2fd' : '#f5f5f5',
+        border: isCurlMode ? '1px solid #90caf9' : '1px solid #e0e0e0',
+        borderRadius: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '20px' }}>{isCurlMode ? '🔄' : '📦'}</span>
+          <div>
+            <strong style={{ color: isCurlMode ? '#0d47a1' : '#424242' }}>
+              {isCurlMode ? 'Режим curl:' : 'Режим embed:'}
+            </strong>
+            <span style={{ marginLeft: '8px', color: isCurlMode ? '#1565c0' : '#616161' }}>
+              {isCurlMode 
+                ? 'Превью и ссылки обновляются на лету через curl-proxy, не из базы данных.'
+                : 'Превью и ссылки берутся из базы данных (thumbnail_url и file_url).'
+              }
+            </span>
+          </div>
+        </div>
+        <div style={{ fontSize: '13px', color: isCurlMode ? '#1565c0' : '#616161', paddingLeft: '36px' }}>
+          <span style={{ fontWeight: '500' }}>📌 Удаление файла:</span>
+          удаляется только запись из базы данных.
+          Физический файл на Яндекс.Диске остаётся и его нужно удалять вручную через интерфейс Яндекс.Диска.
+        </div>
+      </div>
+
       {toast.show && (
         <div style={{
           position: 'fixed',
@@ -364,11 +337,7 @@ function AllMediaPage() {
       <div style={{ marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
         <div><strong>Всего:</strong> {mediaFiles.length}</div>
         
-        <button 
-          onClick={fetchMediaFiles} 
-          style={buttonStyle('#6c757d')}
-          title="Перезагрузить список файлов из базы данных"
-        >
+        <button onClick={fetchMediaFiles} style={buttonStyle('#6c757d')} title="Перезагрузить список файлов из базы данных">
           🔄 Обновить список
         </button>
         
@@ -431,26 +400,24 @@ function AllMediaPage() {
           ⚠️ Без превью: {mediaFiles.filter(f => !f.thumbnail_url && f.file_type !== 'image').length}
         </span>
         <span style={{ padding: '4px 10px', backgroundColor: '#fff3cd', borderRadius: '20px' }}>
-    ⚠️ Требуют обновления превью: {mediaFiles.filter(f => isPreviewExpired(f)).length}
+          ⚠️ Требуют обновления превью: {mediaFiles.filter(f => isPreviewExpired(f)).length}
         </span>
       </div>
 
-      {/* Список файлов с индивидуальными кнопками */}
+      {/* Список файлов */}
       {filteredMedia.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
           Медиафайлы не найдены
         </div>
       ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
-          gap: '15px' 
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
           {filteredMedia.map(item => {
             const isImage = item.file_type === 'image';
             const isVideo = item.file_type === 'video';
             const isPdf = item.file_name?.toLowerCase().endsWith('.pdf');
             const isUpdating = updatingItemId === item.id;
+            const previewUrl = getPreviewUrl(item);
+            const isUsingCurl = isCurlMode && previewUrl;
             
             return (
               <div 
@@ -464,7 +431,7 @@ function AllMediaPage() {
                   boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                 }}
               >
-                {/* Миниатюра или иконка */}
+                {/* Миниатюра */}
                 <div 
                   style={{ 
                     height: '150px', 
@@ -478,9 +445,9 @@ function AllMediaPage() {
                   }}
                   onClick={() => setSelectedMedia(item)}
                 >
-                  {item.thumbnail_url ? (
+                  {previewUrl ? (
                     <img 
-                      src={item.thumbnail_url} 
+                      src={previewUrl} 
                       alt={item.file_name}
                       style={{ 
                         width: '100%', 
@@ -496,7 +463,24 @@ function AllMediaPage() {
                     getFileIcon(item.file_type)
                   )}
                   
-                  {/* Индикатор обновления */}
+                  {isUsingCurl && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '4px',
+                      backgroundColor: 'rgba(0,123,255,0.85)',
+                      color: 'white',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '9px',
+                      fontWeight: 'bold',
+                      zIndex: 5,
+                      letterSpacing: '0.3px'
+                    }}>
+                      🔄 on-the-fly
+                    </div>
+                  )}
+                  
                   {isUpdating && (
                     <div style={{
                       position: 'absolute',
@@ -516,7 +500,7 @@ function AllMediaPage() {
                   )}
                 </div>
                 
-                {/* Информация о файле */}
+                {/* Информация */}
                 <div style={{ padding: '10px' }}>
                   <div style={{ 
                     fontWeight: 'bold', 
@@ -536,9 +520,7 @@ function AllMediaPage() {
                     justifyContent: 'space-between',
                     alignItems: 'center'
                   }}>
-                    <span>
-                      {isImage ? '🖼️' : isVideo ? '🎬' : isPdf ? '📄' : '📁'}
-                    </span>
+                    <span>{isImage ? '🖼️' : isVideo ? '🎬' : isPdf ? '📄' : '📁'}</span>
                     <span>{formatFileSize(item.file_size)}</span>
                   </div>
                   
@@ -555,7 +537,7 @@ function AllMediaPage() {
                     </div>
                   )}
                   
-                  {/* Кнопки действий */}
+                  {/* Кнопки */}
                   <div style={{ 
                     display: 'flex', 
                     gap: '5px', 
@@ -636,7 +618,6 @@ function AllMediaPage() {
         </div>
       )}
 
-      {/* Просмотрщик */}
       {showViewer && selectedMedia && (
         <div style={modalStyle} onClick={() => setShowViewer(false)}>
           <div style={modalContentStyle} onClick={e => e.stopPropagation()}>

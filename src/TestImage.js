@@ -8,6 +8,8 @@ function TestImage() {
   const [error, setError] = useState('');
   const [blobUrl, setBlobUrl] = useState('');
 
+  console.log('[TestImage] API_URL:', API_URL);
+
   // Вариант 1: через ваш прокси (старый)
   const testProxy = () => {
     setBlobUrl(`${API_URL}/api/yandex-preview?url=${encodeURIComponent(url)}&size=M`);
@@ -110,6 +112,31 @@ function TestImage() {
     }
   };
 
+  // Вариант 6: новый curl-прокси для полного файла
+    const testCurlFileProxy = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(url)}&size=M`;
+            //console.log('[testCurlFileProxy] Requesting:', proxyUrl);
+            
+            const response = await fetch(proxyUrl);
+            //console.log('[testCurlFileProxy] Response status:', response.status);
+            //console.log('[testCurlFileProxy] Response headers:', [...response.headers.entries()]);
+            
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const blob = await response.blob();
+            //console.log('[testCurlFileProxy] Blob size:', blob.size, 'type:', blob.type);
+            const objectUrl = URL.createObjectURL(blob);
+            setBlobUrl(objectUrl);
+        } catch (err) {
+            console.error('Curl file proxy error:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+            }
+        };
+
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Тест проксирования изображений</h1>
@@ -130,6 +157,7 @@ function TestImage() {
         <button onClick={testDirectYandexApi}>3. Прямой API Яндекс + img</button>
         <button onClick={testCorsProxy}>4. Через CORS-прокси (corsproxy.io)</button>
         <button onClick={testCurlProxy}>5. Новый curl-прокси</button>
+        <button onClick={testCurlFileProxy}>6. Новый curl-прокси для файла</button>
       </div>
 
       <div style={{ marginTop: '20px' }}>

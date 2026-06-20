@@ -1,4 +1,4 @@
-// MediaViewer.js - с поддержкой режимов
+// MediaViewer.js - упрощённая версия для всех режимов
 import React, { useState, useEffect } from 'react';
 import API_URL, { config } from './config/api';
 
@@ -11,7 +11,6 @@ function MediaViewer({ media }) {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
-// Добавьте в начало компонента MediaViewer
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -20,6 +19,8 @@ function MediaViewer({ media }) {
   const handleZoomIn = () => setScale(prev => Math.min(prev + 0.5, 5));
   const handleZoomOut = () => setScale(prev => Math.max(prev - 0.5, 1));
   const handleReset = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
+
+  console.log('[MediaViewer] Component rendered with media:', media?.file_name);
 
   const handleMouseDown = (e) => {
     if (scale > 1) {
@@ -36,7 +37,6 @@ function MediaViewer({ media }) {
 
   const handleMouseUp = () => setIsDragging(false);
 
-  // Для touch (мобильные)
   const handleTouchStart = (e) => {
     if (scale > 1 && e.touches.length === 1) {
       setIsDragging(true);
@@ -46,62 +46,85 @@ function MediaViewer({ media }) {
 
   const handleTouchMove = (e) => {
     if (isDragging && scale > 1 && e.touches.length === 1) {
-      //e.preventDefault();
       setPosition({ x: e.touches[0].clientX - dragStart.x, y: e.touches[0].clientY - dragStart.y });
     }
   };
 
   const handleTouchEnd = () => setIsDragging(false);
 
-
-  // Определяем мобильное устройство
   useEffect(() => {
     setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
   }, []);
 
-  // Загружаем файл через blob (только для embed-режима)
-  useEffect(() => {
-    const loadFileViaBlob = async () => {
+  // Упрощённая загрузка файла — всегда через blob для embed, для остальных — прямая ссылка
+    useEffect(() => {
+    const loadFile = async () => {
       const publicUrl = media.public_url;
-      
-      // Для legacy режима — используем прямые ссылки из БД
-      if (config.YANDEX_DISK_MODE !== 'embed') {
-        setBlobUrl(media.file_url || media.public_url);
-        return;
-      }
-      
-      if (!publicUrl) {
-        setBlobUrl(media.file_url);
-        return;
-      }
+      const mode = config.YANDEX_DISK_MODE;
 
-      setLoading(true);
-      setLoadError(false);
+      console.log('[MediaViewer] loadFile called', { mode, publicUrl, file_name: media.file_name });
 
-      try {
-        const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicUrl)}`;
-        const response = await fetch(apiUrl);
-        const data = await response.json();
-        
-        if (!data.href) {
-          throw new Error('Не удалось получить прямую ссылку');
+      // ===== РЕЖИМ EMBED (работает на локале) =====
+      if (mode === 'embed' && publicUrl) {
+        setLoading(true);
+        setLoadError(false);
+        try {
+          // 1. Получаем href от API Яндекса
+          const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicUrl)}`;
+          const response = await fetch(apiUrl);
+          const data = await response.json();
+
+          if (!data.href) {
+            throw new Error('Не удалось получить прямую ссылку');
+          }
+
+          // 2. Загружаем файл по href
+          const fileResponse = await fetch(data.href);
+          const blob = await fileResponse.blob();
+          const url = URL.createObjectURL(blob);
+          setBlobUrl(url);
+        } catch (err) {
+          console.error('MediaViewer - Error loading file:', err);
+          setLoadError(true);
+          setBlobUrl(media.file_url || media.public_url);
+        } finally {
+          setLoading(false);
         }
-        
-        const fileResponse = await fetch(data.href);
-        const blob = await fileResponse.blob();
-        const url = URL.createObjectURL(blob);
-        setBlobUrl(url);
-        
-      } catch (err) {
-        console.error('MediaViewer - Error loading file via blob:', err);
-        setLoadError(true);
-        setBlobUrl(media.file_url || media.public_url);
-      } finally {
-        setLoading(false);
+        return;
       }
+
+      // ===== РЕЖИМ CURL (работает на проде) =====
+      if (mode === 'curl' && publicUrl) {
+        setLoading(true);
+        setLoadError(false);
+        try {
+          // Используем curl-proxy-file на сервере
+          const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
+          console.log('[MediaViewer] curl mode, proxyUrl:', proxyUrl);
+          
+          const response = await fetch(proxyUrl);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          setBlobUrl(url);
+        } catch (err) {
+          console.error('MediaViewer - Error loading file in curl mode:', err);
+          setLoadError(true);
+          setBlobUrl(media.file_url || media.public_url);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // ===== РЕЖИМ LEGACY (fallback) =====
+      // Для legacy — используем прямые ссылки из БД
+      setBlobUrl(media.file_url || media.public_url);
     };
 
-    loadFileViaBlob();
+    loadFile();
 
     return () => {
       if (blobUrl && blobUrl.startsWith('blob:')) {
@@ -148,6 +171,8 @@ function MediaViewer({ media }) {
   const isPdf = media.file_name?.toLowerCase().endsWith('.pdf');
   const isImage = media.file_type === 'image' || media.file_name?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
   const displayUrl = blobUrl || media.file_url || media.public_url;
+
+  console.log('[MediaViewer] displayUrl:', displayUrl);
 
   if (loading) {
     return (
@@ -250,7 +275,6 @@ function MediaViewer({ media }) {
             }} 
             title={media.file_name} 
           />
-          {/* Имя файла поверх iframe (опционально) */}
           <div style={{
             position: 'absolute',
             bottom: '20px',
@@ -279,20 +303,20 @@ function MediaViewer({ media }) {
     );
   };
 
- const renderImage = () => {
-  if (imageError) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <div style={{ fontSize: '48px' }}>🖼️</div>
-        <div>Изображение не загрузилось</div>
-        {media.public_url && (
-          <a href={media.public_url} target="_blank" rel="noopener noreferrer">Открыть на Яндекс.Диске</a>
-        )}
-      </div>
-    );
-  }
+  const renderImage = () => {
+    if (imageError) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ fontSize: '48px' }}>🖼️</div>
+          <div>Изображение не загрузилось</div>
+          {media.public_url && (
+            <a href={media.public_url} target="_blank" rel="noopener noreferrer">Открыть на Яндекс.Диске</a>
+          )}
+        </div>
+      );
+    }
 
-  return (
+    return (
       <div style={{ 
         position: 'relative', 
         width: '100%', 
@@ -302,7 +326,6 @@ function MediaViewer({ media }) {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        {/* Кнопки зума */}
         <div style={{
           position: 'absolute',
           top: '90px',
@@ -361,10 +384,6 @@ function MediaViewer({ media }) {
     return renderImage();
   };
 
-
-  
-  // MediaViewer.js — обёртка
- // MediaViewer.js — возвращаем структуру с единой информационной панелью
   return (
     <div style={{ 
       position: 'relative',
@@ -376,7 +395,6 @@ function MediaViewer({ media }) {
       alignItems: 'center',
       backgroundColor: 'black'
     }}>
-      {/* Контент (изображение/видео/документ) */}
       <div style={{ 
         flex: 1,
         display: 'flex',
@@ -388,36 +406,35 @@ function MediaViewer({ media }) {
         {renderMediaContent()}
       </div>
       
-     {/* Единая информационная панель — справа от центра */}
-    <div style={{
-      position: 'absolute',
-      bottom: '20px',
-      right: '20px',
-      maxWidth: '400px',  // ограничиваем ширину
-      backgroundColor: 'rgba(9, 165, 79, 0.01)',
-      color: 'white',
-      padding: '10px 15px',
-      borderRadius: '8px',
-      fontSize: '13px',
-      zIndex: 10,
-      backdropFilter: 'blur(8px)',
-      textAlign: 'right'  // текст выровнять вправо
-    }}>
-      {media.description && (
-        <div style={{ marginBottom: '8px', padding: '8px', borderRadius: '6px', fontSize: '14px', textAlign: 'right' }}>            
-          {media.description}
-        </div>
-      )}        
-      <div style={{ fontSize: '11px', opacity: 0.7, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-        <span>{media.file_name}</span>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <span>{media.file_type === 'image' ? '🖼️ Изображение' : media.file_type === 'video' ? '🎬 Видео' : '📄 Документ'}</span>
-          {media.width && media.height && <span>📐 {media.width}×{media.height} px</span>}
-          {media.file_size && <span>💾 {(media.file_size / 1024).toFixed(1)} KB</span>}
-          {media.duration_seconds && <span>⏱️ {Math.floor(media.duration_seconds / 60)}:{String(media.duration_seconds % 60).padStart(2, '0')}</span>}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        right: '20px',
+        maxWidth: '400px',
+        backgroundColor: 'rgba(9, 165, 79, 0.01)',
+        color: 'white',
+        padding: '10px 15px',
+        borderRadius: '8px',
+        fontSize: '13px',
+        zIndex: 10,
+        backdropFilter: 'blur(8px)',
+        textAlign: 'right'
+      }}>
+        {media.description && (
+          <div style={{ marginBottom: '8px', padding: '8px', borderRadius: '6px', fontSize: '14px', textAlign: 'right' }}>            
+            {media.description}
+          </div>
+        )}        
+        <div style={{ fontSize: '11px', opacity: 0.7, display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+          <span>{media.file_name}</span>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <span>{media.file_type === 'image' ? '🖼️ Изображение' : media.file_type === 'video' ? '🎬 Видео' : '📄 Документ'}</span>
+            {media.width && media.height && <span>📐 {media.width}×{media.height} px</span>}
+            {media.file_size && <span>💾 {(media.file_size / 1024).toFixed(1)} KB</span>}
+            {media.duration_seconds && <span>⏱️ {Math.floor(media.duration_seconds / 60)}:{String(media.duration_seconds % 60).padStart(2, '0')}</span>}
+          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }

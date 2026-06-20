@@ -38,11 +38,16 @@ export const getEnvironmentInfo = () => {
   
   // Информация о сервере (на основе API_URL)
   const serverInfo = {
-    apiUrl: apiUrl,
-    protocol: apiUrl.startsWith('https') ? 'HTTPS' : 'HTTP',
-    hostname: apiUrl ? new URL(apiUrl).hostname : 'Неизвестно',
-    port: apiUrl ? new URL(apiUrl).port || (apiUrl.startsWith('https') ? 443 : 80) : null
-  };
+      apiUrl: apiUrl,
+      protocol: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('https')) ? 'HTTPS' : 
+                (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) ? 'HTTP' : 'Неизвестно',
+      hostname: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
+        ? new URL(apiUrl).hostname 
+        : 'Неизвестно',
+      port: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
+        ? new URL(apiUrl).port || (apiUrl.startsWith('https') ? 443 : 80) 
+        : null
+    };
   
   return {
     // Основная информация

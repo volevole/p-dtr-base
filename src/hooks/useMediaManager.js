@@ -663,9 +663,10 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
     
     // Режим embed: редирект на Яндекс
     if (mode === 'embed') {
-	console.log('[getThumbnailUrl] curl mode URL до :', publicUrl);
-      return `${API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}&mode=embed`;
-	console.log('[getThumbnailUrl] curl mode URL после :', url);
+  	
+    const fullUrl = `${API_URL}/api/yandex-preview?url=${encodeURIComponent(publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE}&mode=embed`;
+    //console.log('[getThumbnailUrl] curl mode URL после:', fullUrl);
+    return fullUrl;
 
     }
     
@@ -705,7 +706,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
 
   // Обработка медиа для отображения
   const processMediaForDisplay = (mediaArray) => {
-	  console.log('[processMediaForDisplay] Processing', mediaArray?.length, 'items');
+	  //console.log('[processMediaForDisplay] Processing', mediaArray?.length, 'items');
 	  if (!Array.isArray(mediaArray)) return [];
     
     return mediaArray.map(item => ({
@@ -719,7 +720,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
 
 // Добавьте эту функцию в хук (внутрь return объекта)
   const getDisplayUrl = (mediaItem, type = 'view') => {
-	console.log('[getDisplayUrl] Called with type:', type, 'mediaItem:', mediaItem?.file_name);
+	//console.log('[getDisplayUrl] Called with type:', type, 'mediaItem:', mediaItem?.file_name);
     if (!mediaItem) return null;
     
     const mode = config.YANDEX_DISK_MODE;
