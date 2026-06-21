@@ -19,11 +19,19 @@ root.render(
 
 // ?? ЗАМЕНИТЬ reportWebVitals() на это:
 // Если хотите включить Service Worker (PWA):
-serviceWorkerRegistration.register();
+//serviceWorkerRegistration.register();
 
 // Если хотите оставить как было (без PWA):
 // serviceWorkerRegistration.unregister();
 // reportWebVitals();
+
+// Для разработки — отключаем Service Worker
+if (process.env.NODE_ENV === 'production') {
+  serviceWorkerRegistration.register();
+} else {
+  serviceWorkerRegistration.unregister();
+}
+
 
 // Если нужны и PWA, и reportWebVitals:
 reportWebVitals();

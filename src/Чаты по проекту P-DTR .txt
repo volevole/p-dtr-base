@@ -34,6 +34,8 @@ pm2 restart muscule-app Перезапустите бэкенд
 systemctl restart nodejs  или так, если ещё не был запущен бэкенд 
 systemctl restart nginx   перезапус  nginx
 pm2 status Проверьте, что сервер запустился
+git log --oneline -5    Посмотрите последние коммиты
+git show --stat      # Посмотрите, какие файлы были изменены в последнем коммите
 
 Быстрая проверка после деплоя
 curl -I http://194.226.165.244   # Проверьте, что фронтенд доступен
@@ -92,6 +94,11 @@ http://194.226.165.244/phppgadmin/  она работает плохо, когд
 Логин: ce119128259
 Пароль: sj5e1!8soYs7v0m
 DNS: ns5.hosting.reg.ru • ns6.hosting.reg.ru
+
+Мы восстановили аккаунт 21-06-26, создав его заново, теперь вы можете в него войти со следующими данными:
+
+Логин: ce119128259
+Пароль: sj5e1!8soYs7v0m
 
 Как привязать домен к VPS серверу https://www.reg.ru/support/hosting-i-servery/servery-vps/kak-privyazat-domen-k-vps/kak-privyazat-domen-k-vps-bez-paneli-upravleniya?rtm_source=e-mail&rtm_medium=e-mail&rtm_campaign=CloudVPSActivated
 

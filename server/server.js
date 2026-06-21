@@ -16,30 +16,30 @@ let db = null;
 let queryQueue = [];
 let isProcessing = false;
 
-async function processQueue() {  //  ???
-  if (isProcessing || queryQueue.length === 0) return;
-  isProcessing = true;
+// async function processQueue() {  //  ???
+//   if (isProcessing || queryQueue.length === 0) return;
+//   isProcessing = true;
   
-  while (queryQueue.length > 0) {
-    const { text, params, resolve, reject } = queryQueue.shift();
-    try {
-      const client = await connectDB();
-      const result = await client.query(text, params);
-      resolve(result);
-    } catch (error) {
-      reject(error);
-    }
-  }
+//   while (queryQueue.length > 0) {
+//     const { text, params, resolve, reject } = queryQueue.shift();
+//     try {
+//       const client = await connectDB();
+//       const result = await client.query(text, params);
+//       resolve(result);
+//     } catch (error) {
+//       reject(error);
+//     }
+//   }
   
-  isProcessing = false;
-}
+//   isProcessing = false;
+// }
 
-async function query(text, params) {   //  ???
-  return new Promise((resolve, reject) => {
-    queryQueue.push({ text, params, resolve, reject });
-    processQueue();
-  });
-}
+// async function query(text, params) {   //  ???
+//   return new Promise((resolve, reject) => {
+//     queryQueue.push({ text, params, resolve, reject });
+//     processQueue();
+//   });
+// }
 
 async function connectDB() {
   if (db && db._connected && !db._ending) {
@@ -82,19 +82,7 @@ async function connectDB() {
 
 // 3. Middleware
 app.use(express.json());
-// app.use([
-//   '/api/dysfunctions',
-//   '/api/meridians',
-//   '/api/muscles',
-//   '/api/organs',
-//   '/api/groups',
-//   '/api/entries',
-//   '/api/tools',
-//   '/api/receptors',
-//   '/api/functions',
-//   '/api/nerves',
-//   '/api/vertebrae'
-// ], express.json());
+
 
 // Настройка CORS
 const corsOptions = {
@@ -1514,7 +1502,7 @@ app.get('/api/organs', async (req, res) => {
       muscle_organs: row.muscle_organs_count > 0 ? [{ muscle_id: null }] : []
     }));
     
-    console.log(`[API] GET /api/organs — returned ${data.length} organs`);
+    
     res.json({ success: true, data });
   } catch (error) {
     console.error('[ERROR] GET /api/organs:', error.message);
@@ -1718,7 +1706,7 @@ app.get('/api/meridians', async (req, res) => {
       muscle_meridians: row.muscle_meridians_count > 0 ? [{ muscle_id: null }] : []
     }));
     
-    console.log(`[API] GET /api/meridians — returned ${data.length} meridians`);
+    
     res.json({ success: true, data });
   } catch (error) {
     console.error('[ERROR] GET /api/meridians:', error.message);
@@ -2532,7 +2520,6 @@ async function getDirectLink(url) {
         if (resourceRes.ok) {
           const data = await resourceRes.json();
           if (data.public_url) {
-            //console.log('[DEBUG] Found public_url via API:', data.public_url);
             // Рекурсивно вызываем эту же функцию с найденным public_url
             return await getDirectLink(data.public_url);
           }
@@ -2558,7 +2545,6 @@ async function getDirectLink(url) {
       timeout: 10000 // Таймаут 10 секунд
     });
     
-    //console.log(`[DEBUG] API /download response status: ${publicRes.status}`);
 
     if (!publicRes.ok) {
       let errorBody = 'Could not read error body';
@@ -2602,7 +2588,7 @@ async function getDirectLink(url) {
 //  добавляем эту функцию рядом с getDirectLink  обновление Превью  // ???
 async function getFreshPreviewUrl(publicUrl) {
   try {
-    console.log(`[GET FRESH PREVIEW] Getting fresh preview for: ${publicUrl}`);
+    //console.log(`[GET FRESH PREVIEW] Getting fresh preview for: ${publicUrl}`);
     
     // Запрашиваем превью через API Яндекс.Диска
     const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(publicUrl)}&fields=preview`;
@@ -2618,7 +2604,7 @@ async function getFreshPreviewUrl(publicUrl) {
     console.log(`[GET FRESH PREVIEW] API status: ${response.status}`);
     
     if (!response.ok) {
-      console.log(`[GET FRESH PREVIEW] Yandex API error: ${response.status}`);
+      //console.log(`[GET FRESH PREVIEW] Yandex API error: ${response.status}`);
       return null;
     }
     
@@ -2630,34 +2616,31 @@ async function getFreshPreviewUrl(publicUrl) {
       
       if (typeof data.preview === 'string') {
         previewUrl = data.preview;
-        console.log(`[GET FRESH PREVIEW] Got string preview`);
+        //console.log(`[GET FRESH PREVIEW] Got string preview`);
       } else if (data.preview.S) {
         // Маленькое превью (150px)
         previewUrl = data.preview.S;
-        console.log(`[GET FRESH PREVIEW] Got S-size preview`);
+        
       } else if (data.preview.M) {
         // Среднее превью (300px)
         previewUrl = data.preview.M;
-        console.log(`[GET FRESH PREVIEW] Got M-size preview`);
+        
       } else if (data.preview.L) {
         // Большое превью (500px)
         previewUrl = data.preview.L;
-        console.log(`[GET FRESH PREVIEW] Got L-size preview`);
+        
       }
       
-      if (previewUrl) {
-        console.log(`[GET FRESH PREVIEW] Got preview URL: ${previewUrl.substring(0, 80)}...`);
+      if (previewUrl) {        
         
         // Получаем ПРЯМУЮ ссылку на превью
         // Важно: previewUrl от Яндекса может быть уже прямой ссылкой или публичной страницей
         const directUrl = await getDirectLink(previewUrl);
-        console.log(`[GET FRESH PREVIEW] Converted to direct link: ${directUrl.substring(0, 80)}...`);
-        
+                
         return directUrl;
       }
     }
-    
-    console.log(`[GET FRESH PREVIEW] No preview available for this file`);
+        
     return null;
     
   } catch (error) {
@@ -2798,8 +2781,7 @@ app.get('/api/proxy-image', async (req, res) => {
     if (!url) {
       throw new Error('URL parameter is required');
     }
-
-    console.log('Proxy request for URL:', url);
+    
 
     // Получаем актуальную прямую ссылку
     const directUrl = await getDirectLink(url);
@@ -2814,7 +2796,7 @@ app.get('/api/proxy-image', async (req, res) => {
       timeout: 10000
     });
     
-    console.log('Image response status:', response.status);
+    //console.log('Image response status:', response.status);
     
     if (!response.ok) {
       // Пробуем оригинальную ссылку как fallback
@@ -3615,6 +3597,65 @@ app.get('/api/media/all', async (req, res) => {
 
 // server.js — добавьте этот эндпоинт для получения превью в embed-режиме
 
+  // GET /api/yandex/file-preview — получить публичную ссылку файла по пути
+  app.get('/api/yandex/file-preview', async (req, res) => {
+    const { path } = req.query;
+    const YANDEX_TOKEN = process.env.YANDEX_TOKEN;
+    
+    if (!path) {
+      return res.status(400).json({ success: false, error: 'Path parameter is required' });
+    }
+    
+    if (!YANDEX_TOKEN) {
+      return res.status(500).json({ success: false, error: 'YANDEX_TOKEN not configured' });
+    }
+
+    try {
+      // 1. Публикуем файл (если ещё не опубликован)
+      const publishRes = await fetch(
+        `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(path)}`,
+        {
+          method: 'PUT',
+          headers: { 'Authorization': `OAuth ${YANDEX_TOKEN}` }
+        }
+      );
+      
+      if (!publishRes.ok) {
+        const error = await publishRes.json();
+        throw new Error(`Publishing error: ${error.message || error.description}`);
+      }
+
+      // 2. Получаем метаданные с public_url
+      const metaRes = await fetch(
+        `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(path)}`,
+        {
+          headers: { 'Authorization': `OAuth ${YANDEX_TOKEN}` }
+        }
+      );
+      
+      if (!metaRes.ok) {
+        const error = await metaRes.json();
+        throw new Error(`Metadata error: ${error.message || error.description}`);
+      }
+      
+      const metaData = await metaRes.json();
+      const publicUrl = metaData.public_url;
+      
+      if (!publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+
+      res.json({
+        success: true,
+        publicUrl: publicUrl,
+        path: path
+      });
+    } catch (error) {
+      console.error('[ERROR] /api/yandex/file-preview:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
 // GET /api/yandex-preview — получение превью через API Яндекс.Диска
 app.get('/api/yandex-preview', async (req, res) => {
   const { url, size = 'M', mode = 'embed' } = req.query;
@@ -3671,9 +3712,7 @@ app.get('/api/yandex-preview', async (req, res) => {
   }
 });    
 
-  
-
-// Новый прокси через curl для режима 'curl'
+ // Новый прокси через curl для режима 'curl'
   app.get('/api/curl-proxy-image', async (req, res) => {
     const { url, size = 'M' } = req.query;
     
@@ -3777,7 +3816,6 @@ app.get('/api/yandex-preview', async (req, res) => {
     }
   });
 
-
 // Тестовый эндпоинт для отладки превью
 app.get('/api/test-preview', async (req, res) => {
   const { url, size = 'M' } = req.query;
@@ -3861,6 +3899,212 @@ app.get('/api/media-file/:id', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// GET /api/yandex/files — получить список всех файлов на Яндекс.Диске
+  app.get('/api/yandex/files', async (req, res) => {
+    const YANDEX_TOKEN = process.env.YANDEX_TOKEN;
+    
+        
+    if (!YANDEX_TOKEN) {
+      console.error('[YANDEX FILES] ❌ YANDEX_TOKEN not configured');
+      return res.status(500).json({ 
+        success: false, 
+        error: 'YANDEX_TOKEN not configured' 
+      });
+    }
+
+    try {
+      // Папки на Яндекс.Диске (по названиям сущностей)
+      const folders = [
+        'muscle-app',
+        'organ-app', 
+        'meridian-app',
+        'dysfunction-app',
+        'muscle_group-app',
+        'receptor-app',
+        'receptor_class-app',
+        'tool-app',
+        'entry-app'
+      ];
+      
+      
+      const allFiles = [];
+      let totalSize = 0;
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const folder of folders) {
+        // ✅ ИСПРАВЛЕНО: убрал YDU2, теперь путь совпадает с кодом загрузки
+        const path = `app:/${folder}`;
+        
+        
+        try {
+          const response = await fetch(
+            `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(path)}&limit=1000&fields=_embedded.items.name,_embedded.items.path,_embedded.items.size,_embedded.items.created,_embedded.items.modified,_embedded.items.mime_type,_embedded.items.media_type`,
+            {
+              headers: {
+                'Authorization': `OAuth ${YANDEX_TOKEN}`
+              }
+            }
+          );
+          
+        
+          
+          if (response.ok) {
+            const data = await response.json();            
+            
+            if (data._embedded && data._embedded.items) {
+              const items = data._embedded.items.map(item => ({
+                name: item.name,
+                path: item.path,
+                folder: folder.replace('-app', ''),
+                size: item.size,
+                created: item.created,
+                modified: item.modified,
+                media_type: item.media_type,
+                mime_type: item.mime_type
+              }));
+              allFiles.push(...items);
+              totalSize += items.reduce((sum, f) => sum + f.size, 0);
+              successCount++;
+            }
+          } else {
+            const errorText = await response.text();
+            console.log(`[YANDEX FILES] ❌ Folder ${folder} error:`, response.status, errorText);
+            errorCount++;
+          }
+        } catch (folderError) {
+          console.log(`[YANDEX FILES] ❌ Error fetching folder ${folder}:`, folderError.message);
+          errorCount++;
+        }
+      }
+
+
+      res.json({
+        success: true,
+        count: allFiles.length,
+        totalSize: totalSize,
+        totalSizeMB: (totalSize / 1024 / 1024).toFixed(2),
+        folders: folders,
+        files: allFiles,
+        debug: {
+          successCount,
+          errorCount,
+          folders: folders
+        }
+      });
+    } catch (error) {
+      console.error('[YANDEX FILES] ❌ Fatal error:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+
+// GET /api/media/orphaned — найти файлы на ЯД, которых нет в БД
+  app.get('/api/media/orphaned', async (req, res) => {
+    const client = await connectDB();
+    
+    try {
+      // 1. Получаем все имена файлов из БД (только из media_files)
+      const dbFiles = await client.query(
+        'SELECT file_name FROM media_files WHERE file_name IS NOT NULL'
+      );
+      const dbFileNames = new Set(dbFiles.rows.map(row => row.file_name));
+      
+      // 2. Получаем все файлы с Яндекс.Диска
+      const yandexResponse = await fetch(
+        `${req.protocol}://${req.get('host')}/api/yandex/files`
+      );
+      const yandexData = await yandexResponse.json();
+      
+      if (!yandexData.success) {
+        throw new Error('Failed to fetch Yandex files: ' + (yandexData.error || 'Unknown error'));
+      }
+      
+      // 3. Находим файлы на ЯД, которых нет в БД
+      const orphanedFiles = yandexData.files.filter(file => !dbFileNames.has(file.name));
+      
+      // 4. Группируем по папкам
+      const groupedByFolder = {};
+      for (const file of orphanedFiles) {
+        if (!groupedByFolder[file.folder]) {
+          groupedByFolder[file.folder] = [];
+        }
+        groupedByFolder[file.folder].push(file);
+      }
+      
+      res.json({
+        success: true,
+        totalYandexFiles: yandexData.count,
+        totalYandexSizeMB: yandexData.totalSizeMB,
+        totalDbFiles: dbFiles.rows.length,
+        orphanedCount: orphanedFiles.length,
+        orphanedSizeMB: (orphanedFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(2),
+        orphanedFiles: orphanedFiles,
+        groupedByFolder: groupedByFolder
+      });
+    } catch (error) {
+      console.error('[ERROR] /api/media/orphaned:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    // }     finally {
+    //   client.release();
+    }
+  });
+
+  // DELETE /api/yandex/file — удалить файл с Яндекс.Диска по пути
+  app.delete('/api/yandex/file', async (req, res) => {
+    const { path } = req.query;
+    const YANDEX_TOKEN = process.env.YANDEX_TOKEN;    
+    
+    
+    if (!path) {
+      return res.status(400).json({ success: false, error: 'Path parameter is required' });
+    }
+    
+    if (!YANDEX_TOKEN) {
+      return res.status(500).json({ success: false, error: 'YANDEX_TOKEN not configured' });
+    }
+
+    try {
+      // Декодируем путь, если он закодирован
+      const decodedPath = decodeURIComponent(path);
+      
+      // Проверяем, какой формат пути используем
+      // Если путь начинается с 'disk:/' — оставляем как есть
+      // Если начинается с '/disk:/' — убираем первый слеш
+      let cleanPath = decodedPath;
+      if (cleanPath.startsWith('/disk:/')) {
+        cleanPath = cleanPath.substring(1);
+      }
+      console.log('[DELETE /api/yandex/file] Clean path:', cleanPath);
+      
+      const response = await fetch(
+        `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(cleanPath)}&permanently=true`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `OAuth ${YANDEX_TOKEN}`
+          }
+        }
+      );
+      
+      console.log('[DELETE /api/yandex/file] Yandex response status:', response.status);
+      
+      if (response.ok) {        
+        res.json({ success: true, message: `File deleted successfully` });
+      } else {
+        const errorData = await response.json();
+        console.log('[DELETE /api/yandex/file] ❌ Yandex error:', errorData);
+        res.status(response.status).json({ 
+          success: false, 
+          error: errorData.message || 'Failed to delete file' 
+        });
+      }
+    } catch (error) {
+      console.error('[ERROR] /api/yandex/file:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
 
 // ДОБАВЬТЕ в самый конец файла, перед app.listen:
 

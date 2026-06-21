@@ -15,6 +15,14 @@ function AllMediaPage() {
   const [updatingItemId, setUpdatingItemId] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
   const [forceUpdating, setForceUpdating] = useState(false);
+  
+  const [findingOrphaned, setFindingOrphaned] = useState(false);
+  const [orphanedFiles, setOrphanedFiles] = useState([]);
+  const [showOrphaned, setShowOrphaned] = useState(false);
+  const [orphanedPreviews, setOrphanedPreviews] = useState({});
+  const [loadingPreviews, setLoadingPreviews] = useState({});
+  const [deletingOrphaned, setDeletingOrphaned] = useState({});  //индикатор процесса удаления осиротевшего файла
+  const [deletingTimer, setDeletingTimer] = useState({});  //состояние для хранения elapsed времени каждого удаляемого файла
 
   const isCurlMode = config.YANDEX_DISK_MODE === 'curl';
 
@@ -83,6 +91,41 @@ function AllMediaPage() {
     }
   };
 
+  // Функция для загрузки превью осиротевших файлов:
+  const loadOrphanedPreview = async (file) => {
+    if (orphanedPreviews[file.path]) return;
+    if (loadingPreviews[file.path]) return;
+    
+    setLoadingPreviews(prev => ({ ...prev, [file.path]: true }));
+    
+    try {
+      // 1. Получаем public_url через наш эндпоинт
+      const response = await fetch(
+        `${API_URL}/api/yandex/file-preview?path=${encodeURIComponent(file.path)}`
+      );
+      const data = await response.json();
+      
+      if (data.success && data.publicUrl) {
+        // 2. Формируем URL для превью через существующие эндпоинты
+        let previewUrl;
+        if (isCurlMode) {
+          previewUrl = `${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(data.publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE || 'M'}`;
+        } else {
+          previewUrl = `${API_URL}/api/yandex-preview?url=${encodeURIComponent(data.publicUrl)}&size=${config.YANDEX_PREVIEW_SIZE || 'M'}&mode=embed`;
+        }
+        
+        setOrphanedPreviews(prev => ({ 
+          ...prev, 
+          [file.path]: previewUrl 
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading preview:', error);
+    } finally {
+      setLoadingPreviews(prev => ({ ...prev, [file.path]: false }));
+    }
+  };
+
   useEffect(() => {
     fetchMediaFiles();
   }, []);
@@ -96,9 +139,10 @@ function AllMediaPage() {
     // Для embed режима — используем thumbnail_url из БД
     return item.thumbnail_url || null;
   };
-
+    //  основательное удаление медиа из всех таблиц
   const handleDelete = async (id) => {
-    if (!window.confirm('Удалить медиафайл (все его связи с сущностями и строку описания медиафайла) ?')) return;
+    if (!window.confirm('Удалить медиафайл (все его связи с сущностями и строку описания медиафайла) ?')) 
+      {return;}
     try {
       // Не передаём entityType и entityId — значит полное удаление
       const response = await fetch(`${API_URL}/api/media/${id}`, { 
@@ -283,6 +327,90 @@ function AllMediaPage() {
            (item.file_type || '').toLowerCase().includes(search);
   });
 
+  // Найти файлы на Яндекс.Диске, которых нет в БД
+  const handleFindOrphaned = async () => {
+    // Первый вопрос: предупреждение о времени выполнения
+    if (!window.confirm(
+      '🔍 Поиск файлов без записей в БД\n\n' +
+      'Это может занять некоторое время, так как нужно:\n' +
+      '1. Получить список всех файлов с Яндекс.Диска\n' +
+      '2. Сравнить их с записями в базе данных\n\n' +
+      'Продолжить?'
+    )) {
+      return;
+    }
+
+    setFindingOrphaned(true);
+    setOrphanedFiles([]);
+    setShowOrphaned(false);
+
+    try {
+      // Шаг 1: Получаем список файлов с Яндекс.Диска
+      const response = await fetch(`${API_URL}/api/media/orphaned`);
+      const data = await response.json();
+      
+      if (!data.success) {
+        alert('❌ Ошибка: ' + data.error);
+        return;
+      }
+
+      // Второй вопрос: показать промежуточные результаты
+      const totalYandex = data.totalYandexFiles || 0;
+      const totalDb = data.totalDbFiles || 0;
+      const orphanedCount = data.orphanedCount || 0;
+      const orphanedSizeMB = data.orphanedSizeMB || '0';
+
+      if (orphanedCount === 0) {
+        alert(
+          '✅ Отлично! Все файлы на Яндекс.Диске имеют записи в БД.\n\n' +
+          `📊 Всего на Яндекс.Диске: ${totalYandex}\n` +
+          `📊 Всего в БД: ${totalDb}`
+        );
+        setOrphanedFiles([]);
+        setShowOrphaned(false);
+        return;
+      }
+
+      // Третий вопрос: показать найденные файлы и спросить, показывать ли список
+      const shouldShow = window.confirm(
+        `🔍 Найдено ${orphanedCount} файлов на Яндекс.Диске без записей в БД\n\n` +
+        `📊 Всего на Яндекс.Диске: ${totalYandex}\n` +
+        `📊 Всего в БД: ${totalDb}\n` +
+        `📦 Общий размер: ${orphanedSizeMB} MB\n\n` +
+        `Показать список файлов?`
+      );
+
+      if (shouldShow) {
+        setOrphanedFiles(data.orphanedFiles || []);
+        setShowOrphaned(true);
+        
+        // Четвёртый вопрос: спросить, что делать с найденными файлами
+        const action = window.confirm(
+          `🗑️ Что делать с найденными файлами?\n\n` +
+          `Нажмите "OK" — чтобы перейти к управлению файлами (удаление с ЯД)\n` +
+          `Нажмите "Отмена" — чтобы просто закрыть список`
+        );
+        
+        if (action) {
+          // Прокрутить к списку файлов
+          document.getElementById('orphaned-files-section')?.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }
+      } else {
+        setOrphanedFiles([]);
+        setShowOrphaned(false);
+      }
+
+    } catch (error) {
+      console.error('Error finding orphaned files:', error);
+      alert('❌ Ошибка: ' + error.message);
+    } finally {
+      setFindingOrphaned(false);
+    }
+  };
+
   if (loading) return <div style={{ padding: '2rem' }}>Загрузка...</div>;
 
   return (
@@ -371,6 +499,16 @@ function AllMediaPage() {
         >
           {forceUpdating ? '⏳ Обновление...' : `⚡ Принудительно (${mediaFiles.length})`}
         </button>
+
+        {/* 🔍 НОВАЯ КНОПКА: Найти файлы без записей в БД */}
+        <button 
+          onClick={handleFindOrphaned} 
+          disabled={findingOrphaned} 
+          style={buttonStyle('#ff9800', findingOrphaned)}
+          title="Найти файлы на Яндекс.Диске, которых нет в базе данных"
+        >
+          {findingOrphaned ? '⏳ Поиск...' : '🔍 Найти файлы без записей в БД'}
+        </button>
       </div>
 
       {/* Поиск */}
@@ -410,6 +548,247 @@ function AllMediaPage() {
           ⚠️ Требуют обновления превью: {mediaFiles.filter(f => isPreviewExpired(f)).length}
         </span>
       </div>
+
+      {/* Секция с найденными файлами без записей в БД */}
+      {showOrphaned && orphanedFiles.length > 0 && (
+        <div 
+          id="orphaned-files-section"
+          style={{ 
+            marginBottom: '20px', 
+            padding: '15px', 
+            background: '#fff3cd', 
+            borderRadius: '8px',
+            border: '1px solid #ffc107'
+          }}
+        >
+          <h3 style={{ margin: '0 0 10px 0', color: '#856404' }}>
+            📁 Файлы на Яндекс.Диске без записей в БД ({orphanedFiles.length})
+          </h3>
+          <p style={{ fontSize: '13px', color: '#856404', marginBottom: '10px' }}>
+            Эти файлы занимают место на Яндекс.Диске, но не используются в приложении.
+            Вы можете удалить их, чтобы освободить место.
+          </p>
+          
+          <div style={{ maxHeight: '500px', overflow: 'auto', background: 'white', borderRadius: '4px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: '#f8f9fa', position: 'sticky', top: 0 }}>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #dee2e6', width: '80px' }}>Превью</th>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Имя файла</th>
+                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Папка</th>
+                  <th style={{ padding: '8px', textAlign: 'right', borderBottom: '2px solid #dee2e6' }}>Размер</th>
+                  <th style={{ padding: '8px', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Действие</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orphanedFiles.map((file, index) => {
+                  const previewUrl = orphanedPreviews[file.path];
+                  const isLoading = loadingPreviews[file.path];
+                  
+                  // Загружаем превью при первом показе (с задержкой, чтобы не перегружать API)
+                  if (!previewUrl && !isLoading) {
+                    setTimeout(() => loadOrphanedPreview(file), 100 * (index + 1));
+                  }
+                  
+                  return (
+                    <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        {isLoading ? (
+                          <span style={{ fontSize: '12px', color: '#999' }}>⏳</span>
+                        ) : previewUrl ? (
+                          <img 
+                            src={previewUrl}
+                            alt={file.name}
+                            style={{ 
+                              width: '50px', 
+                              height: '50px', 
+                              objectFit: 'cover',
+                              borderRadius: '4px',
+                              border: '1px solid #ddd',
+                              backgroundColor: '#f8f9fa'
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const parent = e.target.parentElement;
+                              if (parent) {
+                                const fallback = document.createElement('span');
+                                fallback.textContent = '🖼️';
+                                fallback.style.fontSize = '24px';
+                                fallback.style.opacity = '0.3';
+                                parent.appendChild(fallback);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <span style={{ fontSize: '24px', opacity: 0.3 }}>🖼️</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '8px', wordBreak: 'break-all', fontSize: '12px' }}>
+                        {file.name}
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <span style={{ 
+                          background: '#e9ecef', 
+                          padding: '2px 8px', 
+                          borderRadius: '4px',
+                          fontSize: '11px'
+                        }}>
+                          {file.folder}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button 
+                          onClick={async () => {
+                            if (window.confirm(`Удалить из папки "${file.folder}" файл "${file.name}" с Яндекс.Диска?`)) {
+                              // Засекаем время начала
+                              const startTime = Date.now();
+                              
+                              // Устанавливаем статус "удаляется" для этого файла
+                              setDeletingOrphaned(prev => ({ ...prev, [file.path]: true }));
+                              
+                              // Запускаем таймер для обновления счётчика
+                              const timerInterval = setInterval(() => {
+                                const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+                                setDeletingTimer(prev => ({ ...prev, [file.path]: elapsed }));
+                              }, 1000);
+                              
+                              try {
+                                const response = await fetch(
+                                  `${API_URL}/api/yandex/file?path=${encodeURIComponent(file.path)}`,
+                                  { method: 'DELETE' }
+                                );
+                                const result = await response.json();
+                                
+                                // Останавливаем таймер
+                                clearInterval(timerInterval);
+                                
+                                // Вычисляем время выполнения
+                                const endTime = Date.now();
+                                const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(1);
+                                
+                                // Удаляем таймер из состояния
+                                setDeletingTimer(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[file.path];
+                                  return newState;
+                                });
+                                
+                                if (result.success) {
+                                  alert(`✅ Файл "${file.name}" удалён с Яндекс.Диска за ${elapsedSeconds} секунд`);
+                                  console.log(`✅ Файл "${file.name}" удалён с Яндекс.Диска за ${elapsedSeconds} секунд`);
+                                  // Обновляем список
+                                  setOrphanedFiles(prev => prev.filter(f => f.path !== file.path));
+                                  // Удаляем превью из кеша
+                                  setOrphanedPreviews(prev => {
+                                    const newPreviews = { ...prev };
+                                    delete newPreviews[file.path];
+                                    return newPreviews;
+                                  });
+                                } else {
+                                  alert(`❌ Ошибка: ${result.error || 'Неизвестная ошибка'} (прошло ${elapsedSeconds} сек.)`);
+                                }
+                              } catch (error) {
+                                // Останавливаем таймер в случае ошибки
+                                clearInterval(timerInterval);
+                                
+                                const endTime = Date.now();
+                                const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(1);
+                                
+                                setDeletingTimer(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[file.path];
+                                  return newState;
+                                });
+                                
+                                alert(`❌ Ошибка: ${error.message} (прошло ${elapsedSeconds} сек.)`);
+                              } finally {
+                                // Снимаем статус "удаляется"
+                                setDeletingOrphaned(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[file.path];
+                                  return newState;
+                                });
+                                // Очищаем таймер, если вдруг остался
+                                clearInterval(timerInterval);
+                              }
+                            }
+                          }}
+                          disabled={deletingOrphaned[file.path]}
+                          style={{ 
+                            padding: '4px 12px', 
+                            backgroundColor: deletingOrphaned[file.path] ? '#6c757d' : '#dc3545', 
+                            color: 'white', 
+                            border: 'none', 
+                            borderRadius: '4px',
+                            cursor: deletingOrphaned[file.path] ? 'wait' : 'pointer',
+                            fontSize: '12px',
+                            minWidth: '120px'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!deletingOrphaned[file.path]) {
+                              e.target.style.backgroundColor = '#c82333';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!deletingOrphaned[file.path]) {
+                              e.target.style.backgroundColor = '#dc3545';
+                            }
+                          }}
+                        >
+                          {deletingOrphaned[file.path] 
+                            ? `⏳ ${deletingTimer[file.path] || 0} сек...` 
+                            : '🗑️ Удалить'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+            <button 
+              onClick={() => {
+                if (window.confirm(`Удалить ВСЕ ${orphanedFiles.length} файлов с Яндекс.Диска? Это действие необратимо!`)) {
+                  alert('⚠️ Функция массового удаления будет добавлена позже');
+                }
+              }}
+              style={{ 
+                padding: '6px 16px', 
+                backgroundColor: '#dc3545', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              🗑️ Удалить все
+            </button>
+            <button 
+              onClick={() => setShowOrphaned(false)}
+              style={{ 
+                padding: '6px 16px', 
+                backgroundColor: '#6c757d', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              ✖ Закрыть
+            </button>
+          </div>
+        </div>
+      )}
+
+
+
 
       {/* Список файлов */}
       {filteredMedia.length === 0 ? (

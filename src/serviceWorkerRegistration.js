@@ -11,6 +11,12 @@ const isLocalhost = Boolean(
 );
 
 export function register(config) {
+	// Не регистрируем на локале
+	  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+		console.log('🔧 Service Worker not registered (localhost)');
+		return;
+	  }
+		
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
     const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
     if (publicUrl.origin !== window.location.origin) {
