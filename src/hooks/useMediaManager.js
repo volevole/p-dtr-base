@@ -655,7 +655,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
 
   // Получение URL превью
   const getThumbnailUrl = (mediaItem) => {
-	console.log('[useMediaManager] getThumbnailUrl called for:', mediaItem?.file_name);
+	//console.log('[useMediaManager] getThumbnailUrl called for:', mediaItem?.file_name);
     if (!mediaItem) return null;
     
     const mode = config.YANDEX_DISK_MODE;
@@ -719,8 +719,7 @@ export const useMediaManager = (entityType, entityId, options = {}) => {
   };
 
 // Добавьте эту функцию в хук (внутрь return объекта)
-  const getDisplayUrl = (mediaItem, type = 'view') => {
-	//console.log('[getDisplayUrl] Called with type:', type, 'mediaItem:', mediaItem?.file_name);
+  const getDisplayUrl = (mediaItem, type = 'view') => {	
     if (!mediaItem) return null;
     
     const mode = config.YANDEX_DISK_MODE;

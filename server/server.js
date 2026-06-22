@@ -16,30 +16,20 @@ let db = null;
 let queryQueue = [];
 let isProcessing = false;
 
-// async function processQueue() {  //  ???
-//   if (isProcessing || queryQueue.length === 0) return;
-//   isProcessing = true;
-  
-//   while (queryQueue.length > 0) {
-//     const { text, params, resolve, reject } = queryQueue.shift();
-//     try {
-//       const client = await connectDB();
-//       const result = await client.query(text, params);
-//       resolve(result);
-//     } catch (error) {
-//       reject(error);
-//     }
-//   }
-  
-//   isProcessing = false;
-// }
+// Поддерживаемые типы сущностей (единый источник истины)
+  const SUPPORTED_ENTITIES = [
+    'muscle', 
+    'organ', 
+    'meridian', 
+    'dysfunction', 
+    'muscle_group', 
+    'receptor', 
+    'receptor_class', 
+    'tool', 
+    'entry', 
+    'usefulness'
+  ];
 
-// async function query(text, params) {   //  ???
-//   return new Promise((resolve, reject) => {
-//     queryQueue.push({ text, params, resolve, reject });
-//     processQueue();
-//   });
-// }
 
 async function connectDB() {
   if (db && db._connected && !db._ending) {
@@ -117,6 +107,7 @@ app.use(cors(corsOptions));
   '/api/receptors',
   '/api/functions',
   '/api/nerves',
+  '/api/usefulness',
   '/api/vertebrae'
 ], express.urlencoded({ extended: true }));
 
@@ -124,31 +115,7 @@ app.use(cors(corsOptions));
 const upload = multer({ storage: multer.memoryStorage() });
 
 
- 
-// Кэш для прямых ссылок (храним public_url -> { direct_url, expires }
-const linkCache = new Map();
-
-// ============================================
-// УНИВЕРСАЛЬНЫЕ ЭНДПОИНТЫ МЕДИА (НОВАЯ СИСТЕМА)
-// ============================================
-
-// server.js — добавьте где-нибудь в начале, после остальных app.use()
-app.get('/api/test-reg-db', async (req, res) => {
-  try {
-    
-    const client = await connectDB();
-    const result = await client.query('SELECT COUNT(*) FROM muscles');
-    res.json({ 
-      success: true, 
-      message: 'Connected to Reg.ru DB', 
-      muscleCount: result.rows[0].count 
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
+// ========== МЫШЦЫ ==========
 
 // Эндпоинт для получения списка мышц с обогащёнными данными
 app.get('/api/muscles', async (req, res) => {
@@ -295,23 +262,6 @@ app.post('/api/muscles', async (req, res) => {
     res.json({ success: true, id: result.rows[0].id });
   } catch (error) {
     console.error('Error creating muscle:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET эндпоинт для получения одной мышцы
-app.get('/api/muscle/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-
-  try {
-    const result = await client.query('SELECT * FROM muscles WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Muscle not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('Error fetching muscle:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -477,7 +427,142 @@ app.get('/api/muscle/:id/dysfunctions-count', async (req, res) => {
   }
 });
 
-// ========== ВЗАИМООТНОШЕНИЯ МЫШЦ ==========
+// GET /api/muscle/:id/dysfunctions — получить все дисфункции мышцы (прямые + через группы + через взаимоотношения)
+app.get('/api/muscle/:id/dysfunctions', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  
+  try {
+    // 1. Прямые дисфункции мышцы
+    const directResult = await client.query(`
+      SELECT 
+        d.*,
+        'direct' as via,
+        NULL as group_id,
+        NULL as group_name,
+        NULL as relationship_id,
+        NULL as relationship_name
+      FROM dysfunctions d
+      JOIN muscle_dysfunctions md ON md.dysfunction_id = d.id
+      WHERE md.muscle_id = $1
+    `, [id]);
+    
+    // 2. Группы, в которые входит мышца
+    const groupsResult = await client.query(`
+      SELECT mg.id, mg.name
+      FROM muscle_groups mg
+      JOIN muscle_group_membership mgm ON mgm.group_id = mg.id
+      WHERE mgm.muscle_id = $1
+    `, [id]);
+    
+    const groupIds = groupsResult.rows.map(r => r.id);
+    const groupNames = {};
+    groupsResult.rows.forEach(r => { groupNames[r.id] = r.name; });
+    
+    // 3. Дисфункции групп
+    let groupDysfunctions = [];
+    if (groupIds.length > 0) {
+      const groupResult = await client.query(`
+        SELECT 
+          d.*,
+          'group' as via,
+          mgd.group_id,
+          NULL as group_name,
+          NULL as relationship_id,
+          NULL as relationship_name
+        FROM dysfunctions d
+        JOIN muscle_group_dysfunctions mgd ON mgd.dysfunction_id = d.id
+        WHERE mgd.group_id = ANY($1)
+      `, [groupIds]);
+      groupDysfunctions = groupResult.rows;
+    }
+    
+    // 4. Взаимоотношения, где мышца является синергистом (исправлено!)
+    const relationshipsResult = await client.query(`
+      SELECT 
+        mrs.relationship_id,
+        f.name as function_name,
+        mr.note
+      FROM muscle_relationship_synergists mrs
+      JOIN muscle_relationships mr ON mr.id = mrs.relationship_id
+      LEFT JOIN functions f ON f.id = mr.function_id
+      WHERE mrs.synergist_id = $1
+    `, [id]);
+    
+    // 5. Дисфункции через взаимоотношения
+    let relationshipDysfunctions = [];
+    if (relationshipsResult.rows.length > 0) {
+      const relationshipIds = relationshipsResult.rows.map(r => r.relationship_id);
+      
+      const relationshipNames = {};
+      relationshipsResult.rows.forEach(r => {
+        const name = r.function_name && r.note 
+          ? `${r.function_name} ${r.note}`.trim()
+          : r.note || r.function_name || 'Взаимоотношение';
+        relationshipNames[r.relationship_id] = name;
+      });
+      
+      const relResult = await client.query(`
+        SELECT 
+          d.*,
+          'relationship' as via,
+          NULL as group_id,
+          NULL as group_name,
+          sd.relationship_id,
+          NULL as relationship_name
+        FROM dysfunctions d
+        JOIN synergists_dysfunction sd ON sd.dysfunction_id = d.id
+        WHERE sd.relationship_id = ANY($1)
+      `, [relationshipIds]);
+      
+      relationshipDysfunctions = relResult.rows.map(d => ({
+        ...d,
+        relationship_name: relationshipNames[d.relationship_id] || null
+      }));
+    }
+    
+    // 6. Объединяем все результаты
+    let allDysfunctions = [...directResult.rows, ...groupDysfunctions, ...relationshipDysfunctions];
+    
+    allDysfunctions = allDysfunctions.map(d => ({
+      ...d,
+      group_name: d.group_id ? groupNames[d.group_id] || null : null
+    }));
+    
+    // 7. Убираем дубликаты
+    const uniqueMap = new Map();
+    for (const d of allDysfunctions) {
+      if (!uniqueMap.has(d.id)) {
+        uniqueMap.set(d.id, d);
+      } else {
+        const existing = uniqueMap.get(d.id);
+        if (d.via === 'direct' && existing.via !== 'direct') {
+          uniqueMap.set(d.id, d);
+        } else if (d.via === 'group' && existing.via === 'relationship') {
+          uniqueMap.set(d.id, d);
+        }
+      }
+    }
+    
+    const uniqueDysfunctions = Array.from(uniqueMap.values());
+    
+    res.json({
+      success: true,
+      data: uniqueDysfunctions,
+      count: uniqueDysfunctions.length,
+      debug: {
+        direct: directResult.rows.length,
+        group: groupDysfunctions.length,
+        relationship: relationshipDysfunctions.length,
+        total: uniqueDysfunctions.length
+      }
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] GET /api/muscle/:id/dysfunctions:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // GET /api/muscle/:id/relationships — получить все отношения для мышцы
 app.get('/api/muscle/:id/relationships', async (req, res) => {
@@ -526,6 +611,26 @@ app.get('/api/muscle/:id/relationships', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+
+// GET эндпоинт для получения одной мышцы
+app.get('/api/muscle/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    const result = await client.query('SELECT * FROM muscles WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Muscle not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching muscle:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== ВЗАИМООТНОШЕНИЯ МЫШЦ ==========
 
 // POST /api/relationships — создать новое отношение
 app.post('/api/relationships', async (req, res) => {
@@ -678,23 +783,6 @@ app.get('/api/groups', async (req, res) => {
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('[ERROR] GET /api/groups:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/group/:id — получение одной группы
-app.get('/api/group/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-
-  try {
-    const result = await client.query('SELECT * FROM muscle_groups WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Group not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] GET /api/group/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -896,6 +984,23 @@ app.put('/api/group/:id/members', async (req, res) => {
   }
 });
 
+// GET /api/group/:id — получение одной группы
+app.get('/api/group/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+
+  try {
+    const result = await client.query('SELECT * FROM muscle_groups WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Group not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/group/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // GET /api/muscle-groups/:id/muscles — получить полные данные мышц группы
 app.get('/api/muscle-groups/:id/muscles', async (req, res) => {
   const client = await connectDB();
@@ -916,6 +1021,7 @@ app.get('/api/muscle-groups/:id/muscles', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // ========== СПРАВОЧНИКИ ========== // Словари (справочные данные)
 app.get('/api/dictionaries/groups', async (req, res) => {
@@ -1109,21 +1215,7 @@ app.get('/api/receptors', async (req, res) => {
   }
 });
 
-// GET /api/receptor/:id — один рецептор
-app.get('/api/receptors/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-  try {
-    const result = await client.query('SELECT * FROM receptors WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Receptor not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] GET /api/receptor/:id:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+
 
 // POST /api/receptors — создание рецептора
 app.post('/api/receptors', async (req, res) => {
@@ -1300,6 +1392,21 @@ app.delete('/api/receptor-pairs/:id', async (req, res) => {
   }
 });
 
+// GET /api/receptor/:id — один рецептор
+app.get('/api/receptors/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM receptors WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Receptor not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/receptor/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ========== КЛАССЫ РЕЦЕПТОРОВ ==========
 
@@ -1342,21 +1449,7 @@ app.get('/api/receptor-classes', async (req, res) => {
   }
 });
 
-// GET /api/receptor-class/:id — один класс рецепторов
-app.get('/api/receptor-classes/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-  try {
-    const result = await client.query('SELECT * FROM receptor_classes WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Class not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] GET /api/receptor-class/:id:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+
 
 // POST /api/receptor-classes — создание класса рецепторов
 app.post('/api/receptor-classes', async (req, res) => {
@@ -1459,6 +1552,21 @@ app.get('/api/receptor-classes/:id/receptors', async (req, res) => {
   }
 });
 
+// GET /api/receptor-class/:id — один класс рецепторов
+app.get('/api/receptor-classes/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM receptor_classes WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Class not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/receptor-class/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ========== ОРГАНЫ ==========
 
@@ -1506,22 +1614,6 @@ app.get('/api/organs', async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error('[ERROR] GET /api/organs:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/organs/:id — один орган
-app.get('/api/organs/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-  try {
-    const result = await client.query('SELECT * FROM organs WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Organ not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] GET /api/organs/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1663,6 +1755,21 @@ app.get('/api/organ/:id/muscles', async (req, res) => {
   }
 });
 
+// GET /api/organs/:id — один орган
+app.get('/api/organs/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM organs WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Organ not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/organs/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ========== МЕРИДИАНЫ ==========
 
@@ -1710,22 +1817,6 @@ app.get('/api/meridians', async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error('[ERROR] GET /api/meridians:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/meridians/:id — один меридиан
-app.get('/api/meridians/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-  try {
-    const result = await client.query('SELECT * FROM meridians WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Meridian not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] GET /api/meridians/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -1849,6 +1940,22 @@ app.get('/api/meridians/:id/muscles', async (req, res) => {
   }
 });
 
+// GET /api/meridians/:id — один меридиан
+app.get('/api/meridians/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM meridians WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Meridian not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/meridians/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ========== ДИСФУНКЦИИ ==========
 
 // PUT /api/dysfunctions/reorder — переупорядочивание дисфункций (ДОЛЖЕН БЫТЬ ПЕРВЫМ)
@@ -1901,22 +2008,6 @@ app.get('/api/dysfunctions', async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error('[ERROR] GET /api/dysfunctions:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/dysfunctions/:id — одна дисфункция
-app.get('/api/dysfunctions/:id', async (req, res) => {
-  const client = await connectDB();
-  const { id } = req.params;
-  try {
-    const result = await client.query('SELECT * FROM dysfunctions WHERE id = $1', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, error: 'Dysfunction not found' });
-    }
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] GET /api/dysfunctions/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -2114,6 +2205,21 @@ app.post('/api/dysfunctions/:id/muscles', async (req, res) => {
   }
 });
 
+// GET /api/dysfunctions/:id — одна дисфункция
+app.get('/api/dysfunctions/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM dysfunctions WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Dysfunction not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/dysfunctions/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ========== ИНСТРУМЕНТЫ (TOOLS) ==========
 
@@ -2402,6 +2508,149 @@ app.post('/api/entries/:id/copy', async (req, res) => {
   }
 });
 
+// ========== ПОЛЕЗНОСТИ (USEFULNESS) ==========
+
+// PUT /api/usefulness/reorder — переупорядочивание полезностей
+app.put('/api/usefulness/reorder', async (req, res) => {
+  const client = await connectDB();
+  const { orderedIds } = req.body;
+  if (!orderedIds || !Array.isArray(orderedIds)) {
+    return res.status(400).json({ success: false, error: 'orderedIds array is required' });
+  }
+  try {
+    await client.query('BEGIN');
+    for (let i = 0; i < orderedIds.length; i++) {
+      await client.query('UPDATE usefulness SET display_order = $1 WHERE id = $2', [i, orderedIds[i]]);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Order updated successfully' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] PUT /api/usefulness/reorder:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/usefulness — список полезностей
+app.get('/api/usefulness', async (req, res) => {
+  const client = await connectDB();
+  try {
+    const result = await client.query(`
+      SELECT * FROM usefulness ORDER BY display_order NULLS LAST, name
+    `);
+    
+    console.log(`[API] GET /api/usefulness — returned ${result.rows.length} usefulness items`);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('[ERROR] GET /api/usefulness:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/usefulness — создание полезности
+app.post('/api/usefulness', async (req, res) => {
+  const client = await connectDB();
+  const { name, description, display_order, is_active } = req.body;
+  try {
+    const maxOrderResult = await client.query(
+      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM usefulness'
+    );
+    const nextOrder = display_order !== undefined ? display_order : maxOrderResult.rows[0].next_order;
+    
+    const result = await client.query(
+      `INSERT INTO usefulness (name, description, display_order, is_active, created_at) 
+       VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
+      [name || 'Новая полезность', description || '', nextOrder, is_active !== undefined ? is_active : true]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('[ERROR] POST /api/usefulness:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/usefulness/:id — обновление полезности
+app.put('/api/usefulness/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  const { name, description, display_order, is_active } = req.body;
+  try {
+    const result = await client.query(
+      `UPDATE usefulness 
+       SET name = $1, description = $2, display_order = $3, is_active = $4, updated_at = NOW()
+       WHERE id = $5 RETURNING id`,
+      [name || '', description || '', display_order || 0, is_active !== undefined ? is_active : true, id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Usefulness not found' });
+    }
+    res.json({ success: true, message: 'Usefulness updated successfully' });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/usefulness/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/usefulness/:id — удаление полезности
+app.delete('/api/usefulness/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('DELETE FROM usefulness WHERE id = $1 RETURNING id', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Usefulness not found' });
+    }
+    res.json({ success: true, message: 'Usefulness deleted successfully' });
+  } catch (error) {
+    console.error('[ERROR] DELETE /api/usefulness/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/usefulness/:id/copy — копирование полезности
+app.post('/api/usefulness/:id/copy', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const originalResult = await client.query('SELECT name, description, is_active FROM usefulness WHERE id = $1', [id]);
+    if (originalResult.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Usefulness not found' });
+    }
+    const original = originalResult.rows[0];
+    
+    const maxOrderResult = await client.query(
+      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM usefulness'
+    );
+    const nextOrder = maxOrderResult.rows[0].next_order;
+    
+    const result = await client.query(
+      `INSERT INTO usefulness (name, description, display_order, is_active, created_at) 
+       VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
+      [`${original.name} (копия)`, original.description, nextOrder, original.is_active]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('[ERROR] POST /api/usefulness/:id/copy:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /api/usefulness/:id — одна полезность
+app.get('/api/usefulness/:id', async (req, res) => {
+  const client = await connectDB();
+  const { id } = req.params;
+  try {
+    const result = await client.query('SELECT * FROM usefulness WHERE id = $1', [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Usefulness not found' });
+    }
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] GET /api/usefulness/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 /////    ниже старые эндпоинты, а выше новые через рег.ру
 
 
@@ -2572,18 +2821,6 @@ async function getDirectLink(url) {
     return url;
   }
 }
-
-// Прокси для получения прямых ссылок
-// Приоритет для прямых ссылок - сначала обрабатываем file_url (прямые ссылки)
-// Очистка параметров - убираем disposition=attachment из прямых ссылок
-// Кэширование - кэшируем обработанные прямые ссылки на 10 часов
-//
-//Теперь система будет:
-// Принимать прямые ссылки из file_url
-// Автоматически обновлять устаревшие ссылки
-// Кэшировать актуальные ссылки
-// Работать с обоими типами URL в вашей БД
-// Поддержка обоих типов - работает как с прямыми ссылками, так и с публичными страницами
 
 //  добавляем эту функцию рядом с getDirectLink  обновление Превью  // ???
 async function getFreshPreviewUrl(publicUrl) {
@@ -2987,7 +3224,28 @@ app.post('/api/refresh-links', async (req, res) => {
   }
 });
 
-
+// GET /api/media/supported-entities — получить список поддерживаемых сущностей
+app.get('/api/media/supported-entities', async (req, res) => {
+  const labels = {
+    muscle: 'Мышцы',
+    organ: 'Органы',
+    meridian: 'Меридианы',
+    dysfunction: 'Дисфункции',
+    muscle_group: 'Группы мышц',
+    receptor: 'Рецепторы',
+    receptor_class: 'Классы рецепторов',
+    tool: 'Инструменты',
+    entry: 'Заходы',
+    usefulness: 'Полезности'
+  };
+  
+  const entities = SUPPORTED_ENTITIES.map(type => ({
+    type,
+    label: labels[type] || type
+  }));
+  
+  res.json({ success: true, data: entities });
+});
 
 // ========== МЕДИАФАЙЛЫ ==========
 
@@ -3024,376 +3282,334 @@ app.get('/api/media/:entityType/:entityId', async (req, res) => {
   }
 });
 
-// // POST /api/media/upload — загрузка медиафайла  это новый, но не рабочий вариант
-// app.post('/api/media/upload', upload.single('file'), async (req, res) => {
-//   const client = await connectDB();
-//   const { entityType, entityId, description } = req.body;
-//   const file = req.file;
-  
-//   if (!file) {
-//     return res.status(400).json({ success: false, error: 'No file uploaded' });
-//   }
-  
-//   try {
-//     // Вставляем запись о файле
-//     const fileResult = await client.query(
-//       `INSERT INTO media_files (file_name, file_size, file_type, mime_type, file_url, public_url, description)
-//        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-//       [file.originalname, file.size, getFileType(file.originalname), file.mimetype, file.path, file.path, description || '']
-//     );
-    
-//     const mediaId = fileResult.rows[0].id;
-    
-//     // Получаем максимальный display_order
-//     const orderResult = await client.query(
-//       'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM entity_media WHERE entity_type = $1 AND entity_id = $2',
-//       [entityType, entityId]
-//     );
-    
-//     // Связываем с сущностью
-//     await client.query(
-//       `INSERT INTO entity_media (entity_type, entity_id, media_file_id, display_order)
-//        VALUES ($1, $2, $3, $4)`,
-//       [entityType, entityId, mediaId, orderResult.rows[0].next_order]
-//     );
-    
-//     res.json({ 
-//       success: true, 
-//       id: mediaId,
-//       fileName: file.originalname,
-//       publicUrl: file.path
-//     });
-//   } catch (error) {
-//     console.error('[ERROR] POST /api/media/upload:', error.message);
-//     res.status(500).json({ success: false, error: error.message });
-//   }
-// });
 
-
-// 1. Универсальная загрузка медиа для любой сущности
-app.post('/api/media/upload', upload.fields([
-  { name: 'file', maxCount: 1 },
-  { name: 'thumbnail', maxCount: 1 }
-]), async (req, res) => {
-  try {
-    console.log('[UNIVERSAL UPLOAD] Called with files:', req.files);
-    
-    // Основной файл
-    const mainFile = req.files?.file?.[0];
-    if (!mainFile) throw new Error('Main file not received');
-    
-    if (!req.body.entityId) throw new Error('entityId is required');
-    if (!req.body.entityType) throw new Error('entityType is required');
-
-    const { entityType, entityId, description = '' } = req.body;
-    const file = mainFile;
-
-    //console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
-
-    // Поддерживаемые типы сущностей
-    const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group', 'receptor', 'receptor_class', 'tool', 'entry'];
-    if (!supportedEntities.includes(entityType)) {
-      throw new Error(`Unsupported entity type: ${entityType}`);
-    }
-
-    // Определяем тип файла по расширению
-    const fileExt = file.originalname.split('.').pop();
-    const fileName = `${entityType}_${entityId}_${Date.now()}.${fileExt}`;
-    const remotePath = `app:/${entityType}-app/${fileName}`;
-
-    // 1. Создаем папку для сущности (если не существует)
-    const folderRes = await fetch(
-      `https://cloud-api.yandex.net/v1/disk/resources?path=app:/${entityType}-app`,
-      {
-        method: 'PUT',
-        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
-      }
-    );
-    
-    // 409 - папка уже существует, это нормально
-    if (!folderRes.ok && folderRes.status !== 409) {
-      const error = await folderRes.json();
-      throw new Error(`Folder creation error: ${error.message || error.description}`);
-    }
-
-    // 2. Получаем URL для загрузки основного файла
-    const uploadUrlRes = await fetch(
-      `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(remotePath)}`,
-      {
-        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
-      }
-    );
-    
-    if (!uploadUrlRes.ok) {
-      const error = await uploadUrlRes.json();
-      throw new Error(`Error getting upload URL: ${error.message || error.description}`);
-    }
-
-    // 3. Загружаем основной файл
-    const { href: uploadUrl } = await uploadUrlRes.json();
-    const uploadRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file.buffer,
-      headers: { 'Content-Type': file.mimetype },
-    });
-    
-    if (!uploadRes.ok) throw new Error('File upload error');
-
-    // 4. Публикуем основной файл
-    const publishRes = await fetch(
-      `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(remotePath)}`,
-      {
-        method: 'PUT',
-        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
-      }
-    );
-
-    if (!publishRes.ok) {
-      const error = await publishRes.json();
-      throw new Error(`Publishing error: ${error.message || error.description}`);
-    }
-
-    // 5. Получаем метаданные с public_url
-    const metaRes = await fetch(
-      `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(remotePath)}`,
-      {
-        headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
-      }
-    );
-
-    if (!metaRes.ok) {
-      const error = await metaRes.json();
-      throw new Error(`Metadata retrieval error: ${error.message || error.description}`);
-    }
-
-    const metaData = await metaRes.json();
-    const publicPageUrl = metaData.public_url;
-
-    console.log(`[UNIVERSAL UPLOAD] Main file uploaded. Public URL: ${publicPageUrl}`);
-
-    // Определяем тип файла
-    const fileType = fileExt.match(/(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' :
-                    fileExt.match(/(mp4|webm|mov|avi|mkv)$/i) ? 'video' :
-                    fileExt.match(/(mp3|wav|ogg|m4a|flac)$/i) ? 'audio' : 'document';
-
-    // 6. Получаем превью и метаданные от Яндекс.Диска
-    let thumbnailUrl = null;
-    let durationSeconds = null;
-    let width = null;
-    let height = null;
-
-    const yandexPreviewTypes = ['video', 'document', 'image'];
-
-    if (yandexPreviewTypes.includes(fileType)) {
-      try {
-        console.log(`[UNIVERSAL UPLOAD] Requesting Yandex preview for ${fileType}`);
-        
-        const previewApiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(publicPageUrl)}&fields=preview,video,image`;
-        
-        const previewRes = await fetch(previewApiUrl, {
-          headers: { 
-            'Authorization': `OAuth ${process.env.YANDEX_TOKEN}`,
-            'Accept': 'application/json'
-          },
-          timeout: 15000
-        });
-        
-        console.log(`[UNIVERSAL UPLOAD] Yandex preview API status: ${previewRes.status}`);
-        
-        if (previewRes.ok) {
-          const previewData = await previewRes.json();
-          
-          if (previewData.preview) {
-            if (typeof previewData.preview === 'string') {
-              thumbnailUrl = previewData.preview;
-              console.log(`[UNIVERSAL UPLOAD] Got string preview`);
-            } else if (typeof previewData.preview === 'object') {
-              if (previewData.preview.S) {
-                thumbnailUrl = previewData.preview.S;
-                console.log(`[UNIVERSAL UPLOAD] Got S-size preview`);
-              } else if (previewData.preview.M) {
-                thumbnailUrl = previewData.preview.M;
-                //console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
-              } else {
-                const firstSize = Object.values(previewData.preview)[0];
-                if (firstSize) {
-                  thumbnailUrl = firstSize;
-                  //console.log(`[UNIVERSAL UPLOAD] Got first available preview size`);
-                }
-              }
-            }
-          }
-          
-          if (fileType === 'video' && previewData.video?.duration) {
-            durationSeconds = Math.round(previewData.video.duration);
-            console.log(`[UNIVERSAL UPLOAD] Video duration: ${durationSeconds} seconds`);
-          }
-          
-          if (fileType === 'image' && previewData.image?.width && previewData.image?.height) {
-            width = previewData.image.width;
-            height = previewData.image.height;
-            console.log(`[UNIVERSAL UPLOAD] Image dimensions: ${width}x${height}`);
-          }
-        }
-      } catch (previewError) {
-        console.warn(`[UNIVERSAL UPLOAD] Yandex preview error:`, previewError.message);
-      }
-    }
-
-    // 7. Обработка thumbnail от клиента
-    const thumbnailFile = req.files?.thumbnail?.[0];
-    
-    if (thumbnailFile) {
-      console.log(`[UNIVERSAL UPLOAD] Uploading client-provided thumbnail: ${thumbnailFile.originalname}`);
+// POST /api/media/upload — загрузка медиафайла  это новый вариант
+  app.post('/api/media/upload', upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 }
+  ]), async (req, res) => {
+    try {
+      console.log('[UNIVERSAL UPLOAD] Called with files:', req.files);
       
-      const thumbFileName = `${fileName}.thumb.jpg`;
-      const thumbRemotePath = `app:/${entityType}-app/${thumbFileName}`;
+      // Основной файл
+      const mainFile = req.files?.file?.[0];
+      if (!mainFile) throw new Error('Main file not received');
       
-      const thumbUploadUrlRes = await fetch(
-        `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(thumbRemotePath)}`,
-        {
-          headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
-        }
-      );
-      
-      if (thumbUploadUrlRes.ok) {
-        const { href: thumbUploadUrl } = await thumbUploadUrlRes.json();
-        
-        await fetch(thumbUploadUrl, {
-          method: 'PUT',
-          body: thumbnailFile.buffer,
-          headers: { 'Content-Type': thumbnailFile.mimetype },
-        });
-        
-        await fetch(
-          `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(thumbRemotePath)}`,
+      if (!req.body.entityId) throw new Error('entityId is required');
+      if (!req.body.entityType) throw new Error('entityType is required');
+
+      const { entityType, entityId, description = '' } = req.body;
+      const file = mainFile;
+
+      //console.log(`[UNIVERSAL UPLOAD] Upload for ${entityType} ${entityId}: ${file.originalname}`);
+
+      // Поддерживаемые типы сущностей
+      // const supportedEntities = ['muscle', 'organ', 'meridian', 'dysfunction', 'muscle_group', 'receptor', 'receptor_class', 
+      //                             'tool', 'entry', 'usefulness'];
+      if (!SUPPORTED_ENTITIES.includes(entityType)) {
+        throw new Error(`Unsupported entity type: ${entityType}`);
+      }
+
+      // Определяем тип файла по расширению
+        const fileExt = file.originalname.split('.').pop();
+        const fileName = `${entityType}_${entityId}_${Date.now()}.${fileExt}`;
+        const remotePath = `app:/${entityType}-app/${fileName}`;
+
+        // 1. Создаем папку для сущности (если не существует)
+        const folderRes = await fetch(
+          `https://cloud-api.yandex.net/v1/disk/resources?path=app:/${entityType}-app`,
           {
             method: 'PUT',
             headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
           }
         );
         
-        const thumbMetaRes = await fetch(
-          `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(thumbRemotePath)}`,
+        // 409 - папка уже существует, это нормально
+        if (!folderRes.ok && folderRes.status !== 409) {
+          const error = await folderRes.json();
+          throw new Error(`Folder creation error: ${error.message || error.description}`);
+        }
+
+      // 2. Получаем URL для загрузки основного файла
+      const uploadUrlRes = await fetch(
+        `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(remotePath)}`,
+        {
+          headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+        }
+      );
+      
+      if (!uploadUrlRes.ok) {
+        const error = await uploadUrlRes.json();
+        throw new Error(`Error getting upload URL: ${error.message || error.description}`);
+      }
+
+      // 3. Загружаем основной файл
+      const { href: uploadUrl } = await uploadUrlRes.json();
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file.buffer,
+        headers: { 'Content-Type': file.mimetype },
+      });
+      
+      if (!uploadRes.ok) throw new Error('File upload error');
+
+      // 4. Публикуем основной файл
+      const publishRes = await fetch(
+        `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(remotePath)}`,
+        {
+          method: 'PUT',
+          headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+        }
+      );
+
+      if (!publishRes.ok) {
+        const error = await publishRes.json();
+        throw new Error(`Publishing error: ${error.message || error.description}`);
+      }
+
+      // 5. Получаем метаданные с public_url
+      const metaRes = await fetch(
+        `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(remotePath)}`,
+        {
+          headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+        }
+      );
+
+      if (!metaRes.ok) {
+        const error = await metaRes.json();
+        throw new Error(`Metadata retrieval error: ${error.message || error.description}`);
+      }
+
+      const metaData = await metaRes.json();
+      const publicPageUrl = metaData.public_url;
+
+      console.log(`[UNIVERSAL UPLOAD] Main file uploaded. Public URL: ${publicPageUrl}`);
+
+      // Определяем тип файла
+      const fileType = fileExt.match(/(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' :
+                      fileExt.match(/(mp4|webm|mov|avi|mkv)$/i) ? 'video' :
+                      fileExt.match(/(mp3|wav|ogg|m4a|flac)$/i) ? 'audio' : 'document';
+
+      // 6. Получаем превью и метаданные от Яндекс.Диска
+      let thumbnailUrl = null;
+      let durationSeconds = null;
+      let width = null;
+      let height = null;
+
+      const yandexPreviewTypes = ['video', 'document', 'image'];
+
+      if (yandexPreviewTypes.includes(fileType)) {
+        try {
+          console.log(`[UNIVERSAL UPLOAD] Requesting Yandex preview for ${fileType}`);
+          
+          const previewApiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources?public_key=${encodeURIComponent(publicPageUrl)}&fields=preview,video,image`;
+          
+          const previewRes = await fetch(previewApiUrl, {
+            headers: { 
+              'Authorization': `OAuth ${process.env.YANDEX_TOKEN}`,
+              'Accept': 'application/json'
+            },
+            timeout: 15000
+          });
+          
+          console.log(`[UNIVERSAL UPLOAD] Yandex preview API status: ${previewRes.status}`);
+          
+          if (previewRes.ok) {
+            const previewData = await previewRes.json();
+            
+            if (previewData.preview) {
+              if (typeof previewData.preview === 'string') {
+                thumbnailUrl = previewData.preview;
+                console.log(`[UNIVERSAL UPLOAD] Got string preview`);
+              } else if (typeof previewData.preview === 'object') {
+                if (previewData.preview.S) {
+                  thumbnailUrl = previewData.preview.S;
+                  console.log(`[UNIVERSAL UPLOAD] Got S-size preview`);
+                } else if (previewData.preview.M) {
+                  thumbnailUrl = previewData.preview.M;
+                  //console.log(`[UNIVERSAL UPLOAD] Got M-size preview`);
+                } else {
+                  const firstSize = Object.values(previewData.preview)[0];
+                  if (firstSize) {
+                    thumbnailUrl = firstSize;
+                    //console.log(`[UNIVERSAL UPLOAD] Got first available preview size`);
+                  }
+                }
+              }
+            }
+            
+            if (fileType === 'video' && previewData.video?.duration) {
+              durationSeconds = Math.round(previewData.video.duration);
+              console.log(`[UNIVERSAL UPLOAD] Video duration: ${durationSeconds} seconds`);
+            }
+            
+            if (fileType === 'image' && previewData.image?.width && previewData.image?.height) {
+              width = previewData.image.width;
+              height = previewData.image.height;
+              console.log(`[UNIVERSAL UPLOAD] Image dimensions: ${width}x${height}`);
+            }
+          }
+        } catch (previewError) {
+          console.warn(`[UNIVERSAL UPLOAD] Yandex preview error:`, previewError.message);
+        }
+      }
+
+      // 7. Обработка thumbnail от клиента
+      const thumbnailFile = req.files?.thumbnail?.[0];
+      
+      if (thumbnailFile) {
+        console.log(`[UNIVERSAL UPLOAD] Uploading client-provided thumbnail: ${thumbnailFile.originalname}`);
+        
+        const thumbFileName = `${fileName}.thumb.jpg`;
+        const thumbRemotePath = `app:/${entityType}-app/${thumbFileName}`;
+        
+        const thumbUploadUrlRes = await fetch(
+          `https://cloud-api.yandex.net/v1/disk/resources/upload?path=${encodeURIComponent(thumbRemotePath)}`,
           {
             headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
           }
         );
         
-        if (thumbMetaRes.ok) {
-          const thumbMetaData = await thumbMetaRes.json();
-          thumbnailUrl = thumbMetaData.public_url;
-          console.log(`[UNIVERSAL UPLOAD] Client thumbnail created: ${thumbnailUrl}`);
+        if (thumbUploadUrlRes.ok) {
+          const { href: thumbUploadUrl } = await thumbUploadUrlRes.json();
+          
+          await fetch(thumbUploadUrl, {
+            method: 'PUT',
+            body: thumbnailFile.buffer,
+            headers: { 'Content-Type': thumbnailFile.mimetype },
+          });
+          
+          await fetch(
+            `https://cloud-api.yandex.net/v1/disk/resources/publish?path=${encodeURIComponent(thumbRemotePath)}`,
+            {
+              method: 'PUT',
+              headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+            }
+          );
+          
+          const thumbMetaRes = await fetch(
+            `https://cloud-api.yandex.net/v1/disk/resources?path=${encodeURIComponent(thumbRemotePath)}`,
+            {
+              headers: { Authorization: `OAuth ${process.env.YANDEX_TOKEN}` },
+            }
+          );
+          
+          if (thumbMetaRes.ok) {
+            const thumbMetaData = await thumbMetaRes.json();
+            thumbnailUrl = thumbMetaData.public_url;
+            console.log(`[UNIVERSAL UPLOAD] Client thumbnail created: ${thumbnailUrl}`);
+          }
         }
+      } else if (fileType === 'image' && !thumbnailUrl) {
+        console.log(`[UNIVERSAL UPLOAD] Using image itself as thumbnail`);
+        thumbnailUrl = publicPageUrl;
       }
-    } else if (fileType === 'image' && !thumbnailUrl) {
-      console.log(`[UNIVERSAL UPLOAD] Using image itself as thumbnail`);
-      thumbnailUrl = publicPageUrl;
-    }
 
-    // 9. Сохраняем в БД (НОВАЯ СИСТЕМА - через pg)
-    const client = await connectDB();
-    
-    await client.query('BEGIN');
-    
-    // Сохраняем в media_files
-    const newFileResult = await client.query(
-      `INSERT INTO media_files 
-       (file_url, file_name, file_type, mime_type, file_size, width, height, 
-        duration_seconds, thumbnail_url, public_url, description, display_order, is_active) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true) 
-       RETURNING id`,
-      [
-        publicPageUrl, fileName, fileType, file.mimetype, file.size,
-        width || null, height || null, durationSeconds || null,
-        thumbnailUrl, publicPageUrl, description || '', 0
-      ]
-    );
-    
-    const newFileId = newFileResult.rows[0].id;
-    
-    // Создаем связь между файлом и сущностью
-    await client.query(
-      `INSERT INTO entity_media 
-       (media_file_id, entity_type, entity_id, relation_type, display_order) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [newFileId, entityType, entityId, 'primary', 0]
-    );
-    
-    await client.query('COMMIT');
-    
-    const savedMedia = {
-      id: newFileId,
-      entity_id: entityId,
-      entity_type: entityType,
-      file_url: publicPageUrl,
-      file_name: fileName,
-      file_type: fileType,
-      thumbnail_url: thumbnailUrl,
-      public_url: publicPageUrl,
-      description: description,
-      display_order: 0,
-      duration_seconds: durationSeconds,
-      width: width,
-      height: height,
-      created_at: new Date().toISOString()
-    };
-
-    res.json({
-      success: true,
-      publicUrl: publicPageUrl,
-      fileName: fileName,
-      thumbnailUrl: thumbnailUrl,
-      durationSeconds: durationSeconds,
-      width: width,
-      height: height,
-      media: savedMedia,
-      createdAt: savedMedia.created_at
-    });
-
-  } catch (error) {
-    console.error('[UNIVERSAL UPLOAD] Error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-});
-
-// GET /api/media-connections/:id — получить связи медиафайла
-  app.get('/api/media-connections/:id', async (req, res) => {
-    const client = await connectDB();
-    const { id } = req.params;
-    
-    try {
-      const result = await client.query(`
-        SELECT 
-          em.entity_type,
-          em.entity_id,
-          em.relation_type,
-          CASE 
-            WHEN em.entity_type = 'muscle' THEN (SELECT name_ru FROM muscles WHERE id = em.entity_id)
-            WHEN em.entity_type = 'organ' THEN (SELECT name FROM organs WHERE id = em.entity_id)
-            WHEN em.entity_type = 'meridian' THEN (SELECT name FROM meridians WHERE id = em.entity_id)
-            WHEN em.entity_type = 'dysfunction' THEN (SELECT name FROM dysfunctions WHERE id = em.entity_id)
-            WHEN em.entity_type = 'muscle_group' THEN (SELECT name FROM muscle_groups WHERE id = em.entity_id)
-            WHEN em.entity_type = 'entry' THEN (SELECT name FROM entries WHERE id = em.entity_id)
-            WHEN em.entity_type = 'tool' THEN (SELECT name FROM tools WHERE id = em.entity_id)
-            WHEN em.entity_type = 'receptor' THEN (SELECT name FROM receptors WHERE id = em.entity_id)
-            WHEN em.entity_type = 'receptor_class' THEN (SELECT name FROM receptor_classes WHERE id = em.entity_id)
-            ELSE 'Unknown'
-          END as entity_name
-        FROM entity_media em
-        WHERE em.media_file_id = $1
-        ORDER BY em.entity_type, em.entity_id
-      `, [id]);
+      // 9. Сохраняем в БД (НОВАЯ СИСТЕМА - через pg)
+      const client = await connectDB();
       
-      res.json({ success: true, data: result.rows });
+      await client.query('BEGIN');
+      
+      // Сохраняем в media_files
+      const newFileResult = await client.query(
+        `INSERT INTO media_files 
+        (file_url, file_name, file_type, mime_type, file_size, width, height, 
+          duration_seconds, thumbnail_url, public_url, description, display_order, is_active) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true) 
+        RETURNING id`,
+        [
+          publicPageUrl, fileName, fileType, file.mimetype, file.size,
+          width || null, height || null, durationSeconds || null,
+          thumbnailUrl, publicPageUrl, description || '', 0
+        ]
+      );
+      
+      const newFileId = newFileResult.rows[0].id;
+      
+      // Создаем связь между файлом и сущностью
+      await client.query(
+        `INSERT INTO entity_media 
+        (media_file_id, entity_type, entity_id, relation_type, display_order) 
+        VALUES ($1, $2, $3, $4, $5)`,
+        [newFileId, entityType, entityId, 'primary', 0]
+      );
+      
+      await client.query('COMMIT');
+      
+      const savedMedia = {
+        id: newFileId,
+        entity_id: entityId,
+        entity_type: entityType,
+        file_url: publicPageUrl,
+        file_name: fileName,
+        file_type: fileType,
+        thumbnail_url: thumbnailUrl,
+        public_url: publicPageUrl,
+        description: description,
+        display_order: 0,
+        duration_seconds: durationSeconds,
+        width: width,
+        height: height,
+        created_at: new Date().toISOString()
+      };
+
+      res.json({
+        success: true,
+        publicUrl: publicPageUrl,
+        fileName: fileName,
+        thumbnailUrl: thumbnailUrl,
+        durationSeconds: durationSeconds,
+        width: width,
+        height: height,
+        media: savedMedia,
+        createdAt: savedMedia.created_at
+      });
+
     } catch (error) {
-      console.error('[ERROR] GET /api/media-connections/:id:', error.message);
-      res.status(500).json({ success: false, error: error.message });
+      console.error('[UNIVERSAL UPLOAD] Error:', error);
+      res.status(500).json({ 
+        success: false,
+        error: error.message 
+      });
     }
   });
+
+// GET /api/media-connections/:id — получить связи медиафайла
+    app.get('/api/media-connections/:id', async (req, res) => {
+      const client = await connectDB();
+      const { id } = req.params;
+      
+      try {
+        // Динамически строим CASE для всех сущностей из SUPPORTED_ENTITIES
+        const entityCases = SUPPORTED_ENTITIES.map(entity => {
+          const tableName = entity === 'muscle' ? 'muscles' :
+                            entity === 'muscle_group' ? 'muscle_groups' :
+                            entity === 'receptor_class' ? 'receptor_classes' :
+                            `${entity}s`;
+          const nameField = entity === 'muscle' ? 'name_ru' : 'name';
+          return `WHEN em.entity_type = '${entity}' THEN (SELECT ${nameField} FROM ${tableName} WHERE id = em.entity_id)`;
+        }).join(' ');
+
+        const result = await client.query(`
+          SELECT 
+            em.entity_type,
+            em.entity_id,
+            em.relation_type,
+            CASE 
+              ${entityCases}
+              ELSE 'Unknown'
+            END as entity_name
+          FROM entity_media em
+          WHERE em.media_file_id = $1
+          ORDER BY em.entity_type, em.entity_id
+        `, [id]);
+        
+        res.json({ success: true, data: result.rows });
+      } catch (error) {
+        console.error('[ERROR] GET /api/media-connections/:id:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
 // DELETE /api/media/:id — удаление медиафайла (или только связи)
   app.delete('/api/media/:id', async (req, res) => {
@@ -3538,31 +3754,83 @@ app.get('/api/media/files', async (req, res) => {
 });
 
 // POST /api/media/link — связывание существующего медиафайла с сущностью
-app.post('/api/media/link', async (req, res) => {
-  const client = await connectDB();
-  const { mediaFileId, entityType, entityId, relationType = 'primary' } = req.body;
-  
-  try {
-    // Получаем максимальный display_order
-    const orderResult = await client.query(
-      'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM entity_media WHERE entity_type = $1 AND entity_id = $2',
-      [entityType, entityId]
-    );
+  app.post('/api/media/link', async (req, res) => {
+    const client = await connectDB();
+    const { mediaFileId, entityType, entityId, relationType = 'primary' } = req.body;
     
-    await client.query(
-      `INSERT INTO entity_media (entity_type, entity_id, media_file_id, relation_type, display_order)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [entityType, entityId, mediaFileId, relationType, orderResult.rows[0].next_order]
-    );
+    // Проверка обязательных полей
+    if (!mediaFileId || !entityType || !entityId) {
+      return res.status(400).json({
+        success: false,
+        error: 'mediaFileId, entityType, and entityId are required'
+      });
+    }
     
-    const mediaResult = await client.query('SELECT * FROM media_files WHERE id = $1', [mediaFileId]);
+    // Проверка поддерживаемого типа сущности (используем глобальную константу)
+    if (!SUPPORTED_ENTITIES.includes(entityType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Unsupported entity type: ${entityType}`
+      });
+    }
     
-    res.json({ success: true, media: mediaResult.rows[0] });
-  } catch (error) {
-    console.error('[ERROR] POST /api/media/link:', error.message);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+    try {
+      // Проверяем, существует ли медиафайл
+      const mediaCheck = await client.query(
+        'SELECT id FROM media_files WHERE id = $1',
+        [mediaFileId]
+      );
+      
+      if (mediaCheck.rowCount === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Media file not found'
+        });
+      }
+      
+      // Проверяем, не связан ли уже этот файл с этой сущностью
+      const existingLink = await client.query(
+        'SELECT id FROM entity_media WHERE media_file_id = $1 AND entity_type = $2 AND entity_id = $3',
+        [mediaFileId, entityType, entityId]
+      );
+      
+      if (existingLink.rowCount > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'This media file is already linked to this entity'
+        });
+      }
+      
+      // Получаем максимальный display_order
+      const orderResult = await client.query(
+        'SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM entity_media WHERE entity_type = $1 AND entity_id = $2',
+        [entityType, entityId]
+      );
+      
+      // Создаём связь
+      await client.query(
+        `INSERT INTO entity_media (entity_type, entity_id, media_file_id, relation_type, display_order)
+        VALUES ($1, $2, $3, $4, $5)`,
+        [entityType, entityId, mediaFileId, relationType, orderResult.rows[0].next_order]
+      );
+      
+      // Получаем полную информацию о медиафайле для ответа
+      const mediaResult = await client.query('SELECT * FROM media_files WHERE id = $1', [mediaFileId]);
+      
+      res.json({
+        success: true,
+        message: 'Media file linked successfully',
+        media: mediaResult.rows[0]
+      });
+      
+    } catch (error) {
+      console.error('[ERROR] POST /api/media/link:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  });
 
 
 
@@ -3904,7 +4172,6 @@ app.get('/api/media-file/:id', async (req, res) => {
   app.get('/api/yandex/files', async (req, res) => {
     const YANDEX_TOKEN = process.env.YANDEX_TOKEN;
     
-        
     if (!YANDEX_TOKEN) {
       console.error('[YANDEX FILES] ❌ YANDEX_TOKEN not configured');
       return res.status(500).json({ 
@@ -3914,19 +4181,10 @@ app.get('/api/media-file/:id', async (req, res) => {
     }
 
     try {
-      // Папки на Яндекс.Диске (по названиям сущностей)
-      const folders = [
-        'muscle-app',
-        'organ-app', 
-        'meridian-app',
-        'dysfunction-app',
-        'muscle_group-app',
-        'receptor-app',
-        'receptor_class-app',
-        'tool-app',
-        'entry-app'
-      ];
+      // Папки на Яндекс.Диске формируем из SUPPORTED_ENTITIES, добавляя '-app'
+      const folders = SUPPORTED_ENTITIES.map(entity => `${entity}-app`);
       
+      console.log('[YANDEX FILES] Folders to check:', folders);
       
       const allFiles = [];
       let totalSize = 0;
@@ -3934,9 +4192,7 @@ app.get('/api/media-file/:id', async (req, res) => {
       let errorCount = 0;
 
       for (const folder of folders) {
-        // ✅ ИСПРАВЛЕНО: убрал YDU2, теперь путь совпадает с кодом загрузки
         const path = `app:/${folder}`;
-        
         
         try {
           const response = await fetch(
@@ -3948,10 +4204,8 @@ app.get('/api/media-file/:id', async (req, res) => {
             }
           );
           
-        
-          
           if (response.ok) {
-            const data = await response.json();            
+            const data = await response.json();
             
             if (data._embedded && data._embedded.items) {
               const items = data._embedded.items.map(item => ({
@@ -3979,6 +4233,9 @@ app.get('/api/media-file/:id', async (req, res) => {
         }
       }
 
+      console.log(`[YANDEX FILES] Summary: ${successCount} folders OK, ${errorCount} folders failed`);
+      console.log(`[YANDEX FILES] Total files found: ${allFiles.length}`);
+      console.log(`[YANDEX FILES] Total size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
 
       res.json({
         success: true,
@@ -3998,7 +4255,6 @@ app.get('/api/media-file/:id', async (req, res) => {
       res.status(500).json({ success: false, error: error.message });
     }
   });
-
 
 // GET /api/media/orphaned — найти файлы на ЯД, которых нет в БД
   app.get('/api/media/orphaned', async (req, res) => {

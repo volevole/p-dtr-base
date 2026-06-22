@@ -60,7 +60,7 @@
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  background-color: #f0f8ff;  /* светло-голубой (AliceBlue) */
+  background-color: #f0f8ff;  /* СЃРІРµС‚Р»Рѕ-РіРѕР»СѓР±РѕР№ (AliceBlue) */
 }
 
 .form-group input[type="number"] {
@@ -210,16 +210,16 @@
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* ========== АДАПТИВНОЕ МЕНЮ И МОБИЛЬНАЯ ВЕРСТКА ========== */
+/* ========== СЖ’СС•вЂњВ»В¬РЊСњв‰€ С›в‰€РЊС‘ В» С›СњР…В»Р‹в„–РЊССЏ В¬в‰€вЂ“вЂ”вЂњВ С ========== */
 
-/* Основной контейнер приложения */
+/* СњСЃРЅРѕРІРЅРѕР№ РєРѕРЅС‚РµР№РЅРµСЂ РїСЂРёР»РѕР¶РµРЅРёВ¤ */
 .app-container {
   display: flex;
   min-height: 100vh;
   position: relative;
 }
 
-/* Основной контент */
+/* СњСЃРЅРѕРІРЅРѕР№ РєРѕРЅС‚РµРЅС‚ */
 .main-content {
   flex: 1;
   margin-left: 250px;
@@ -229,7 +229,7 @@
   box-sizing: border-box;
 }
 
-/* Сайдбар */
+/* вЂ”Р°Р№РґР±Р°СЂ */
 .sidebar {
   width: 250px;
   background-color: #f8f9fa;
@@ -245,7 +245,7 @@
   box-shadow: 2px 0 5px rgba(0,0,0,0.05);
 }
 
-/* Кнопка гамбургер меню */
+/* В РЅРѕРїРєР° РіР°РјР±СѓСЂРіРµСЂ РјРµРЅСЋ */
 .menu-toggle {
   display: none;
   position: fixed;
@@ -278,7 +278,7 @@
   background-color: #c82333;
 }
 
-/* Оверлей для закрытия меню на мобильных */
+/* СњРІРµСЂР»РµР№ РґР»В¤ Р·Р°РєСЂС‹С‚РёВ¤ РјРµРЅСЋ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
 .menu-overlay {
   display: none;
   position: fixed;
@@ -296,15 +296,15 @@
   to { opacity: 1; }
 }
 
-/* ========== МЕДИА-ЗАПРОСЫ ДЛЯ РАЗНЫХ УСТРОЙСТВ ========== */
+/* ========== С›в‰€Ж’В»С-В«СС•вЂ“СњвЂ”Сџ Ж’Р‹СЏ вЂ“СВ«РЊСџвЂ™ вЂќвЂ”вЂњвЂ“СњвЂ¦вЂ”вЂњВ¬ ========== */
 
-/* Мобильные устройства (ширина меньше 768px) */
+/* С›РѕР±РёР»СЊРЅС‹Рµ СѓСЃС‚СЂРѕР№СЃС‚РІР° (С€РёСЂРёРЅР° РјРµРЅСЊС€Рµ 768px) */
 @media (max-width: 768px) {
   .main-content {
     margin-left: 0;
     width: 100%;
     padding: 20px;
-    padding-top: 70px; /* Место для кнопки меню */
+    padding-top: 70px; /* С›РµСЃС‚Рѕ РґР»В¤ РєРЅРѕРїРєРё РјРµРЅСЋ */
   }
   
   .sidebar {
@@ -329,29 +329,29 @@
     display: block;
   }
   
-  /* Уменьшаем размеры для мобильных */
+  /* вЂќРјРµРЅСЊС€Р°РµРј СЂР°Р·РјРµСЂС‹ РґР»В¤ РјРѕР±РёР»СЊРЅС‹С… */
   h1 { font-size: 1.8rem; }
   h2 { font-size: 1.5rem; }
   h3 { font-size: 1.2rem; }
   
-  /* Адаптивные таблицы */
+  /* СРґР°РїС‚РёРІРЅС‹Рµ С‚Р°Р±Р»РёС†С‹ */
   table {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
   }
   
-  /* Уменьшаем отступы в формах */
+  /* вЂќРјРµРЅСЊС€Р°РµРј РѕС‚СЃС‚СѓРїС‹ РІ С„РѕСЂРјР°С… */
   .muscle-form {
     padding: 10px;
   }
   
-  /* Сетка для мульти-селекта в 1 колонку */
+  /* вЂ”РµС‚РєР° РґР»В¤ РјСѓР»СЊС‚Рё-СЃРµР»РµРєС‚Р° РІ 1 РєРѕР»РѕРЅРєСѓ */
   .multi-select-container {
     grid-template-columns: 1fr;
   }
   
-  /* Кнопки действий в одну строку */
+  /* В РЅРѕРїРєРё РґРµР№СЃС‚РІРёР№ РІ РѕРґРЅСѓ СЃС‚СЂРѕРєСѓ */
   .action-btn {
     padding: 0.2rem 0.4rem;
     font-size: 0.8rem;
@@ -359,14 +359,14 @@
     min-width: 25px;
   }
   
-  /* Медиа-сетка в 2 колонки */
+  /* С›РµРґРёР°-СЃРµС‚РєР° РІ 2 РєРѕР»РѕРЅРєРё */
   .media-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px;
   }
 }
 
-/* „лЯ всех таблиц на мобильных */
+/* Р”Р»СЏ РІСЃРµС… С‚Р°Р±Р»РёС† РЅР° РјРѕР±РёР»СЊРЅС‹С… */
 @media (max-width: 768px) {
   .table-responsive {
     overflow-x: auto !important;
@@ -376,10 +376,10 @@
   }
   
   .table-responsive table {
-    min-width: 900px; /* подберите под ваши колонки */
+    min-width: 900px; /* РїРѕРґР±РµСЂРёС‚Рµ РїРѕРґ РІР°С€Рё РєРѕР»РѕРЅРєРё */
   }
   
-  /* ‘тилизациЯ скроллбара (опционально) */
+  /* РЎС‚РёР»РёР·Р°С†РёСЏ СЃРєСЂРѕР»Р»Р±Р°СЂР° (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ) */
   .table-responsive::-webkit-scrollbar {
     height: 6px;
   }
@@ -399,7 +399,7 @@
   }
 }
 
-/* Очень маленькие телефоны (ширина меньше 480px) */
+/* СњС‡РµРЅСЊ РјР°Р»РµРЅСЊРєРёРµ С‚РµР»РµС„РѕРЅС‹ (С€РёСЂРёРЅР° РјРµРЅСЊС€Рµ 480px) */
 @media (max-width: 480px) {
   .main-content {
     padding: 15px;
@@ -428,7 +428,7 @@
   .form-section input[type="text"],
   .form-section textarea {
     padding: 6px;
-    font-size: 16px; /* Предотвращает зум на iOS */
+    font-size: 16px; /* С•СЂРµРґРѕС‚РІСЂР°С‰Р°РµС‚ Р·СѓРј РЅР° iOS */
   }
   
   .action-btn {
@@ -437,28 +437,28 @@
     font-size: 0.75rem;
   }
   
-  /* Медиа-сетка в 1 колонку */
+  /* С›РµРґРёР°-СЃРµС‚РєР° РІ 1 РєРѕР»РѕРЅРєСѓ */
   .media-grid {
     grid-template-columns: 1fr !important;
   }
   
-  /* Убираем лишние отступы */
+  /* вЂќР±РёСЂР°РµРј Р»РёС€РЅРёРµ РѕС‚СЃС‚СѓРїС‹ */
   .media-item {
     margin-bottom: 10px;
   }
   
-  /* Увеличиваем нажимаемую область на мобильных */
+  /* вЂќРІРµР»РёС‡РёРІР°РµРј РЅР°Р¶РёРјР°РµРјСѓСЋ РѕР±Р»Р°СЃС‚СЊ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
   button, 
   .action-btn,
   .menu-toggle,
   .sidebar-close {
-    min-height: 44px; /* Рекомендация Apple для мобильных */
+    min-height: 44px; /* вЂ“РµРєРѕРјРµРЅРґР°С†РёВ¤ Apple РґР»В¤ РјРѕР±РёР»СЊРЅС‹С… */
     min-width: 44px;
   }
   
-  /* Адаптируем вложенные меню */
+  /* СРґР°РїС‚РёСЂСѓРµРј РІР»РѕР¶РµРЅРЅС‹Рµ РјРµРЅСЋ */
   .sidebar ul li > div {
-    padding: 12px 8px; /* Увеличиваем для тач-интерфейса */
+    padding: 12px 8px; /* вЂќРІРµР»РёС‡РёРІР°РµРј РґР»В¤ С‚Р°С‡-РёРЅС‚РµСЂС„РµР№СЃР° */
   }
   
   .sidebar ul li a {
@@ -466,7 +466,7 @@
   }
 }
 
-/* Планшеты (768px - 1024px) */
+/* С•Р»Р°РЅС€РµС‚С‹ (768px - 1024px) */
 @media (min-width: 768px) and (max-width: 1024px) {
   .main-content {
     margin-left: 200px;
@@ -489,9 +489,9 @@
   }
 }
 
-/* ========== ДОПОЛНИТЕЛЬНЫЕ АДАПТИВНЫЕ СТИЛИ ========== */
+/* ========== Ж’СњС•СњР‹РЊВ»вЂњв‰€Р‹в„–РЊСџв‰€ СЖ’СС•вЂњВ»В¬РЊСџв‰€ вЂ”вЂњВ»Р‹В» ========== */
 
-/* Адаптация для landscape ориентации */
+/* СРґР°РїС‚Р°С†РёВ¤ РґР»В¤ landscape РѕСЂРёРµРЅС‚Р°С†РёРё */
 @media (max-width: 768px) and (orientation: landscape) {
   .sidebar {
     width: 300px;
@@ -507,7 +507,7 @@
   }
 }
 
-/* Улучшенная читаемость на мобильных */
+/* вЂќР»СѓС‡С€РµРЅРЅР°В¤ С‡РёС‚Р°РµРјРѕСЃС‚СЊ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
 @media (max-width: 768px) {
   p, li, .description {
     font-size: 16px;
@@ -518,13 +518,13 @@
     font-size: 14px;
   }
   
-  /* Адаптивные изображения */
+  /* СРґР°РїС‚РёРІРЅС‹Рµ РёР·РѕР±СЂР°Р¶РµРЅРёВ¤ */
   img, video {
     max-width: 100%;
     height: auto;
   }
   
-  /* Контейнер для кнопок действий */
+  /* В РѕРЅС‚РµР№РЅРµСЂ РґР»В¤ РєРЅРѕРїРѕРє РґРµР№СЃС‚РІРёР№ */
   .action-buttons {
     display: flex;
     flex-wrap: wrap;
@@ -532,7 +532,7 @@
     justify-content: flex-end;
   }
   
-  /* Модальные окна на мобильных */
+  /* С›РѕРґР°Р»СЊРЅС‹Рµ РѕРєРЅР° РЅР° РјРѕР±РёР»СЊРЅС‹С… */
   .modal-content {
     width: 95%;
     margin: 10px auto;
@@ -547,7 +547,7 @@
   }
 }
 
-/* Темный режим (опционально) */
+/* вЂњРµРјРЅС‹Р№ СЂРµР¶РёРј (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ) */
 @media (prefers-color-scheme: dark) {
   .sidebar {
     background-color: #2d2d2d;
@@ -562,7 +562,7 @@
     background-color: #404040;
   }
 }
- /* Описание с форматированием */
+ /* СњРїРёСЃР°РЅРёРµ СЃ С„РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµРј */
 .description-text {
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -571,7 +571,7 @@
   font-family: inherit;
 }
 
-/* App.css - добавить эти классы */
+/* App.css - РґРѕР±Р°РІРёС‚СЊ СЌС‚Рё РєР»Р°СЃСЃС‹ */
 .muscle-detail-table td {
   padding: 5px;
   vertical-align: top;
@@ -588,7 +588,7 @@
   line-height: 1.5;
 }
 
-/* Мобильные версии */
+/* С›РѕР±РёР»СЊРЅС‹Рµ РІРµСЂСЃРёРё */
 @media (max-width: 768px) {
   .muscle-detail-table td:first-child {
     width: 100px;
@@ -599,18 +599,18 @@
   }
 }
 
-/* App.css - добавить в конец файла */
+/* App.css - РґРѕР±Р°РІРёС‚СЊ РІ РєРѕРЅРµС† С„Р°Р№Р»Р° */
 
-/* ===== СТИЛИ ДЛЯ ДЕТАЛЬНОГО ПРОСМОТРА СУЩНОСТЕЙ ===== */
+/* ===== вЂ”вЂњВ»Р‹В» Ж’Р‹СЏ Ж’в‰€вЂњСР‹в„–РЊСњв€љСњ С•вЂ“СњвЂ”С›СњвЂњвЂ“С вЂ”вЂќСћРЊСњвЂ”вЂњв‰€вЂ¦ ===== */
 
-/* Контейнер для детального просмотра */
+/* В РѕРЅС‚РµР№РЅРµСЂ РґР»В¤ РґРµС‚Р°Р»СЊРЅРѕРіРѕ РїСЂРѕСЃРјРѕС‚СЂР° */
 .detail-container {
   padding: 2rem;
   max-width: 1000px;
   margin: 0 auto;
 }
 
-/* Десктопная таблица */
+/* Ж’РµСЃРєС‚РѕРїРЅР°В¤ С‚Р°Р±Р»РёС†Р° */
 .detail-table {
   width: 100%;
   border-collapse: collapse;
@@ -627,7 +627,7 @@
   white-space: nowrap;
 }
 
-/* Мобильная верстка (вертикальная) */
+/* С›РѕР±РёР»СЊРЅР°В¤ РІРµСЂСЃС‚РєР° (РІРµСЂС‚РёРєР°Р»СЊРЅР°В¤) */
 .mobile-detail {
   display: flex;
   flex-direction: column;
@@ -654,7 +654,7 @@
   word-wrap: break-word;
 }
 
-/* Описание с форматированием (для обеих версий) */
+/* СњРїРёСЃР°РЅРёРµ СЃ С„РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµРј (РґР»В¤ РѕР±РµРёС… РІРµСЂСЃРёР№) */
 .detail-description {
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -666,23 +666,23 @@
   border-left: 3px solid #007bff;
 }
 
-/* Медиа-запросы */
+/* С›РµРґРёР°-Р·Р°РїСЂРѕСЃС‹ */
 @media (max-width: 768px) {
   .detail-container {
     padding: 1rem;
   }
   
-  /* Скрываем таблицу на мобильных */
+  /* вЂ”РєСЂС‹РІР°РµРј С‚Р°Р±Р»РёС†Сѓ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
   .detail-table {
     display: none;
   }
   
-  /* Показываем мобильную верстку */
+  /* С•РѕРєР°Р·С‹РІР°РµРј РјРѕР±РёР»СЊРЅСѓСЋ РІРµСЂСЃС‚РєСѓ */
   .mobile-detail {
     display: flex;
   }
   
-  /* Корректировка заголовка на мобильных */
+  /* В РѕСЂСЂРµРєС‚РёСЂРѕРІРєР° Р·Р°РіРѕР»РѕРІРєР° РЅР° РјРѕР±РёР»СЊРЅС‹С… */
   .detail-container h1 {
     font-size: 1.5rem;
     margin-bottom: 20px;
@@ -694,18 +694,18 @@
 }
 
 @media (min-width: 769px) {
-  /* На десктопе скрываем мобильную верстку */
+  /* РЊР° РґРµСЃРєС‚РѕРїРµ СЃРєСЂС‹РІР°РµРј РјРѕР±РёР»СЊРЅСѓСЋ РІРµСЂСЃС‚РєСѓ */
   .mobile-detail {
     display: none;
   }
   
-  /* Показываем таблицу */
+  /* С•РѕРєР°Р·С‹РІР°РµРј С‚Р°Р±Р»РёС†Сѓ */
   .detail-table {
     display: table;
   }
 }
 
-/* Для очень маленьких экранов */
+/* Ж’Р»В¤ РѕС‡РµРЅСЊ РјР°Р»РµРЅСЊРєРёС… СЌРєСЂР°РЅРѕРІ */
 @media (max-width: 480px) {
   .detail-container {
     padding: 0.8rem;
@@ -724,9 +724,9 @@
   }
 }
 
-/* Добавить в App.css */
+/* Ж’РѕР±Р°РІРёС‚СЊ РІ App.css */
 
-/* ===== СТИЛИ ДЛЯ ДЕТАЛЬНОГО ПРОСМОТРА ===== */
+/* ===== вЂ”вЂњВ»Р‹В» Ж’Р‹СЏ Ж’в‰€вЂњСР‹в„–РЊСњв€љСњ С•вЂ“СњвЂ”С›СњвЂњвЂ“С ===== */
 .detail-container {
   padding: 2rem;
   max-width: 1000px;
@@ -755,7 +755,7 @@
   font-size: 1.5rem;
 }
 
-/* Десктопная таблица */
+/* Ж’РµСЃРєС‚РѕРїРЅР°В¤ С‚Р°Р±Р»РёС†Р° */
 .detail-table {
   width: 100%;
   border-collapse: collapse;
@@ -776,12 +776,12 @@
   vertical-align: top;
 }
 
-/* Мобильная версия (скрыта на десктопе) */
+/* С›РѕР±РёР»СЊРЅР°В¤ РІРµСЂСЃРёВ¤ (СЃРєСЂС‹С‚Р° РЅР° РґРµСЃРєС‚РѕРїРµ) */
 .mobile-detail {
   display: none;
 }
 
-/* Медиа-запрос для мобильных */
+/* С›РµРґРёР°-Р·Р°РїСЂРѕСЃ РґР»В¤ РјРѕР±РёР»СЊРЅС‹С… */
 @media (max-width: 768px) {
   .detail-container {
     padding: 1rem;
@@ -826,7 +826,7 @@
   }
 }
 
-/* Общие стили */
+/* СњР±С‰РёРµ СЃС‚РёР»Рё */
 .description-text {
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -863,7 +863,7 @@
   font-weight: 500;
 }
 
-/* Стили для взаимоотношений */
+/* вЂ”С‚РёР»Рё РґР»В¤ РІР·Р°РёРјРѕРѕС‚РЅРѕС€РµРЅРёР№ */
 .relationships-section {
   margin-top: 30px;
 }
@@ -902,7 +902,7 @@
   padding-left: 20px;
 }
 
-/* Разделитель */
+/* вЂ“Р°Р·РґРµР»РёС‚РµР»СЊ */
 .separator {
   margin: 30px 0;
 }
@@ -912,7 +912,7 @@
   font-size: 0.9rem;
 }
 
-/* Мобильные адаптации для взаимоотношений */
+/* С›РѕР±РёР»СЊРЅС‹Рµ Р°РґР°РїС‚Р°С†РёРё РґР»В¤ РІР·Р°РёРјРѕРѕС‚РЅРѕС€РµРЅРёР№ */
 @media (max-width: 768px) {
   .relationship-card {
     padding: 10px;
@@ -927,53 +927,53 @@
   }
 }
 
-/* Добавить/обновить в App.css */
+/* Ж’РѕР±Р°РІРёС‚СЊ/РѕР±РЅРѕРІРёС‚СЊ РІ App.css */
 
-/* Общие стили для значений на десктопе */
+/* СњР±С‰РёРµ СЃС‚РёР»Рё РґР»В¤ Р·РЅР°С‡РµРЅРёР№ РЅР° РґРµСЃРєС‚РѕРїРµ */
 .detail-value {
   padding: 5px;
   vertical-align: top;
-  background-color: #f0f8ff;  /* светло-голубой фон */
+  background-color: #f0f8ff;  /* СЃРІРµС‚Р»Рѕ-РіРѕР»СѓР±РѕР№ С„РѕРЅ */
   border-radius: 4px;
 }
 
-/* Специально для описания */
+/* вЂ”РїРµС†РёР°Р»СЊРЅРѕ РґР»В¤ РѕРїРёСЃР°РЅРёВ¤ */
 .description-text {
   white-space: pre-wrap;
   word-wrap: break-word;
   line-height: 1.6;
-  background-color: #f0f8ff;  /* такой же голубой фон */
+  background-color: #f0f8ff;  /* С‚Р°РєРѕР№ Р¶Рµ РіРѕР»СѓР±РѕР№ С„РѕРЅ */
   padding: 8px;
   border-radius: 4px;
 }
 
-/* Для мобильной версии */
+/* Ж’Р»В¤ РјРѕР±РёР»СЊРЅРѕР№ РІРµСЂСЃРёРё */
 .mobile-detail-value {
   font-size: 1rem;
   line-height: 1.5;
   word-wrap: break-word;
-  background-color: #f0f8ff;  /* такой же голубой фон */
+  background-color: #f0f8ff;  /* С‚Р°РєРѕР№ Р¶Рµ РіРѕР»СѓР±РѕР№ С„РѕРЅ */
   padding: 6px 8px;
   border-radius: 4px;
 }
 
-/* Если есть отдельные ячейки в таблице, которым нужен фон */
+/* в‰€СЃР»Рё РµСЃС‚СЊ РѕС‚РґРµР»СЊРЅС‹Рµ В¤С‡РµР№РєРё РІ С‚Р°Р±Р»РёС†Рµ, РєРѕС‚РѕСЂС‹Рј РЅСѓР¶РµРЅ С„РѕРЅ */
 .detail-table td:not(:first-child) {
   background-color: #f0f8ff;
   border-radius: 4px;
 }
 
-/* Для пустых значений оставляем без фона или с очень светлым */
+/* Ж’Р»В¤ РїСѓСЃС‚С‹С… Р·РЅР°С‡РµРЅРёР№ РѕСЃС‚Р°РІР»В¤РµРј Р±РµР· С„РѕРЅР° РёР»Рё СЃ РѕС‡РµРЅСЊ СЃРІРµС‚Р»С‹Рј */
 .empty-value {
   color: #999;
-  background-color: transparent;  /* без фона для пустых значений */
+  background-color: transparent;  /* Р±РµР· С„РѕРЅР° РґР»В¤ РїСѓСЃС‚С‹С… Р·РЅР°С‡РµРЅРёР№ */
 }
 
-/* Для списков внутри значений */
+/* Ж’Р»В¤ СЃРїРёСЃРєРѕРІ РІРЅСѓС‚СЂРё Р·РЅР°С‡РµРЅРёР№ */
 .detail-list {
   margin: 0;
   padding-left: 20px;
-  background-color: #f0f8ff;  /* фон для всего списка */
+  background-color: #f0f8ff;  /* С„РѕРЅ РґР»В¤ РІСЃРµРіРѕ СЃРїРёСЃРєР° */
   padding: 8px;
   border-radius: 4px;
 }
@@ -982,27 +982,27 @@
   margin-bottom: 4px;
 }
 
-/* Для кода/бейджей внутри значений */
+/* Ж’Р»В¤ РєРѕРґР°/Р±РµР№РґР¶РµР№ РІРЅСѓС‚СЂРё Р·РЅР°С‡РµРЅРёР№ */
 .code-badge, .system-badge, .type-badge {
   color: #666;
   font-size: 0.9em;
-  background-color: transparent;  /* прозрачный фон внутри голубого */
+  background-color: transparent;  /* РїСЂРѕР·СЂР°С‡РЅС‹Р№ С„РѕРЅ РІРЅСѓС‚СЂРё РіРѕР»СѓР±РѕРіРѕ */
 }
 
-/* Для ячеек таблицы на десктопе */
+/* Ж’Р»В¤ В¤С‡РµРµРє С‚Р°Р±Р»РёС†С‹ РЅР° РґРµСЃРєС‚РѕРїРµ */
 .detail-table td {
   padding: 5px;
   vertical-align: top;
 }
 
-/* Первая колонка (заголовки) без фона */
+/* С•РµСЂРІР°В¤ РєРѕР»РѕРЅРєР° (Р·Р°РіРѕР»РѕРІРєРё) Р±РµР· С„РѕРЅР° */
 .detail-table td:first-child {
   font-weight: bold;
   width: 150px;
-  background-color: transparent;  /* без фона для заголовков */
+  background-color: transparent;  /* Р±РµР· С„РѕРЅР° РґР»В¤ Р·Р°РіРѕР»РѕРІРєРѕРІ */
 }
 
-/* Для ссылок внутри значений оставляем стандартный цвет */
+/* Ж’Р»В¤ СЃСЃС‹Р»РѕРє РІРЅСѓС‚СЂРё Р·РЅР°С‡РµРЅРёР№ РѕСЃС‚Р°РІР»В¤РµРј СЃС‚Р°РЅРґР°СЂС‚РЅС‹Р№ С†РІРµС‚ */
 .link-text {
   text-decoration: none;
   color: #1976d2;
@@ -1010,7 +1010,7 @@
   align-items: center;
 }
 
-/* Для мобильной версии поля */
+/* Ж’Р»В¤ РјРѕР±РёР»СЊРЅРѕР№ РІРµСЂСЃРёРё РїРѕР»В¤ */
 .mobile-detail-item {
   display: flex;
   flex-direction: column;
@@ -1019,7 +1019,7 @@
   border-bottom: 1px solid #eee;
 }
 
-/* Заголовки на мобильных без фона */
+/* В«Р°РіРѕР»РѕРІРєРё РЅР° РјРѕР±РёР»СЊРЅС‹С… Р±РµР· С„РѕРЅР° */
 .mobile-detail-label {
   font-weight: bold;
   font-size: 0.9rem;
@@ -1027,7 +1027,7 @@
   background-color: transparent;
 }
 
-/* Для списков на мобильных */
+/* Ж’Р»В¤ СЃРїРёСЃРєРѕРІ РЅР° РјРѕР±РёР»СЊРЅС‹С… */
 .mobile-detail-value .detail-list {
   margin: 0;
   padding: 6px 8px;
@@ -1035,30 +1035,30 @@
   border-radius: 4px;
 }
 
-/* Для элементов списка на мобильных */
+/* Ж’Р»В¤ СЌР»РµРјРµРЅС‚РѕРІ СЃРїРёСЃРєР° РЅР° РјРѕР±РёР»СЊРЅС‹С… */
 .mobile-detail-value ul {
   margin: 0;
   padding-left: 20px;
 }
 
-/* Для лучшего вида добавим небольшой отступ между ячейками */
+/* Ж’Р»В¤ Р»СѓС‡С€РµРіРѕ РІРёРґР° РґРѕР±Р°РІРёРј РЅРµР±РѕР»СЊС€РѕР№ РѕС‚СЃС‚СѓРї РјРµР¶РґСѓ В¤С‡РµР№РєР°РјРё */
 .detail-table td:not(:first-child) {
   padding-left: 10px;
 }
 
-/* Для hover эффекта (опционально) */
+/* Ж’Р»В¤ hover СЌС„С„РµРєС‚Р° (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ) */
 .detail-value:hover,
 .mobile-detail-value:hover,
 .description-text:hover,
 .detail-table td:not(:first-child):hover {
-  background-color: #e6f3ff;  /* чуть темнее при наведении */
+  background-color: #e6f3ff;  /* С‡СѓС‚СЊ С‚РµРјРЅРµРµ РїСЂРё РЅР°РІРµРґРµРЅРёРё */
   transition: background-color 0.2s ease;
 }
 
-/* Десктопная таблица с отступами между строками */
+/* Ж’РµСЃРєС‚РѕРїРЅР°В¤ С‚Р°Р±Р»РёС†Р° СЃ РѕС‚СЃС‚СѓРїР°РјРё РјРµР¶РґСѓ СЃС‚СЂРѕРєР°РјРё */
 .detail-table {
   border-collapse: separate;
-  border-spacing: 0 4px;  /* 4px белого фона между строками */
+  border-spacing: 0 4px;  /* 4px Р±РµР»РѕРіРѕ С„РѕРЅР° РјРµР¶РґСѓ СЃС‚СЂРѕРєР°РјРё */
   width: 100%;
 }
 
@@ -1080,14 +1080,14 @@
   padding-left: 12px;
 }
 
-/* Эффект при наведении */
+/* РЃС„С„РµРєС‚ РїСЂРё РЅР°РІРµРґРµРЅРёРё */
 .detail-table tr:hover td:not(:first-child) {
   background-color: #e6f3ff;
 }
 
-/* Добавить в App.css */
+/* Ж’РѕР±Р°РІРёС‚СЊ РІ App.css */
 
-/* Карточка захода */
+/* В Р°СЂС‚РѕС‡РєР° Р·Р°С…РѕРґР° */
 .entry-card {
   border: 1px solid #dee2e6;
   border-radius: 8px;
@@ -1217,7 +1217,7 @@
   opacity: 0.6;
 }
 
-/* Мобильные стили для карточек заходов */
+/* С›РѕР±РёР»СЊРЅС‹Рµ СЃС‚РёР»Рё РґР»В¤ РєР°СЂС‚РѕС‡РµРє Р·Р°С…РѕРґРѕРІ */
 @media (max-width: 768px) {
   .entry-card {
     padding: 12px;
@@ -1273,9 +1273,9 @@
 }
 
 
-/* ===== “Ќ€‚…ђ‘Ђ‹њЌ›… ‘’€‹€ „‹џ ЉЂђ’Ћ—…Љ ‘Џ€‘ЉЋ‚ ===== */
+/* ===== РЈРќРР’Р•Р РЎРђР›Р¬РќР«Р• РЎРўРР›Р Р”Р›РЇ РљРђР РўРћР§Р•Рљ РЎРџРРЎРљРћР’ ===== */
 
-/* ЃазоваЯ карточка длЯ любой сущности */
+/* Р‘Р°Р·РѕРІР°СЏ РєР°СЂС‚РѕС‡РєР° РґР»СЏ Р»СЋР±РѕР№ СЃСѓС‰РЅРѕСЃС‚Рё */
 .entity-card {
   border: 1px solid #dee2e6;
   border-radius: 8px;
@@ -1293,7 +1293,7 @@
   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-/* апка карточки (заголовок + кнопки) */
+/* РЁР°РїРєР° РєР°СЂС‚РѕС‡РєРё (Р·Р°РіРѕР»РѕРІРѕРє + РєРЅРѕРїРєРё) */
 .entity-card-header {
   display: flex;
   justify-content: space-between;
@@ -1305,7 +1305,7 @@
 
 .entity-card-title-section {
   flex: 1;
-  min-width: 0; /* ЏозволЯет тексту переноситьсЯ */
+  min-width: 0; /* РџРѕР·РІРѕР»СЏРµС‚ С‚РµРєСЃС‚Сѓ РїРµСЂРµРЅРѕСЃРёС‚СЊСЃСЏ */
 }
 
 .entity-card-title {
@@ -1323,7 +1323,7 @@
   text-decoration: underline;
 }
 
-/* Љонтейнер длЯ бейджей/тегов */
+/* РљРѕРЅС‚РµР№РЅРµСЂ РґР»СЏ Р±РµР№РґР¶РµР№/С‚РµРіРѕРІ */
 .entity-card-badges {
   display: flex;
   flex-wrap: wrap;
@@ -1331,7 +1331,7 @@
   margin-top: 5px;
 }
 
-/* Ѓазовый бейдж */
+/* Р‘Р°Р·РѕРІС‹Р№ Р±РµР№РґР¶ */
 .entity-badge {
   display: inline-block;
   padding: 2px 8px;
@@ -1342,7 +1342,7 @@
   max-width: 100%;
 }
 
-/* ‚арианты цветов бейджей (можно использовать по необходимости) */
+/* Р’Р°СЂРёР°РЅС‚С‹ С†РІРµС‚РѕРІ Р±РµР№РґР¶РµР№ (РјРѕР¶РЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїРѕ РЅРµРѕР±С…РѕРґРёРјРѕСЃС‚Рё) */
 .badge-primary {
   background-color: #e3f2fd;
   color: #007bff;
@@ -1368,7 +1368,7 @@
   color: #17a2b8;
 }
 
-/* Љнопки действий */
+/* РљРЅРѕРїРєРё РґРµР№СЃС‚РІРёР№ */
 .entity-card-actions {
   display: flex;
   gap: 5px;
@@ -1401,7 +1401,7 @@
   color: white;
 }
 
-/* Ћписание в карточке */
+/* РћРїРёСЃР°РЅРёРµ РІ РєР°СЂС‚РѕС‡РєРµ */
 .entity-card-description {
   font-size: 14px;
   color: #495057;
@@ -1410,7 +1410,7 @@
   word-wrap: break-word;
 }
 
-/* „ополнительнаЯ информациЯ (дата и т.д.) */
+/* Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ (РґР°С‚Р° Рё С‚.Рґ.) */
 .entity-card-meta {
   font-size: 12px;
   color: #6c757d;
@@ -1419,7 +1419,7 @@
   border-bottom: 1px solid #f0f0f0;
 }
 
-/* Љнопки перемещениЯ */
+/* РљРЅРѕРїРєРё РїРµСЂРµРјРµС‰РµРЅРёСЏ */
 .entity-move-buttons {
   display: flex;
   justify-content: flex-end;
@@ -1457,7 +1457,7 @@
   opacity: 0.6;
 }
 
-/* ===== ЊЋЃ€‹њЌЂџ Ђ„ЂЏ’Ђ–€џ „‹џ ЉЂђ’Ћ—…Љ ===== */
+/* ===== РњРћР‘РР›Р¬РќРђРЇ РђР”РђРџРўРђР¦РРЇ Р”Р›РЇ РљРђР РўРћР§Р•Рљ ===== */
 @media (max-width: 768px) {
   .entity-card {
     padding: 12px;
@@ -1521,7 +1521,7 @@
   }
 }
 
-/* „лЯ очень маленьких экранов - скрываем текст на кнопках перемещениЯ */
+/* Р”Р»СЏ РѕС‡РµРЅСЊ РјР°Р»РµРЅСЊРєРёС… СЌРєСЂР°РЅРѕРІ - СЃРєСЂС‹РІР°РµРј С‚РµРєСЃС‚ РЅР° РєРЅРѕРїРєР°С… РїРµСЂРµРјРµС‰РµРЅРёСЏ */
 @media (max-width: 360px) {
   .entity-move-btn span {
     display: none;
@@ -1531,4 +1531,87 @@
     min-width: 40px;
     padding: 4px 6px;
   }
+}
+
+/* Sidebar СЃС‚РёР»Рё */
+.sidebar-section-title {
+  font-size: 14px;
+  color: #228b14;
+  margin-bottom: 10px;
+}
+
+.sidebar-menu-list {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar-menu-item {
+  margin-bottom: 8px;
+}
+
+.sidebar-menu-link {
+  display: flex;
+  align-items: center;
+  color: #495057;
+  text-decoration: none;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.sidebar-menu-link:hover {
+  background-color: #f0f0f0;
+  color: #007bff;
+}
+
+.sidebar-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sidebar-menu-header:hover {
+  background-color: #f0f0f0;
+}
+
+.sidebar-chevron {
+  color: #6c757d;
+}
+
+.sidebar-submenu {
+  margin-top: 5px;
+  margin-left: 20px;
+  border-left: 2px solid #dee2e6;
+  padding-left: 10px;
+}
+
+.sidebar-submenu-list {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar-submenu-item {
+  margin-bottom: 5px;
+}
+
+.sidebar-submenu-link {
+  display: flex;
+  align-items: center;
+  color: #495057;
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.sidebar-submenu-link:hover {
+  background-color: #f0f0f0;
+  color: #007bff;
+}
+
+.sidebar-submenu-link.active {
+  color: #007bff;
+  background-color: #e3f2fd;
 }

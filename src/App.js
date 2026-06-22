@@ -52,6 +52,11 @@ import EntriesPage from './EntriesPage';
 import EntryDetail from './EntryDetail';
 import EntryEdit from './EntryEditPage';
 
+// Импорт страниц про Полезности
+import UsefulnessPage from './UsefulnessPage';
+import UsefulnessDetail from './UsefulnessDetail';
+import UsefulnessEditPage from './UsefulnessEditPage';
+
 import './App.css';   //стили
 
 // Тестовые - потом можно удалить
@@ -116,6 +121,10 @@ function App() {
             <Route path="/entries" element={<EntriesPage />} />
             <Route path="/entry/:id" element={<EntryDetail />} />
             <Route path="/entry/:id/edit" element={<EntryEdit />} />
+
+            <Route path="/usefulness" element={<UsefulnessPage />} />
+            <Route path="/usefulness/:id" element={<UsefulnessDetail />} />
+            <Route path="/usefulness/:id/edit" element={<UsefulnessEditPage />} />
             
             <Route path="/all-media" element={<AllMediaPage />} />	
             <Route path="/environment-info" element={<EnvironmentInfoPage />} />

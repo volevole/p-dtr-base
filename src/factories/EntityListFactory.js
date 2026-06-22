@@ -236,7 +236,7 @@ export function createEntityList({
         <div style={styles.list}>
           {filteredItems.length === 0 ? (
             <div style={styles.empty}>
-              <p>Нет {entityName.toLowerCase()}ов</p>
+              <p>Нет ничего из {entityName}</p>
               <button onClick={handleAdd} style={styles.addButton}>
                 <FaPlus /> Добавить первый {entityName.toLowerCase()}
               </button>

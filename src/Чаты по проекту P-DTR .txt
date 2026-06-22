@@ -29,13 +29,14 @@ git push origin feature/migrate-to-regru-local-db  Отправьте измен
 ssh root@194.226.165.244
 cd /var/www/muscule-app			Перейдите в папку проекта 
 git pull origin feature/migrate-to-regru-local-db  и обновите код
+git log --oneline -5    Посмотрите последние коммиты
+git show --stat      # Посмотрите, какие файлы были изменены в последнем коммите
 npm run build  Пересоберите фронтенд
 pm2 restart muscule-app Перезапустите бэкенд
 systemctl restart nodejs  или так, если ещё не был запущен бэкенд 
 systemctl restart nginx   перезапус  nginx
 pm2 status Проверьте, что сервер запустился
-git log --oneline -5    Посмотрите последние коммиты
-git show --stat      # Посмотрите, какие файлы были изменены в последнем коммите
+
 
 Быстрая проверка после деплоя
 curl -I http://194.226.165.244   # Проверьте, что фронтенд доступен
