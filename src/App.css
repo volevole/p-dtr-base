@@ -1,38 +1,43 @@
 /* ============================================================
-   App.css — Ларчик P-DTR
-   Структура:
-   1. Базовые стили
-   2. Формы и элементы управления
-   3. Сайдбар и навигация
-   4. Карточки сущностей (универсальные)
-   5. Детальный просмотр
-   6. Медиафайлы
-   7. Адаптив (мобильные/планшеты)
+   App.css — Ларчик P-DTR (очищено от дублей)
    ============================================================ */
 
 /* ===== 1. БАЗОВЫЕ СТИЛИ ===== */
-* {
-  box-sizing: border-box;
-}
-
-html, body, #root {
-  max-width: 100vw;
-  overflow-x: hidden;
-  margin: 0;
-  padding: 0;
-}
-
 .App {
   text-align: center;
 }
 
-/* ===== 2. ФОРМЫ И ЭЛЕМЕНТЫ УПРАВЛЕНИЯ ===== */
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+.App-link { color: #61dafb; }
+@keyframes App-logo-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== 2. ФОРМЫ ===== */
 .muscle-form {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
 }
-
 .form-section {
   margin-bottom: 20px;
 }
@@ -70,13 +75,8 @@ html, body, #root {
   margin-bottom: 8px;
   padding: 4px;
 }
-.multi-select-item input {
-  margin-right: 8px;
-}
-.multi-select-item label {
-  margin-left: 8px;
-  flex-grow: 1;
-}
+.multi-select-item input { margin-right: 8px; }
+.multi-select-item label { margin-left: 8px; flex-grow: 1; }
 
 .function-note-input {
   margin-left: 10px;
@@ -99,11 +99,8 @@ html, body, #root {
   border-radius: 4px;
   cursor: pointer;
 }
-.save-button:hover {
-  background-color: #45a049;
-}
+.save-button:hover { background-color: #45a049; }
 
-/* Кнопки действий (общие) */
 .action-btn {
   display: inline-flex;
   align-items: center;
@@ -130,13 +127,12 @@ html, body, #root {
   align-items: center;
 }
 
-/* ===== 3. САЙДБАР И НАВИГАЦИЯ ===== */
+/* ===== 3. САЙДБАР ===== */
 .app-container {
   display: flex;
   min-height: 100vh;
   position: relative;
 }
-
 .main-content {
   flex: 1;
   margin-left: 250px;
@@ -145,7 +141,6 @@ html, body, #root {
   width: calc(100% - 250px);
   box-sizing: border-box;
 }
-
 .sidebar {
   width: 250px;
   background-color: #f8f9fa;
@@ -160,13 +155,11 @@ html, body, #root {
   transition: transform 0.3s ease;
   box-shadow: 2px 0 5px rgba(0,0,0,0.05);
 }
-
 .sidebar-section-title {
   font-size: 14px;
   color: #228b14;
   margin-bottom: 10px;
 }
-
 .sidebar-menu-list { list-style: none; padding: 0; }
 .sidebar-menu-item { margin-bottom: 8px; }
 
@@ -191,10 +184,7 @@ html, body, #root {
   border-radius: 4px;
   cursor: pointer;
 }
-.sidebar-menu-header:hover {
-  background-color: #f0f0f0;
-}
-
+.sidebar-menu-header:hover { background-color: #f0f0f0; }
 .sidebar-chevron { color: #6c757d; }
 
 .sidebar-submenu {
@@ -224,7 +214,6 @@ html, body, #root {
   background-color: #e3f2fd;
 }
 
-/* Кнопка гамбургер */
 .menu-toggle {
   display: none;
   position: fixed;
@@ -267,7 +256,7 @@ html, body, #root {
   to { opacity: 1; }
 }
 
-/* ===== 4. КАРТОЧКИ СУЩНОСТЕЙ (универсальные) ===== */
+/* ===== 4. КАРТОЧКИ (универсальные) ===== */
 .entity-card {
   border: 1px solid #dee2e6;
   border-radius: 8px;
@@ -280,9 +269,7 @@ html, body, #root {
   box-sizing: border-box;
   overflow: hidden;
 }
-.entity-card:hover {
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
+.entity-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.15); }
 
 .entity-card-header {
   display: flex;
@@ -292,10 +279,7 @@ html, body, #root {
   flex-wrap: wrap;
   gap: 10px;
 }
-.entity-card-title-section {
-  flex: 1;
-  min-width: 0;
-}
+.entity-card-title-section { flex: 1; min-width: 0; }
 .entity-card-title {
   margin: 0 0 5px 0;
   font-size: 1.1rem;
@@ -305,9 +289,7 @@ html, body, #root {
   color: #007bff;
   text-decoration: none;
 }
-.entity-card-title a:hover {
-  text-decoration: underline;
-}
+.entity-card-title a:hover { text-decoration: underline; }
 
 .entity-card-badges {
   display: flex;
@@ -406,7 +388,7 @@ html, body, #root {
   opacity: 0.6;
 }
 
-/* Список карточек (сетка) */
+/* Список карточек (сетка) — КАК БЫЛО РАНЬШЕ */
 .entity-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
@@ -420,9 +402,6 @@ html, body, #root {
 }
 
 /* Карточка заходов (наследует entity-card) */
-.entry-card {
-  /* стили наследуются от .entity-card + уникальные ниже */
-}
 .entry-card-inactive {
   display: inline-block;
   background-color: #dc3545;
@@ -519,7 +498,6 @@ html, body, #root {
   border-radius: 4px;
 }
 
-/* Описание с форматированием */
 .description-text {
   white-space: pre-wrap;
   word-wrap: break-word;
@@ -538,7 +516,6 @@ html, body, #root {
   border-left: 3px solid #007bff;
 }
 
-/* Взаимоотношения */
 .relationships-section { margin-top: 30px; }
 .relationship-card {
   border: 1px solid #ddd;
@@ -555,7 +532,7 @@ html, body, #root {
 .separator { margin: 30px 0; }
 .detail-id { color: #666; font-size: 0.9rem; }
 
-/* ===== 6. МЕДИАФАЙЛЫ ===== */
+/* ===== 6. МЕДИА ===== */
 .media-list { margin-top: 20px; }
 .media-item {
   position: relative;
@@ -569,7 +546,7 @@ html, body, #root {
 
 /* ===== 7. АДАПТИВ ===== */
 
-/* Планшеты (768–1024px) */
+/* Планшеты */
 @media (min-width: 768px) and (max-width: 1024px) {
   .main-content {
     margin-left: 200px;
@@ -582,7 +559,7 @@ html, body, #root {
   .entity-list { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 0.8rem; }
 }
 
-/* Телефоны (≤768px) */
+/* Телефоны (≤768px) — КАК БЫЛО РАНЬШЕ, БЕЗ АГРЕССИВНЫХ ФИКСОВ */
 @media (max-width: 768px) {
   .main-content {
     margin-left: 0;
@@ -604,13 +581,41 @@ html, body, #root {
 
   .muscle-form { padding: 10px; }
   .multi-select-container { grid-template-columns: 1fr; }
+  .action-btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    height: 25px;
+    min-width: 25px;
+  }
 
+  .detail-container { padding: 1rem; }
+  .detail-title { font-size: 1.5rem; }
+  .detail-subtitle { font-size: 1rem; }
+  .detail-table { display: none; }
+  .mobile-detail { display: flex; }
+  .relationship-card { padding: 10px; }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -15px;
+    padding: 0 15px;
+  }
+  .table-responsive table { min-width: 900px; }
+
+  /* ===== КАРТОЧКИ НА ТЕЛЕФОНЕ (как было раньше) ===== */
   .entity-list {
     grid-template-columns: 1fr !important;
     gap: 0.6rem;
     padding: 0 5px;
   }
-  .entity-card, .entry-card {
+  .entity-card,
+  .entry-card {
     padding: 12px !important;
   }
   .entity-card-header,
@@ -632,11 +637,6 @@ html, body, #root {
   .entry-card-description {
     font-size: 13px;
     line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .entity-move-btn,
   .entry-card-move-btn {
@@ -647,39 +647,6 @@ html, body, #root {
   .entity-badge {
     font-size: 10px;
     padding: 2px 6px;
-  }
-
-  /* Детали */
-  .detail-container { padding: 1rem; }
-  .detail-title { font-size: 1.5rem; }
-  .detail-subtitle { font-size: 1rem; }
-  .detail-table { display: none; }
-  .mobile-detail { display: flex; }
-  .relationship-card { padding: 10px; }
-
-  /* Таблицы */
-  table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-  .table-responsive {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    margin: 0 -15px;
-    padding: 0 15px;
-  }
-  .table-responsive table { min-width: 900px; }
-  .table-responsive::-webkit-scrollbar { height: 6px; }
-  .table-responsive::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
-  .table-responsive::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
-  .table-responsive::-webkit-scrollbar-thumb:hover { background: #555; }
-
-  .action-btn {
-    padding: 0.2rem 0.4rem;
-    font-size: 0.8rem;
-    height: 25px;
-    min-width: 25px;
   }
 }
 
@@ -699,32 +666,30 @@ html, body, #root {
     padding: 6px;
     font-size: 16px;
   }
-
   .action-btn {
     margin-left: 0.3rem;
     padding: 0.15rem 0.3rem;
     font-size: 0.75rem;
   }
-
   button, .action-btn, .menu-toggle {
     min-height: 44px;
     min-width: 44px;
   }
 
-  .entry-card, .entity-card { padding: 10px !important; }
-  .entity-card-actions, .entry-card-actions { gap: 3px; }
-  .entity-action-btn, .entry-card-action-btn { padding: 4px 6px; }
-  .entity-move-btn, .entry-card-move-btn {
+  .entity-card,
+  .entry-card { padding: 10px !important; }
+  .entity-card-actions,
+  .entry-card-actions { gap: 3px; }
+  .entity-action-btn,
+  .entry-card-action-btn { padding: 4px 6px; }
+  .entity-move-btn,
+  .entry-card-move-btn {
     min-width: 40px !important;
     padding: 3px 6px !important;
     font-size: 10px !important;
   }
-  .entity-move-btn span, .entry-card-move-btn span { display: none; }
-
-  .entity-list .entity-card-title,
-  .entity-list .entry-card-title { font-size: 0.85rem; }
-  .entity-list .entity-card-description,
-  .entity-list .entry-card-description { font-size: 12px; }
+  .entity-move-btn span,
+  .entry-card-move-btn span { display: none; }
 
   .detail-container { padding: 0.8rem; }
   .mobile-detail-item { padding: 6px 0; }
@@ -732,14 +697,14 @@ html, body, #root {
   .mobile-detail-value { font-size: 0.95rem; }
 }
 
-/* Ландшафтная ориентация на телефонах */
+/* Ландшафтная ориентация */
 @media (max-width: 768px) and (orientation: landscape) {
   .sidebar { width: 300px; }
   .main-content { padding-top: 60px; }
   .sidebar ul { max-height: 80vh; overflow-y: auto; }
 }
 
-/* Тёмная тема (опционально) */
+/* Тёмная тема */
 @media (prefers-color-scheme: dark) {
   .sidebar {
     background-color: #2d2d2d;
