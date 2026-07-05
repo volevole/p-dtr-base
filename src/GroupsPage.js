@@ -15,6 +15,7 @@ import './App.css';
 function GroupsPage() {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [networkError, setNetworkError] = useState(false); // 👈 НОВОЕ СОСТОЯНИЕ
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,7 +25,15 @@ function GroupsPage() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
+      setNetworkError(false); // Сбрасываем ошибку при новом запросе
+      
       const response = await fetch(`${API_URL}/api/groups`);
+      
+      // Проверяем HTTP статус
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
       
       if (result.success) {
@@ -35,6 +44,7 @@ function GroupsPage() {
       }
     } catch (error) {
       console.error('Ошибка загрузки групп:', error);
+      setNetworkError(true);
       setGroups([]);
     } finally {
       setLoading(false);
@@ -230,7 +240,12 @@ function GroupsPage() {
     );
   };
 
-  if (loading) return <div className="detail-container">Загрузка...</div>;
+  // === РЕНДЕРИНГ ===
+
+  // Показываем загрузку
+  if (loading) {
+    return <div className="detail-container">Загрузка...</div>;
+  }
 
   const stats = {
     total: groups.length,
@@ -244,21 +259,98 @@ function GroupsPage() {
   ];
 
   return (
-    <EntityList
-      entities={groups}
-      entityType="group"
-      entityName="Группы мышц"
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-      onAdd={handleAdd}
-      onCopy={handleCopy}
-      onMove={handleMove}
-      stats={stats}
-      columns={columns}
-      searchPlaceholder="Поиск по названию группы..."
-      renderCard={renderGroupCard}
-      defaultSort="display_order"
-    />
+    <>
+      {/* ОШИБКА СЕТИ */}
+      {networkError && (
+        <div style={{
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '20px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          border: '1px solid #f5c6cb',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>📡</div>
+          <h3 style={{ margin: '0 0 10px 0' }}>Связь с сервером потеряна</h3>
+          <p style={{ margin: '0 0 5px 0' }}>
+            Не удалось загрузить данные. Проверьте подключение к интернету.
+          </p>
+          <p style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#856404' }}>
+            💡 Если интернет есть, возможно сервер временно недоступен.
+            <br />
+            Проверьте доступность сервера по ссылке ниже:
+          </p>
+
+          <div style={{
+            backgroundColor: '#fff',
+            padding: '10px 15px',
+            borderRadius: '6px',
+            display: 'inline-block',
+            marginBottom: '15px',
+            border: '1px solid #f5c6cb'
+          }}>
+            <a
+              href={`${API_URL}/api/media/supported-entities`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#0056b3',
+                textDecoration: 'none',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                wordBreak: 'break-all'
+              }}
+              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+            >
+              🔗 Проверить сервер
+            </a>
+            <span style={{ fontSize: '12px', color: '#666', display: 'block', marginTop: '4px' }}>
+              {API_URL}/api/media/supported-entities
+            </span>
+          </div>
+
+          <div style={{ marginTop: '15px' }}>
+            <button
+              onClick={fetchGroups}
+              style={{
+                padding: '10px 25px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#0056b3'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#007bff'}
+            >
+              🔄 Повторить попытку
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ОСНОВНОЙ КОНТЕНТ — только если нет ошибки сети */}
+      {!networkError && (
+        <EntityList
+          entities={groups}
+          entityType="group"
+          entityName="Группы мышц"
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAdd={handleAdd}
+          onCopy={handleCopy}
+          onMove={handleMove}
+          stats={stats}
+          columns={columns}
+          searchPlaceholder="Поиск по названию группы..."
+          renderCard={renderGroupCard}
+          defaultSort="display_order"
+        />
+      )}
+    </>
   );
 }
 

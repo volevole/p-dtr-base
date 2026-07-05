@@ -1615,3 +1615,208 @@
   color: #007bff;
   background-color: #e3f2fd;
 }
+
+/* ===== АДАПТИВНЫЙ СПИСОК КАРТОЧЕК (ДЛЯ ФАБРИКИ) ===== */
+
+/* Контейнер списка */
+.entity-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Карточка в списке */
+.entity-list .entity-card,
+.entity-list .entry-card {
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-width: 0; /* Важно для предотвращения переполнения */
+}
+
+/* ===== АДАПТИВ ДЛЯ ПЛАНШЕТОВ ===== */
+@media (max-width: 1024px) {
+  .entity-list {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 0.8rem;
+  }
+}
+
+/* ===== АДАПТИВ ДЛЯ МОБИЛЬНЫХ ===== */
+@media (max-width: 768px) {
+  .entity-list {
+    grid-template-columns: 1fr; /* Одна колонка на телефонах */
+    gap: 0.6rem;
+    padding: 0 5px;
+  }
+  
+  .entity-list .entity-card,
+  .entity-list .entry-card {
+    padding: 12px;
+    margin-bottom: 0;
+  }
+  
+  /* Заголовок карточки на мобильных */
+  .entity-list .entity-card-header,
+  .entity-list .entry-card-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  /* Кнопки действий на мобильных */
+  .entity-list .entity-card-actions,
+  .entity-list .entry-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  /* Название на мобильных */
+  .entity-list .entity-card-title,
+  .entity-list .entry-card-title {
+    font-size: 0.95rem;
+    word-break: break-word;
+  }
+  
+  /* Описание на мобильных */
+  .entity-list .entity-card-description,
+  .entity-list .entry-card-description {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  
+  /* Кнопки перемещения на мобильных */
+  .entity-list .entity-move-buttons,
+  .entity-list .entry-card-move-buttons {
+    gap: 5px;
+  }
+  
+  .entity-list .entity-move-btn,
+  .entity-list .entry-card-move-btn {
+    min-width: 50px;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  
+  /* Статистика на мобильных */
+  .entity-list-stats {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .entity-list-stats .stat-card {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* ===== ДЛЯ ОЧЕНЬ МАЛЕНЬКИХ ЭКРАНОВ (< 480px) ===== */
+@media (max-width: 480px) {
+  .entity-list {
+    gap: 0.5rem;
+    padding: 0 3px;
+  }
+  
+  .entity-list .entity-card,
+  .entity-list .entry-card {
+    padding: 10px;
+    border-radius: 6px;
+  }
+  
+  .entity-list .entity-card-title,
+  .entity-list .entry-card-title {
+    font-size: 0.85rem;
+  }
+  
+  .entity-list .entity-card-description,
+  .entity-list .entry-card-description {
+    font-size: 12px;
+  }
+  
+  .entity-list .entity-card-actions,
+  .entity-list .entry-card-actions {
+    gap: 3px;
+  }
+  
+  .entity-list .entity-action-btn,
+  .entity-list .entry-card-action-btn {
+    padding: 4px 6px;
+  }
+  
+  .entity-list .entity-move-btn,
+  .entity-list .entry-card-move-btn {
+    min-width: 40px;
+    padding: 3px 6px;
+    font-size: 10px;
+  }
+  
+  /* Скрываем текст на кнопках перемещения на очень маленьких экранах */
+  .entity-list .entity-move-btn span,
+  .entity-list .entry-card-move-btn span {
+    display: none;
+  }
+  
+  .entity-list .entity-move-btn,
+  .entity-list .entry-card-move-btn {
+    min-width: 32px;
+    padding: 3px 5px;
+  }
+  
+  /* Поиск на мобильных */
+  .entity-list-search {
+    width: 100%;
+  }
+  
+  .entity-list-search input {
+    width: 100% !important;
+    font-size: 16px !important; /* Предотвращает зум на iOS */
+  }
+  
+  /* Кнопка "Добавить" на мобильных */
+  .entity-list-add-btn {
+    width: 100%;
+    justify-content: center;
+    font-size: 14px;
+    padding: 10px;
+  }
+}
+
+/* ===== АДАПТАЦИЯ ХЕДЕРА СПИСКА ===== */
+@media (max-width: 768px) {
+  .entity-list-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+  }
+  
+  .entity-list-header h1 {
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  
+  .entity-list-header .search-box {
+    width: 100%;
+  }
+  
+  .entity-list-header .search-box input {
+    width: 100% !important;
+  }
+  
+  .entity-list-header .add-button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===== УЛУЧШЕННАЯ ЧИТАЕМОСТЬ НА МОБИЛЬНЫХ ===== */
+@media (max-width: 768px) {
+  .entity-list .entity-card-description,
+  .entity-list .entry-card-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

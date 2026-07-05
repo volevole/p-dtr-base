@@ -15,6 +15,7 @@ import './App.css';
 function MusclesPage() {
   const [muscles, setMuscles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [networkError, setNetworkError] = useState(false); // 👈 НОВОЕ СОСТОЯНИЕ
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,8 +26,17 @@ function MusclesPage() {
   const fetchMuscles = async () => {
     try {
       setLoading(true);
+      setNetworkError(false); // Сбрасываем ошибку при новом запросе
+      
       const response = await fetch(`${API_URL}/api/muscles`);
+      
+      // Проверяем HTTP статус
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const result = await response.json();
+      
       if (result.success) {
         setMuscles(result.data);
       } else {
@@ -35,6 +45,7 @@ function MusclesPage() {
       }
     } catch (error) {
       console.error('Ошибка загрузки мышц:', error);
+      setNetworkError(true);
       setMuscles([]);
     } finally {
       setLoading(false);
@@ -43,11 +54,10 @@ function MusclesPage() {
 
   // === УДАЛЕНИЕ ===
   const handleDelete = async (id) => {
-    // Находим мышцу по ID в текущем списке
-  const muscleToDelete = muscles.find(m => m.id === id);
-  const muscleName = muscleToDelete?.name_ru || 'эту мышцу';
+    const muscleToDelete = muscles.find(m => m.id === id);
+    const muscleName = muscleToDelete?.name_ru || 'эту мышцу';
 
-  if (!window.confirm(`Удалить мышцу "${muscleName}"?`)) return;
+    if (!window.confirm(`Удалить мышцу "${muscleName}"?`)) return;
 
     try {
       const response = await fetch(`${API_URL}/api/muscle/${id}`, {
@@ -66,7 +76,7 @@ function MusclesPage() {
     }
   };
 
-  // === РЕДАКТИРОВАНИЕ (перенаправление) ===
+  // === РЕДАКТИРОВАНИЕ ===
   const handleEdit = (id) => {
     navigate(`/muscle/${id}/edit`);
   };
@@ -101,7 +111,7 @@ function MusclesPage() {
       const result = await response.json();
 
       if (result.success) {
-        await fetchMuscles(); // обновляем список
+        await fetchMuscles();
         navigate(`/muscle/${result.id}/edit`);
       } else {
         throw new Error(result.error || 'Unknown error');
@@ -131,7 +141,6 @@ function MusclesPage() {
       display_order: index
     }));
 
-    // Оптимистичное обновление UI
     setMuscles(updatedMuscles);
 
     try {
@@ -147,12 +156,12 @@ function MusclesPage() {
       }
     } catch (error) {
       console.error('Ошибка сохранения порядка:', error);
-      await fetchMuscles(); // откат к серверному состоянию
+      await fetchMuscles();
       alert('Ошибка сохранения изменений: ' + error.message);
     }
   };
 
-  // === КАРТОЧКА (без изменений) ===
+  // === КАРТОЧКА ===
   const renderMuscleCard = (muscle, index, actions) => {
     const totalCount = muscles.length;
     
@@ -241,7 +250,12 @@ function MusclesPage() {
     );
   };
 
-  if (loading) return <div className="detail-container">Загрузка...</div>;
+  // === РЕНДЕРИНГ ===
+
+  // Показываем загрузку
+  if (loading) {
+    return <div className="detail-container">Загрузка...</div>;
+  }
 
   const stats = {
     total: muscles.length,
@@ -262,21 +276,98 @@ function MusclesPage() {
   ];
 
   return (
-    <EntityList
-      entities={muscles}
-      entityType="muscle"
-      entityName="Мышцы"
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-      onAdd={handleAdd}
-      onCopy={handleCopy}
-      onMove={handleMove}
-      stats={stats}
-      columns={columns}
-      searchPlaceholder="Поиск по названию мышцы..."
-      renderCard={renderMuscleCard}
-      defaultSort="display_order" 
-    />
+    <>
+      {/* ОШИБКА СЕТИ */}
+      {networkError && (
+        <div style={{
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '20px',
+          borderRadius: '8px',
+          marginBottom: '20px',
+          border: '1px solid #f5c6cb',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '10px' }}>📡</div>
+          <h3 style={{ margin: '0 0 10px 0' }}>Связь с сервером потеряна</h3>
+          <p style={{ margin: '0 0 5px 0' }}>
+            Не удалось загрузить данные. Проверьте подключение к интернету.
+          </p>
+          <p style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#856404' }}>
+            💡 Если интернет есть, возможно сервер временно недоступен.
+            <br />
+            Проверьте доступность сервера по ссылке ниже:
+          </p>
+
+          <div style={{
+            backgroundColor: '#fff',
+            padding: '10px 15px',
+            borderRadius: '6px',
+            display: 'inline-block',
+            marginBottom: '15px',
+            border: '1px solid #f5c6cb'
+          }}>
+            <a
+              href={`${API_URL}/api/media/supported-entities`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: '#0056b3',
+                textDecoration: 'none',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                wordBreak: 'break-all'
+              }}
+              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+            >
+              🔗 Проверить сервер
+            </a>
+            <span style={{ fontSize: '12px', color: '#666', display: 'block', marginTop: '4px' }}>
+              {API_URL}/api/media/supported-entities
+            </span>
+          </div>
+
+          <div style={{ marginTop: '15px' }}>
+            <button
+              onClick={fetchMuscles}
+              style={{
+                padding: '10px 25px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#0056b3'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#007bff'}
+            >
+              🔄 Повторить попытку
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ОСНОВНОЙ КОНТЕНТ — только если нет ошибки сети */}
+      {!networkError && (
+        <EntityList
+          entities={muscles}
+          entityType="muscle"
+          entityName="Мышцы"
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAdd={handleAdd}
+          onCopy={handleCopy}
+          onMove={handleMove}
+          stats={stats}
+          columns={columns}
+          searchPlaceholder="Поиск по названию мышцы..."
+          renderCard={renderMuscleCard}
+          defaultSort="display_order" 
+        />
+      )}
+    </>
   );
 }
 
