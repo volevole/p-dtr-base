@@ -29,6 +29,12 @@ git push origin feature/migrate-to-regru-local-db  Отправьте измен
 ssh root@194.226.165.244
 cd /var/www/muscule-app			Перейдите в папку проекта 
 git pull origin feature/migrate-to-regru-local-db  и обновите код
+  если ошибка  error: Your local changes to the following files would be overwritten by merge:
+        src/App.css
+	то git checkout -- src/App.css   и файл перезапишется с потрей изменений
+	или cp src/App.css /tmp/App.css.prod  
+	потом git pull origin feature/migrate-to-regru-local-db
+	и потом cp /tmp/App.css.prod src/App.css
 git log --oneline -5    Посмотрите последние коммиты
 git show --stat      # Посмотрите, какие файлы были изменены в последнем коммите
 npm run build  Пересоберите фронтенд
