@@ -1,7 +1,13 @@
 // src/TestRefreshLinks.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import API_URL from './config/api';
+
+// Worker для pdf.js — через CDN (не требует копирования файла)
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 function TestRefreshLinks() {
   // Получаем ID из URL параметра (работает в любом случае)
@@ -37,67 +43,71 @@ function TestRefreshLinks() {
   const [modalOpen, setModalOpen] = useState(false);
   const [refreshResult, setRefreshResult] = useState(null);
 
+  // ===== Состояния для react-pdf =====
+  const [pdfNumPages, setPdfNumPages] = useState(null);
+  const [pdfPageNumber, setPdfPageNumber] = useState(1);
+  const [pdfScale, setPdfScale] = useState(1.0);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
+
   // Получить информацию о файле из БД по ID
-    const fetchFileInfo = async (id) => {
-      if (!id) {
-        setError('Введите ID медиафайла');
-        return;
+  const fetchFileInfo = async (id) => {
+    if (!id) {
+      setError('Введите ID медиафайла');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMediaInfo(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/media-file/${id}`);
+      const data = await response.json();
+      console.log('[fetchFileInfo] Response data:', data);
+
+      if (data.success) {
+        console.log('[fetchFileInfo] File data:', data.file);
+        const file = data.file;
+        
+        const connectionsResponse = await fetch(`${API_URL}/api/media-connections/${id}`);
+        const connectionsData = await connectionsResponse.json();
+        
+        const fileWithConnections = {
+          ...file,
+          connections: connectionsData.success ? connectionsData.data : []
+        };
+        
+        setMediaInfo(fileWithConnections);
+        setPublicUrl(file.public_url || '');
+        setCurrentFileUrl(file.file_url || '');
+        setCurrentThumbnailUrl(file.thumbnail_url || '');
+        setFileName(file.file_name || '');
+        setFileType(file.file_type || '');
+        setFileSize(file.file_size);
+        setMimeType(file.mime_type || '');
+        setWidth(file.width);
+        setHeight(file.height);
+        setDurationSeconds(file.duration_seconds);
+        setDescription(file.description || '');
+        setDisplayOrder(file.display_order || 0);
+        setCreatedAt(file.created_at);
+        setUpdatedAt(file.updated_at);
+        setIsActive(file.is_active !== false);
+        setThumbnailUpdatedAt(file.thumbnail_updated_at);
+        setFileUrlUpdatedAt(file.file_url_updated_at);
+        
+      } else {
+        setError(data.error || 'Файл не найден');
       }
-
-      setLoading(true);
-      setError('');
-      setMediaInfo(null);
-
-      try {
-        // Получаем информацию о файле
-        const response = await fetch(`${API_URL}/api/media-file/${id}`);
-        const data = await response.json();
-        console.log('[fetchFileInfo] Response data:', data);
-
-        if (data.success) {
-          console.log('[fetchFileInfo] File data:', data.file);
-          const file = data.file;
-          
-          // Получаем связи файла
-          const connectionsResponse = await fetch(`${API_URL}/api/media-connections/${id}`);
-          const connectionsData = await connectionsResponse.json();
-          
-          // Добавляем связи в объект файла
-          const fileWithConnections = {
-            ...file,
-            connections: connectionsData.success ? connectionsData.data : []
-          };
-          
-          // Устанавливаем все состояния
-          setMediaInfo(fileWithConnections);
-          setPublicUrl(file.public_url || '');
-          setCurrentFileUrl(file.file_url || '');
-          setCurrentThumbnailUrl(file.thumbnail_url || '');
-          setFileName(file.file_name || '');
-          setFileType(file.file_type || '');
-          setFileSize(file.file_size);
-          setMimeType(file.mime_type || '');
-          setWidth(file.width);
-          setHeight(file.height);
-          setDurationSeconds(file.duration_seconds);
-          setDescription(file.description || '');
-          setDisplayOrder(file.display_order || 0);
-          setCreatedAt(file.created_at);
-          setUpdatedAt(file.updated_at);
-          setIsActive(file.is_active !== false);
-          setThumbnailUpdatedAt(file.thumbnail_updated_at);
-          setFileUrlUpdatedAt(file.file_url_updated_at);
-          
-        } else {
-          setError(data.error || 'Файл не найден');
-        }
-      } catch (err) {
-        console.error('Error fetching file info:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+    } catch (err) {
+      console.error('Error fetching file info:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // При загрузке страницы
   useEffect(() => {
@@ -110,61 +120,58 @@ function TestRefreshLinks() {
     }
   }, []);
 
-   // Обновить прямую ссылку для одного файла
-	const refreshSingleFile = async () => {
-	  if (!mediaId || !publicUrl) {
-		setError('Нет данных для обновления');
-		return;
-	  }
+  // Обновить прямую ссылку для одного файла
+  const refreshSingleFile = async () => {
+    if (!mediaId || !publicUrl) {
+      setError('Нет данных для обновления');
+      return;
+    }
 
-	  setLoading(true);
-	  setError('');
-	  setRefreshResult(null);
+    setLoading(true);
+    setError('');
+    setRefreshResult(null);
 
-	  try {
-		// 1. Получаем свежую прямую ссылку от API Яндекса
-		const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicUrl)}`;
-		const response = await fetch(apiUrl);
-		const data = await response.json();
-		
-		if (!data.href) {
-		  throw new Error('Не удалось получить прямую ссылку от API');
-		}
-		
-		const newFileUrl = data.href;
-		const now = new Date().toISOString();
-		
-		// 2. Сохраняем в базу
-		const updateResponse = await fetch(`${API_URL}/api/media/${mediaId}/update-metadata`, {
-		  method: 'PUT',
-		  headers: { 'Content-Type': 'application/json' },
-		  body: JSON.stringify({ 
-			file_url: newFileUrl,
-			file_url_updated_at: now
-		  })
-		});
-		
-		const updateResult = await updateResponse.json();
-		
-		if (updateResult.success) {
-		  setRefreshResult({ 
-			success: true, 
-			message: 'Прямая ссылка обновлена',
-			oldFileUrl: currentFileUrl,
-			newFileUrl: newFileUrl,
-			updatedAt: now
-		  });
-		  // Обновляем информацию о файле
-		  setTimeout(() => fetchFileInfo(mediaId), 1000);
-		} else {
-		  setError('Ошибка сохранения ссылки');
-		}
-	  } catch (err) {
-		setError(err.message);
-	  } finally {
-		setLoading(false);
-	  }
-	};
+    try {
+      const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicUrl)}`;
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+      
+      if (!data.href) {
+        throw new Error('Не удалось получить прямую ссылку от API');
+      }
+      
+      const newFileUrl = data.href;
+      const now = new Date().toISOString();
+      
+      const updateResponse = await fetch(`${API_URL}/api/media/${mediaId}/update-metadata`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          file_url: newFileUrl,
+          file_url_updated_at: now
+        })
+      });
+      
+      const updateResult = await updateResponse.json();
+      
+      if (updateResult.success) {
+        setRefreshResult({ 
+          success: true, 
+          message: 'Прямая ссылка обновлена',
+          oldFileUrl: currentFileUrl,
+          newFileUrl: newFileUrl,
+          updatedAt: now
+        });
+        setTimeout(() => fetchFileInfo(mediaId), 1000);
+      } else {
+        setError('Ошибка сохранения ссылки');
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Обновить только превью
   const refreshSinglePreview = async () => {
@@ -217,8 +224,7 @@ function TestRefreshLinks() {
     }
   };
 
-  
-
+  // Вариант 1: iframe (прокси + blob)
   const showInIframe = async () => {
     if (!publicUrl) {
       setError('Нет public_url');
@@ -230,7 +236,6 @@ function TestRefreshLinks() {
     setError('');
 
     try {
-      // 👇 Запрос к ВАШЕМУ прокси, а не к Яндексу
       const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
       const response = await fetch(proxyUrl);
       
@@ -257,6 +262,7 @@ function TestRefreshLinks() {
     }
   };
 
+  // Вариант 2: img/video тег (прокси + blob)
   const showInMediaTag = async () => {
     if (!publicUrl) {
       setError('Нет public_url');
@@ -268,7 +274,6 @@ function TestRefreshLinks() {
     setError('');
 
     try {
-      // 👇 Для изображений и видео — тоже через прокси
       const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
       const response = await fetch(proxyUrl);
       
@@ -295,6 +300,7 @@ function TestRefreshLinks() {
     }
   };
 
+  // Вариант 3: модальное окно (прокси + blob)
   const showInModal = async () => {
     if (!publicUrl) {
       setError('Нет public_url');
@@ -332,20 +338,53 @@ function TestRefreshLinks() {
     }
   };
 
-  // Вариант 4: прямой blob в iframe (как в MediaViewer)
+  // ===== Вариант 4: react-pdf =====
   const showViaReactPdf = async () => {
     if (!publicUrl) {
       setError('Нет public_url');
       return;
     }
 
-    
+    setPdfLoading(true);
+    setPdfError(null);
+    setPdfBlobUrl(null);
+    setPdfNumPages(null);
+    setPdfPageNumber(1);
+    setPdfScale(1.0);
+
+    try {
+      const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      setPdfBlobUrl(blobUrl);
+      setDisplayMode('react-pdf');
+      setModalOpen(false);
+    } catch (err) {
+      setPdfError(`Ошибка загрузки: ${err.message}`);
+    } finally {
+      setPdfLoading(false);
+    }
   };
 
   const clearBlob = () => {
     if (blobData) {
       URL.revokeObjectURL(blobData.url);
       setBlobData(null);
+    }
+    if (pdfBlobUrl) {
+      URL.revokeObjectURL(pdfBlobUrl);
+      setPdfBlobUrl(null);
+      setPdfNumPages(null);
+      setPdfPageNumber(1);
+      setPdfScale(1.0);
+      setPdfError(null);
     }
     setDisplayMode(null);
     setModalOpen(false);
@@ -396,267 +435,116 @@ function TestRefreshLinks() {
       </div>
 
       {/* Информация о файле */}
-     {mediaInfo && (
-	  <div style={{ marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px', overflow: 'auto' }}>
-		<h3>📄 Полная информация о файле</h3>
-		
-		<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px', fontSize: '13px' }}>
-		  <div><strong>ID:</strong> <code>{mediaInfo.id}</code></div>
-		  <div><strong>Имя файла:</strong> {fileName}</div>
-		  <div><strong>Тип:</strong> {fileType} {isVideo && '(видео)'} {isPdf && '(PDF)'} {isImage && '(изображение)'}</div>
-		  <div><strong>MIME тип:</strong> {mimeType || 'не указан'}</div>
-		  <div><strong>Размер:</strong> {formatFileSize(fileSize)}</div>
-		  {width && height && <div><strong>Разрешение:</strong> {width} x {height} px</div>}
-		  {durationSeconds && <div><strong>Длительность:</strong> {durationSeconds} сек. ({Math.floor(durationSeconds / 60)} мин {durationSeconds % 60} сек)</div>}
-		  <div><strong>Описание:</strong> {description || '—'}</div>
-		  <div><strong>Порядок отображения:</strong> {displayOrder}</div>
-		  <div><strong>Активен:</strong> {isActive ? '✅ да' : '❌ нет'}</div>
-		  <div><strong>Создан:</strong> {formatDate(createdAt)}</div>
-		  <div><strong>Обновлён:</strong> {formatDate(updatedAt)}</div>
-		  <div><strong>Прямая ссылка обновлена:</strong> {formatDate(fileUrlUpdatedAt)}</div>
-		  <div><strong>Превью обновлено:</strong> {formatDate(thumbnailUpdatedAt)}</div>
-		</div>
-		
-		<div style={{ marginTop: '10px' }}>
-		  <div><strong>Public URL:</strong> <code style={{ wordBreak: 'break-all', fontSize: '12px' }}>{publicUrl}</code></div>
-		  {currentFileUrl && (
-			<div><strong>Текущий file_url:</strong> <code style={{ wordBreak: 'break-all', fontSize: '12px' }}>{currentFileUrl}</code></div>
-		  )}
-		  <div><strong>Текущий thumbnail_url:</strong> {currentThumbnailUrl ? (
-			<code style={{ wordBreak: 'break-all', fontSize: '12px' }}>{currentThumbnailUrl}</code>
-		  ) : (
-			<span style={{ color: '#999' }}>отсутствует</span>
-		  )}</div>
-		</div>
-		
-      {/* ===== ДОБАВИТЬ БЛОК СВЯЗЕЙ ===== */}
-      <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '2px solid #b0c4de' }}>
-        <h4 style={{ marginBottom: '10px', color: '#0d47a1' }}>
-          🔗 Связи медиафайла с сущностями
-        </h4>
-        
-        {mediaInfo.connections && mediaInfo.connections.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {mediaInfo.connections.map((conn, idx) => {
-              // Определяем, существует ли сущность (если entity_name отсутствует или равен null)
-              const isEntityMissing = !conn.entity_name || conn.entity_name === 'null' || conn.entity_name === '';
-              
-              return (
-                <div 
-                  key={idx}
-                  style={{
-                    padding: '8px 12px',
-                    backgroundColor: isEntityMissing ? '#fff3cd' : 'white',
-                    borderRadius: '4px',
-                    border: isEntityMissing ? '1px solid #ffc107' : '1px solid #dee2e6',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: '13px'
-                  }}
-                >
-                  <span>
-                    <strong style={{ color: '#0d47a1' }}>
-                      {conn.entity_type === 'muscle' ? '💪' :
-                      conn.entity_type === 'organ' ? '🫀' :
-                      conn.entity_type === 'meridian' ? '🌀' :
-                      conn.entity_type === 'dysfunction' ? '⚠️' :
-                      conn.entity_type === 'muscle_group' ? '👥' :
-                      conn.entity_type === 'entry' ? '🚪' :
-                      conn.entity_type === 'tool' ? '🔧' : '📌'} 
-                      {conn.entity_type}
-                    </strong>
-                    {isEntityMissing ? (
-                      // Если сущность не существует - показываем только ID без ссылки
-                      <span style={{ color: '#856404', fontWeight: 'bold', marginLeft: '8px' }}>
-                        {conn.entity_id}
-                        <span style={{ fontSize: '11px', color: '#856404', marginLeft: '5px' }}>
-                          (сущность не найдена)
-                        </span>
-                      </span>
-                    ) : (
-                      // Если сущность существует - показываем ссылку
-                      <Link 
-                        to={`/${conn.entity_type === 'muscle_group' ? 'group' : conn.entity_type}/${conn.entity_id}`}
-                        style={{ 
-                          color: '#007bff',
-                          textDecoration: 'none',
-                          fontWeight: '500',
-                          marginLeft: '8px'
-                        }}
-                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                      >
-                        {conn.entity_name || conn.entity_id}
-                      </Link>
-                    )}
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {isEntityMissing && (
-                      <button
-                        onClick={async () => {
-                          if (window.confirm(`Удалить связь с несуществующей сущностью ${conn.entity_type} (ID: ${conn.entity_id})?`)) {
-                            try {
-                              const response = await fetch(`${API_URL}/api/media/${mediaId}`, {
-                                method: 'DELETE',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  entityType: conn.entity_type,
-                                  entityId: conn.entity_id
-                                })
-                              });
-                              
-                              const result = await response.json();
-                              
-                              if (result.success) {
-                                alert('✅ Связь успешно удалена');
-                                // Обновляем информацию о файле
-                                fetchFileInfo(mediaId);
-                              } else {
-                                alert('❌ Ошибка: ' + (result.error || 'Неизвестная ошибка'));
-                              }
-                            } catch (err) {
-                              alert('❌ Ошибка: ' + err.message);
-                            }
-                          }
-                        }}
-                        style={{
-                          padding: '4px 12px',
-                          backgroundColor: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: '500'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = '#c82333'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = '#dc3545'}
-                      >
-                        🗑️ Удалить связь
-                      </button>
-                    )}
-                    <span style={{ fontSize: '11px', color: '#999', wordBreak: 'break-all' }}>
-                      ID: {conn.entity_id}
-                    </span>
-                  </span>
-                </div>
-              );
-            })}
+      {mediaInfo && (
+        <div style={{ marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px', overflow: 'auto' }}>
+          <h3>📄 Полная информация о файле</h3>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px', fontSize: '13px' }}>
+            <div><strong>ID:</strong> <code>{mediaInfo.id}</code></div>
+            <div><strong>Имя файла:</strong> {fileName}</div>
+            <div><strong>Тип:</strong> {fileType} {isVideo && '(видео)'} {isPdf && '(PDF)'} {isImage && '(изображение)'}</div>
+            <div><strong>MIME тип:</strong> {mimeType || 'не указан'}</div>
+            <div><strong>Размер:</strong> {formatFileSize(fileSize)}</div>
+            {width && height && <div><strong>Разрешение:</strong> {width} x {height} px</div>}
+            {durationSeconds && <div><strong>Длительность:</strong> {durationSeconds} сек.</div>}
+            <div><strong>Описание:</strong> {description || '—'}</div>
+            <div><strong>Активен:</strong> {isActive ? '✅ да' : '❌ нет'}</div>
+            <div><strong>Создан:</strong> {formatDate(createdAt)}</div>
           </div>
-        ) : (
-          <div style={{ 
-            padding: '12px', 
-            backgroundColor: '#fff3cd', 
-            borderRadius: '4px',
-            color: '#856404',
-            fontSize: '13px'
-          }}>
-            ⚠️ Нет связанных сущностей
+          
+          <div style={{ marginTop: '10px' }}>
+            <div><strong>Public URL:</strong> <code style={{ wordBreak: 'break-all', fontSize: '12px' }}>{publicUrl}</code></div>
           </div>
-        )}
-        
-        <div style={{ 
-          fontSize: '11px', 
-          color: '#666', 
-          marginTop: '8px',
-          fontStyle: 'italic'
-        }}>
-          Всего связей: {mediaInfo.connections?.length || 0}
-          {mediaInfo.connections?.some(c => !c.entity_name) && 
-            ` (${mediaInfo.connections.filter(c => !c.entity_name).length} несуществующих)`
-          }
-        </div>
-      </div>
-      {/* ===== КОНЕЦ БЛОКА СВЯЗЕЙ ===== */}
 
-		  {/* Превью */}
-		{currentThumbnailUrl && (
-		  <div style={{ marginTop: '15px', textAlign: 'center' }}>
-			<strong>Превью (из базы данных):</strong><br/>
-			<img 
-			  src={currentThumbnailUrl} 
-			  alt="Current thumbnail"
-			  style={{ maxWidth: '200px', maxHeight: '150px', border: '1px solid #ddd', marginTop: '5px' }}
-			  onError={(e) => {
-				e.target.style.display = 'none';
-				const parent = e.target.parentElement;
-				const errorDiv = document.createElement('div');
-				errorDiv.style.color = '#dc3545';
-				errorDiv.style.fontSize = '12px';
-				errorDiv.style.marginTop = '5px';
-				errorDiv.innerHTML = '❌ Не удалось загрузить превью. Возможно, ссылка устарела.';
-				if (!parent.querySelector('.error-message')) {
-				  errorDiv.className = 'error-message';
-				  parent.appendChild(errorDiv);
-				}
-			  }}
-			/>
-		</div>
-		)}
-		
-		{/* Прямая ссылка для просмотра */}
-		{currentFileUrl && (
-		  <div style={{ marginTop: '15px', textAlign: 'center' }}>
-			<strong>Просмотр файла (из базы данных):</strong><br/>
-			{isVideo ? (
-			  <video 
-				src={currentFileUrl}
-				controls
-				style={{ maxWidth: '100%', maxHeight: '300px', marginTop: '5px' }}
-				onError={(e) => {
-				  e.target.style.display = 'none';
-				  const parent = e.target.parentElement;
-				  const errorDiv = document.createElement('div');
-				  errorDiv.style.color = '#dc3545';
-				  errorDiv.style.fontSize = '12px';
-				  errorDiv.style.marginTop = '5px';
-				  errorDiv.innerHTML = '❌ Не удалось загрузить видео. Возможно, ссылка устарела.';
-				  if (!parent.querySelector('.error-message-video')) {
-					errorDiv.className = 'error-message-video';
-					parent.appendChild(errorDiv);
-				  }
-				}}
-			  />
-			) : isImage ? (
-			  <img 
-				src={currentFileUrl}
-				alt="Current file"
-				style={{ maxWidth: '100%', maxHeight: '300px', border: '1px solid #ddd', marginTop: '5px' }}
-				onError={(e) => {
-				  e.target.style.display = 'none';
-				  const parent = e.target.parentElement;
-				  const errorDiv = document.createElement('div');
-				  errorDiv.style.color = '#dc3545';
-				  errorDiv.style.fontSize = '12px';
-				  errorDiv.style.marginTop = '5px';
-				  errorDiv.innerHTML = '❌ Не удалось загрузить изображение. Возможно, ссылка устарела.';
-				  if (!parent.querySelector('.error-message-image')) {
-					errorDiv.className = 'error-message-image';
-					parent.appendChild(errorDiv);
-				  }
-				}}
-			  />
-			) : isPdf ? (
-			  <button 
-				onClick={() => {
-				  setBlobData({ url: currentFileUrl, name: fileName });
-				  setModalOpen(true);
-				  setDisplayMode(null);
-				}}
-				style={buttonStyle('#007bff')}
-			  >
-				📄 Показать PDF в модальном окне
-			  </button>
-			) : (
-			  <a href={currentFileUrl} target="_blank" rel="noopener noreferrer" style={buttonStyle('#28a745')}>
-				📥 Скачать файл
-			  </a>
-			)}
-		  </div>
-		)}
-	  </div>
-	)}
+          {/* Блок связей */}
+          <div style={{ marginTop: '20px', paddingTop: '15px', borderTop: '2px solid #b0c4de' }}>
+            <h4 style={{ marginBottom: '10px', color: '#0d47a1' }}>🔗 Связи медиафайла с сущностями</h4>
+            
+            {mediaInfo.connections && mediaInfo.connections.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {mediaInfo.connections.map((conn, idx) => {
+                  const isEntityMissing = !conn.entity_name || conn.entity_name === 'null' || conn.entity_name === '';
+                  return (
+                    <div key={idx} style={{
+                      padding: '8px 12px',
+                      backgroundColor: isEntityMissing ? '#fff3cd' : 'white',
+                      borderRadius: '4px',
+                      border: isEntityMissing ? '1px solid #ffc107' : '1px solid #dee2e6',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '13px'
+                    }}>
+                      <span>
+                        <strong style={{ color: '#0d47a1' }}>
+                          {conn.entity_type === 'muscle' ? '💪' :
+                           conn.entity_type === 'organ' ? '🫀' :
+                           conn.entity_type === 'meridian' ? '🌀' :
+                           conn.entity_type === 'dysfunction' ? '⚠️' :
+                           conn.entity_type === 'muscle_group' ? '👥' :
+                           conn.entity_type === 'entry' ? '🚪' : '📌'} 
+                          {conn.entity_type}
+                        </strong>
+                        {isEntityMissing ? (
+                          <span style={{ color: '#856404', fontWeight: 'bold', marginLeft: '8px' }}>
+                            {conn.entity_id}
+                            <span style={{ fontSize: '11px', marginLeft: '5px' }}>(сущность не найдена)</span>
+                          </span>
+                        ) : (
+                          <Link 
+                            to={`/${conn.entity_type === 'muscle_group' ? 'group' : conn.entity_type}/${conn.entity_id}`}
+                            style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500', marginLeft: '8px' }}
+                          >
+                            {conn.entity_name || conn.entity_id}
+                          </Link>
+                        )}
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {isEntityMissing && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`Удалить связь с несуществующей сущностью ${conn.entity_type}?`)) {
+                                const response = await fetch(`${API_URL}/api/media/${mediaId}`, {
+                                  method: 'DELETE',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ entityType: conn.entity_type, entityId: conn.entity_id })
+                                });
+                                const result = await response.json();
+                                if (result.success) {
+                                  alert('✅ Связь удалена');
+                                  fetchFileInfo(mediaId);
+                                } else {
+                                  alert('❌ Ошибка: ' + result.error);
+                                }
+                              }
+                            }}
+                            style={{
+                              padding: '4px 12px',
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            🗑️ Удалить связь
+                          </button>
+                        )}
+                        <span style={{ fontSize: '11px', color: '#999' }}>ID: {conn.entity_id}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '12px', backgroundColor: '#fff3cd', borderRadius: '4px', color: '#856404', fontSize: '13px' }}>
+                ⚠️ Нет связанных сущностей
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Кнопки действий */}
       {publicUrl && (
@@ -672,37 +560,6 @@ function TestRefreshLinks() {
           </div>
         </div>
       )}
-
-      {/* Результат обновления */}
-     {refreshResult && (
-		  <div style={{ marginBottom: '20px', padding: '15px', background: '#d1ecf1', borderRadius: '8px', overflow: 'auto' }}>
-			<h3>🔄 Результат обновления</h3>
-			{refreshResult.message && <p><strong>{refreshResult.message}</strong></p>}
-			{refreshResult.newFileUrl && (
-			  <>
-				<p><strong>Новая прямая ссылка:</strong></p>
-				<code style={{ wordBreak: 'break-all', fontSize: '11px', display: 'block', marginBottom: '10px' }}>
-				  {refreshResult.newFileUrl}
-				</code>
-				<p><strong>Дата обновления:</strong> {new Date(refreshResult.updatedAt).toLocaleString('ru-RU')}</p>
-			  </>
-			)}
-			{refreshResult.previewUrl && (
-			  <>
-				<p><strong>Новое превью:</strong></p>
-				<code style={{ wordBreak: 'break-all', fontSize: '11px', display: 'block', marginBottom: '10px' }}>
-				  {refreshResult.previewUrl}
-				</code>
-				<img 
-				  src={refreshResult.previewUrl} 
-				  alt="New preview"
-				  style={{ maxWidth: '200px', maxHeight: '150px', border: '1px solid #ddd', marginTop: '5px' }}
-				  onError={(e) => { e.target.style.display = 'none'; }}
-				/>
-			  </>
-			)}
-		  </div>
-		)}
 
       {/* Ошибки */}
       {error && (
@@ -724,7 +581,7 @@ function TestRefreshLinks() {
               onClick={showInIframe} 
               disabled={loading} 
               style={buttonStyle('#007bff')}
-              title="Вариант 1: PDF загружается через прокси /api/curl-proxy-file (same-origin blob) и вставляется в iframe. Работает на всех платформах, включая Android."
+              title="Вариант 1: PDF загружается через прокси (same-origin blob) и вставляется в iframe."
             >
               📦 Вариант 1: iframe (прокси + blob)
             </button>
@@ -733,7 +590,7 @@ function TestRefreshLinks() {
               onClick={showInMediaTag} 
               disabled={loading} 
               style={buttonStyle('#28a745')}
-              title="Вариант 2: изображение или видео загружается через прокси /api/curl-proxy-file (same-origin blob) и вставляется в тег img/video. Работает на всех платформах."
+              title="Вариант 2: изображение/видео через прокси (same-origin blob) в теге img/video."
             >
               🖼️ Вариант 2: img/video тег (прокси + blob)
             </button>
@@ -742,103 +599,66 @@ function TestRefreshLinks() {
               onClick={showInModal} 
               disabled={loading} 
               style={buttonStyle('#6c757d')}
-              title="Вариант 3: то же, что Варианты 1 и 2, но в модальном окне. Файл загружается через прокси (same-origin blob). Работает на всех платформах."
+              title="Вариант 3: то же, что Варианты 1 и 2, но в модальном окне."
             >
               🪟 Вариант 3: Модальное окно (прокси + blob)
             </button>
             
             <button 
               onClick={showViaReactPdf} 
-              disabled={loading} 
-              style={buttonStyle('#9c27b0')}
-              title="Вариант 4: рендеринг PDF через react-pdf (pdf.js) на canvas. Альтернатива iframe для PDF. В разработке."
+              disabled={loading || pdfLoading} 
+              style={buttonStyle('#9c27b0', loading || pdfLoading)}
+              title="Вариант 4: рендеринг PDF через react-pdf (pdf.js) на canvas. Работает на Android."
             >
-              📱 Вариант 4: react-pdf (в разработке)
+              {pdfLoading ? '⏳ Загрузка...' : '📱 Вариант 4: react-pdf'}
             </button>
             
-            {(displayMode || blobData) && (
-                <button 
-                  onClick={clearBlob} 
-                  style={buttonStyle('#dc3545')}
-                  title={`Закрыть просмотр и освободить память. Убирает blob-URL из памяти браузера и скрывает блок/модалку.
-                          Нажимать после каждого варианта перед открытием следующего варианта.`}
-                >
-                  ✖ Очистить
-                </button>
-              )}
+            {(displayMode || blobData || pdfBlobUrl) && (
+              <button 
+                onClick={clearBlob} 
+                style={buttonStyle('#dc3545')}
+                title={`Закрыть просмотр и освободить память.
+Нажимать после каждого варианта перед открытием следующего.`}
+              >
+                ✖ Очистить
+              </button>
+            )}
           </div>
           
-          {/* Подробные подсказки под кнопками */}
-          <div style={{ 
-            marginTop: '20px', 
-            padding: '15px', 
-            background: '#fff', 
-            borderRadius: '6px',
-            fontSize: '13px',
-            lineHeight: '1.6'
-          }}>
+          {/* Описание вариантов */}
+          <div style={{ marginTop: '20px', padding: '15px', background: '#fff', borderRadius: '6px', fontSize: '13px', lineHeight: '1.6' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>📋 Описание вариантов</h4>
             
-            <div style={{ 
-              marginBottom: '15px', 
-              padding: '10px', 
-              background: '#fff3cd', 
-              borderRadius: '4px',
-              fontSize: '12px',
-              color: '#856404'
-            }}>
-              ⚠️ <strong>Важно:</strong> все варианты теперь загружают файл через <strong>ваш прокси</strong> 
-              (<code>/api/curl-proxy-file</code>), а не напрямую с Яндекса. Это делает blob 
-              <strong> same-origin</strong>, и Android Chrome корректно его принимает.
+            <div style={{ marginBottom: '15px', padding: '10px', background: '#fff3cd', borderRadius: '4px', fontSize: '12px', color: '#856404' }}>
+              ⚠️ <strong>Важно:</strong> варианты 1–3 на Android <strong>не отображают PDF в iframe</strong> — это ограничение мобильных браузеров. Используйте Вариант 4 (react-pdf).
             </div>
             
             <div style={{ display: 'grid', gap: '10px' }}>
               <div style={{ padding: '8px', background: '#e3f2fd', borderRadius: '4px' }}>
                 <strong style={{ color: '#007bff' }}>📦 Вариант 1: iframe (прокси + blob)</strong>
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  Файл загружается через прокси <code>/api/curl-proxy-file</code>, создаётся 
-                  <code>blob:</code> URL и вставляется в <code>&lt;iframe&gt;</code>.
-                  <br />
-                  <strong>Работает:</strong> на десктопе и Android.
-                  <br />
-                  <strong>Применение:</strong> просмотр PDF внутри страницы.
+                  Работает на десктопе. На Android — не отображает PDF.
                 </div>
               </div>
 
               <div style={{ padding: '8px', background: '#e8f5e9', borderRadius: '4px' }}>
                 <strong style={{ color: '#28a745' }}>🖼️ Вариант 2: img/video тег (прокси + blob)</strong>
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  Файл загружается через прокси, создаётся <code>blob:</code> URL и вставляется 
-                  в <code>&lt;img&gt;</code> или <code>&lt;video&gt;</code>.
-                  <br />
-                  <strong>Работает:</strong> для изображений и видео на всех платформах.
-                  <br />
-                  <strong>Применение:</strong> просмотр картинок и видео.
+                  Работает для изображений и видео на всех платформах.
                 </div>
               </div>
 
               <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px' }}>
                 <strong style={{ color: '#6c757d' }}>🪟 Вариант 3: Модальное окно (прокси + blob)</strong>
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  То же, что Варианты 1 и 2, но в модальном окне. Для PDF — <code>&lt;iframe&gt;</code>, 
-                  для картинок — <code>&lt;img&gt;</code>, для видео — <code>&lt;video&gt;</code>.
-                  <br />
-                  <strong>Работает:</strong> на всех платформах.
-                  <br />
-                  <strong>Применение:</strong> быстрый просмотр без перехода на отдельную страницу.
+                  Работает на десктопе. На Android — не отображает PDF.
                 </div>
               </div>
 
-              <div style={{ padding: '8px', background: '#f3e5f5', borderRadius: '4px' }}>
-                <strong style={{ color: '#9c27b0' }}>📱 Вариант 4: react-pdf (в разработке)</strong>
+              <div style={{ padding: '8px', background: '#f3e5f5', borderRadius: '4px', borderLeft: '4px solid #9c27b0' }}>
+                <strong style={{ color: '#9c27b0' }}>📱 Вариант 4: react-pdf</strong>
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                  Рендеринг PDF на клиенте через <code>pdf.js</code> (библиотека <code>react-pdf</code>).
-                  Каждая страница отрисовывается на <code>&lt;canvas&gt;</code>.
-                  <br />
-                  <strong>Работает:</strong> на всех платформах.
-                  <br />
-                  <strong>Применение:</strong> альтернатива iframe для PDF с более гибким управлением 
-                  (зум, навигация по страницам, поиск по тексту).
+                  PDF рендерится на клиенте через <code>pdf.js</code>. Работает на всех платформах, включая Android. Есть навигация по страницам и масштабирование.
                 </div>
               </div>
             </div>
@@ -846,7 +666,7 @@ function TestRefreshLinks() {
         </div>
       )}
 
-      {/* Отображение выбранного варианта */}
+      {/* Вариант 1: iframe */}
       {displayMode === 'iframe' && blobData && (
         <div style={{ marginBottom: '20px', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden' }}>
           <div style={{ padding: '10px', background: '#f0f0f0', borderBottom: '1px solid #ddd' }}>
@@ -860,6 +680,7 @@ function TestRefreshLinks() {
         </div>
       )}
 
+      {/* Вариант 2: img/video */}
       {displayMode === 'media' && blobData && (
         <div style={{ marginBottom: '20px', border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden' }}>
           <div style={{ padding: '10px', background: '#f0f0f0', borderBottom: '1px solid #ddd' }}>
@@ -867,23 +688,170 @@ function TestRefreshLinks() {
           </div>
           <div style={{ textAlign: 'center', padding: '15px', background: '#fafafa' }}>
             {isVideo ? (
-              <video 
-                src={blobData.url}
-                controls
-                style={{ maxWidth: '100%', maxHeight: '500px' }}
-              />
+              <video src={blobData.url} controls style={{ maxWidth: '100%', maxHeight: '500px' }} />
             ) : (
-              <img 
-                src={blobData.url}
-                alt={blobData.name}
-                style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
-              />
+              <img src={blobData.url} alt={blobData.name} style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }} />
             )}
           </div>
         </div>
       )}
 
-      {/* Модальное окно */}
+      {/* ===== Вариант 4: react-pdf ===== */}
+      {displayMode === 'react-pdf' && pdfBlobUrl && (
+        <div style={{ 
+          marginBottom: '20px', 
+          border: '1px solid #ddd', 
+          borderRadius: '8px', 
+          overflow: 'hidden',
+          backgroundColor: '#f8f9fa'
+        }}>
+          {/* Заголовок с управлением */}
+          <div style={{ 
+            padding: '10px 15px', 
+            background: '#f0f0f0', 
+            borderBottom: '1px solid #ddd',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <strong>📱 Вариант 4: react-pdf</strong>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setPdfPageNumber(prev => Math.max(prev - 1, 1))}
+                disabled={pdfPageNumber <= 1}
+                style={{
+                  padding: '4px 10px',
+                  cursor: pdfPageNumber <= 1 ? 'not-allowed' : 'pointer',
+                  backgroundColor: pdfPageNumber <= 1 ? '#e9ecef' : '#007bff',
+                  color: pdfPageNumber <= 1 ? '#6c757d' : 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                ◀ Назад
+              </button>
+              
+              <span style={{ fontSize: '13px' }}>
+                Стр. <strong>{pdfPageNumber}</strong> из <strong>{pdfNumPages || '...'}</strong>
+              </span>
+              
+              <button
+                onClick={() => setPdfPageNumber(prev => Math.min(prev + 1, pdfNumPages || 1))}
+                disabled={!pdfNumPages || pdfPageNumber >= pdfNumPages}
+                style={{
+                  padding: '4px 10px',
+                  cursor: (!pdfNumPages || pdfPageNumber >= pdfNumPages) ? 'not-allowed' : 'pointer',
+                  backgroundColor: (!pdfNumPages || pdfPageNumber >= pdfNumPages) ? '#e9ecef' : '#007bff',
+                  color: (!pdfNumPages || pdfPageNumber >= pdfNumPages) ? '#6c757d' : 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              >
+                Вперёд ▶
+              </button>
+              
+              <div style={{ borderLeft: '1px solid #ccc', height: '20px', margin: '0 5px' }} />
+              
+              <button
+                onClick={() => setPdfScale(prev => Math.max(prev - 0.25, 0.5))}
+                style={{
+                  padding: '4px 10px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ➖
+              </button>
+              
+              <span style={{ fontSize: '13px' }}>{Math.round(pdfScale * 100)}%</span>
+              
+              <button
+                onClick={() => setPdfScale(prev => Math.min(prev + 0.25, 3.0))}
+                style={{
+                  padding: '4px 10px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ➕
+              </button>
+            </div>
+          </div>
+          
+          {/* PDF Document */}
+          <div style={{ 
+            padding: '15px', 
+            backgroundColor: '#e9ecef',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            textAlign: 'center'
+          }}>
+            {pdfError && (
+              <div style={{ padding: '15px', backgroundColor: '#f8d7da', color: '#721c24', borderRadius: '4px', marginBottom: '10px' }}>
+                ❌ {pdfError}
+              </div>
+            )}
+            
+            <Document
+              file={pdfBlobUrl}
+              onLoadSuccess={({ numPages }) => {
+                console.log('[react-pdf] Loaded, pages:', numPages);
+                setPdfNumPages(numPages);
+              }}
+              onLoadError={(error) => {
+                console.error('[react-pdf] Load error:', error);
+                setPdfError(`Ошибка рендеринга: ${error.message}`);
+              }}
+              loading={
+                <div style={{ padding: '20px' }}>
+                  <div style={{ fontSize: '32px' }}>⏳</div>
+                  <p>Загрузка PDF...</p>
+                </div>
+              }
+            >
+              <Page
+                pageNumber={pdfPageNumber}
+                scale={pdfScale}
+                renderTextLayer={true}
+                renderAnnotationLayer={true}
+                loading={
+                  <div style={{ padding: '20px' }}>
+                    <div style={{ fontSize: '24px' }}>⏳</div>
+                    <p>Загрузка страницы...</p>
+                  </div>
+                }
+              />
+            </Document>
+          </div>
+          
+          {/* Информация о файле */}
+          <div style={{ 
+            padding: '10px 15px', 
+            backgroundColor: '#f8f9fa', 
+            borderTop: '1px solid #ddd',
+            fontSize: '12px',
+            color: '#666'
+          }}>
+            <strong>Файл:</strong> {fileName}
+            {fileSize && <span style={{ marginLeft: '15px' }}><strong>Размер:</strong> {formatFileSize(fileSize)}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно (Вариант 3) */}
       {modalOpen && blobData && (
         <div style={modalStyle} onClick={() => setModalOpen(false)}>
           <div style={modalContentStyle} onClick={e => e.stopPropagation()}>
@@ -903,8 +871,6 @@ function TestRefreshLinks() {
           </div>
         </div>
       )}
-
-
     </div>
   );
 }
