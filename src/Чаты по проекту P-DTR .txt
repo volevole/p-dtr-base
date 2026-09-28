@@ -168,8 +168,10 @@ cd /var/www/muscule-app			Перейдите в папку проекта
 Доступ к серверу по SSH:   ssh root@194.226.165.244
 Логин: root
 
-Создан сервер «Tangerine Praseodymium»
+09.05.2026, 22:43
+Создан сервер «Tangerine Praseodymium» ID 7254179
 Вы создали сервер «Tangerine Praseodymium» с Ubuntu 24.04 LTS, IP-адрес 194.226.165.244
+Бесплатно до 9-11-26 по тарифу Free Tier
 
 Суперпользователь в PostgreSQL:
  USER postgres

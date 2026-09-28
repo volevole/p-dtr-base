@@ -217,8 +217,9 @@ function TestRefreshLinks() {
     }
   };
 
-  // Загрузить файл через blob
-  const loadFileViaBlob = async () => {
+  
+
+  const showInIframe = async () => {
     if (!publicUrl) {
       setError('Нет public_url');
       return;
@@ -229,16 +230,15 @@ function TestRefreshLinks() {
     setError('');
 
     try {
-      const apiUrl = `https://cloud-api.yandex.net/v1/disk/public/resources/download?public_key=${encodeURIComponent(publicUrl)}`;
-      const response = await fetch(apiUrl);
-      const data = await response.json();
+      // 👇 Запрос к ВАШЕМУ прокси, а не к Яндексу
+      const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
+      const response = await fetch(proxyUrl);
       
-      if (!data.href) {
-        throw new Error('Не удалось получить прямую ссылку');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
       
-      const fileResponse = await fetch(data.href);
-      const blob = await fileResponse.blob();
+      const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       
       setBlobData({
@@ -248,37 +248,98 @@ function TestRefreshLinks() {
         name: fileName
       });
       
-      return blobUrl;
+      setDisplayMode('iframe');
+      setModalOpen(false);
     } catch (err) {
       setError(`Ошибка: ${err.message}`);
-      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  const showInIframe = async () => {
-    const url = await loadFileViaBlob();
-    if (url) {
-      setDisplayMode('iframe');
-      setModalOpen(false);
-    }
-  };
-
   const showInMediaTag = async () => {
-    const url = await loadFileViaBlob();
-    if (url) {
+    if (!publicUrl) {
+      setError('Нет public_url');
+      return;
+    }
+
+    setLoading(true);
+    setBlobData(null);
+    setError('');
+
+    try {
+      // 👇 Для изображений и видео — тоже через прокси
+      const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      setBlobData({
+        url: blobUrl,
+        size: blob.size,
+        type: blob.type,
+        name: fileName
+      });
+      
       setDisplayMode('media');
       setModalOpen(false);
+    } catch (err) {
+      setError(`Ошибка: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const showInModal = async () => {
-    const url = await loadFileViaBlob();
-    if (url) {
+    if (!publicUrl) {
+      setError('Нет public_url');
+      return;
+    }
+
+    setLoading(true);
+    setBlobData(null);
+    setError('');
+
+    try {
+      const proxyUrl = `${API_URL}/api/curl-proxy-file?url=${encodeURIComponent(publicUrl)}&size=M`;
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      setBlobData({
+        url: blobUrl,
+        size: blob.size,
+        type: blob.type,
+        name: fileName
+      });
+      
       setModalOpen(true);
       setDisplayMode(null);
+    } catch (err) {
+      setError(`Ошибка: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Вариант 4: прямой blob в iframe (как в MediaViewer)
+  const showViaReactPdf = async () => {
+    if (!publicUrl) {
+      setError('Нет public_url');
+      return;
+    }
+
+    
   };
 
   const clearBlob = () => {
@@ -654,22 +715,133 @@ function TestRefreshLinks() {
       {publicUrl && (
         <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '8px' }}>
           <h3>🧪 Эксперименты с отображением</h3>
-		  <div style={{ marginBottom: '15px' }}><small>Тут используется ссылка, полученная налету из API Яндекс-Диска, а не текущая ссылка из БД</small> </div>
+          <div style={{ marginBottom: '15px' }}>
+            <small>Тут используется ссылка, полученная налету из API Яндекс-Диска, а не текущая ссылка из БД</small>
+          </div>
+          
           <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-            <button onClick={showInIframe} disabled={loading} style={buttonStyle('#007bff')}>
-              📦 Вариант 1: iframe
+            <button 
+              onClick={showInIframe} 
+              disabled={loading} 
+              style={buttonStyle('#007bff')}
+              title="Вариант 1: PDF загружается через прокси /api/curl-proxy-file (same-origin blob) и вставляется в iframe. Работает на всех платформах, включая Android."
+            >
+              📦 Вариант 1: iframe (прокси + blob)
             </button>
-            <button onClick={showInMediaTag} disabled={loading} style={buttonStyle('#28a745')}>
-              🖼️ Вариант 2: img/video тег
+            
+            <button 
+              onClick={showInMediaTag} 
+              disabled={loading} 
+              style={buttonStyle('#28a745')}
+              title="Вариант 2: изображение или видео загружается через прокси /api/curl-proxy-file (same-origin blob) и вставляется в тег img/video. Работает на всех платформах."
+            >
+              🖼️ Вариант 2: img/video тег (прокси + blob)
             </button>
-            <button onClick={showInModal} disabled={loading} style={buttonStyle('#6c757d')}>
-              🪟 Вариант 3: Модальное окно
+            
+            <button 
+              onClick={showInModal} 
+              disabled={loading} 
+              style={buttonStyle('#6c757d')}
+              title="Вариант 3: то же, что Варианты 1 и 2, но в модальном окне. Файл загружается через прокси (same-origin blob). Работает на всех платформах."
+            >
+              🪟 Вариант 3: Модальное окно (прокси + blob)
             </button>
+            
+            <button 
+              onClick={showViaReactPdf} 
+              disabled={loading} 
+              style={buttonStyle('#9c27b0')}
+              title="Вариант 4: рендеринг PDF через react-pdf (pdf.js) на canvas. Альтернатива iframe для PDF. В разработке."
+            >
+              📱 Вариант 4: react-pdf (в разработке)
+            </button>
+            
             {(displayMode || blobData) && (
-              <button onClick={clearBlob} style={buttonStyle('#dc3545')}>
-                Очистить
-              </button>
-            )}
+                <button 
+                  onClick={clearBlob} 
+                  style={buttonStyle('#dc3545')}
+                  title={`Закрыть просмотр и освободить память. Убирает blob-URL из памяти браузера и скрывает блок/модалку.
+                          Нажимать после каждого варианта перед открытием следующего варианта.`}
+                >
+                  ✖ Очистить
+                </button>
+              )}
+          </div>
+          
+          {/* Подробные подсказки под кнопками */}
+          <div style={{ 
+            marginTop: '20px', 
+            padding: '15px', 
+            background: '#fff', 
+            borderRadius: '6px',
+            fontSize: '13px',
+            lineHeight: '1.6'
+          }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#495057' }}>📋 Описание вариантов</h4>
+            
+            <div style={{ 
+              marginBottom: '15px', 
+              padding: '10px', 
+              background: '#fff3cd', 
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: '#856404'
+            }}>
+              ⚠️ <strong>Важно:</strong> все варианты теперь загружают файл через <strong>ваш прокси</strong> 
+              (<code>/api/curl-proxy-file</code>), а не напрямую с Яндекса. Это делает blob 
+              <strong> same-origin</strong>, и Android Chrome корректно его принимает.
+            </div>
+            
+            <div style={{ display: 'grid', gap: '10px' }}>
+              <div style={{ padding: '8px', background: '#e3f2fd', borderRadius: '4px' }}>
+                <strong style={{ color: '#007bff' }}>📦 Вариант 1: iframe (прокси + blob)</strong>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  Файл загружается через прокси <code>/api/curl-proxy-file</code>, создаётся 
+                  <code>blob:</code> URL и вставляется в <code>&lt;iframe&gt;</code>.
+                  <br />
+                  <strong>Работает:</strong> на десктопе и Android.
+                  <br />
+                  <strong>Применение:</strong> просмотр PDF внутри страницы.
+                </div>
+              </div>
+
+              <div style={{ padding: '8px', background: '#e8f5e9', borderRadius: '4px' }}>
+                <strong style={{ color: '#28a745' }}>🖼️ Вариант 2: img/video тег (прокси + blob)</strong>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  Файл загружается через прокси, создаётся <code>blob:</code> URL и вставляется 
+                  в <code>&lt;img&gt;</code> или <code>&lt;video&gt;</code>.
+                  <br />
+                  <strong>Работает:</strong> для изображений и видео на всех платформах.
+                  <br />
+                  <strong>Применение:</strong> просмотр картинок и видео.
+                </div>
+              </div>
+
+              <div style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px' }}>
+                <strong style={{ color: '#6c757d' }}>🪟 Вариант 3: Модальное окно (прокси + blob)</strong>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  То же, что Варианты 1 и 2, но в модальном окне. Для PDF — <code>&lt;iframe&gt;</code>, 
+                  для картинок — <code>&lt;img&gt;</code>, для видео — <code>&lt;video&gt;</code>.
+                  <br />
+                  <strong>Работает:</strong> на всех платформах.
+                  <br />
+                  <strong>Применение:</strong> быстрый просмотр без перехода на отдельную страницу.
+                </div>
+              </div>
+
+              <div style={{ padding: '8px', background: '#f3e5f5', borderRadius: '4px' }}>
+                <strong style={{ color: '#9c27b0' }}>📱 Вариант 4: react-pdf (в разработке)</strong>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  Рендеринг PDF на клиенте через <code>pdf.js</code> (библиотека <code>react-pdf</code>).
+                  Каждая страница отрисовывается на <code>&lt;canvas&gt;</code>.
+                  <br />
+                  <strong>Работает:</strong> на всех платформах.
+                  <br />
+                  <strong>Применение:</strong> альтернатива iframe для PDF с более гибким управлением 
+                  (зум, навигация по страницам, поиск по тексту).
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -731,6 +903,8 @@ function TestRefreshLinks() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }
