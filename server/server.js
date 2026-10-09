@@ -43,11 +43,19 @@ async function connectDB() {
       } catch (e) {}
     }
 
+    // db = new Client({
+    //   host: '194.226.165.244',
+    //   port: 5432,
+    //   database: 'p-dtr-db',
+    //   user: 'pdtr_admin',
+    //   password: process.env.REGRU_DB_PASSWORD
+    // });
+
     db = new Client({
-      host: '194.226.165.244',
-      port: 5432,
-      database: 'p-dtr-db',
-      user: 'pdtr_admin',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT) || 5432,
+      database: process.env.DB_NAME || 'p-dtr-db',
+      user: process.env.DB_USER || 'pdtr_admin',
       password: process.env.REGRU_DB_PASSWORD
     });
 
