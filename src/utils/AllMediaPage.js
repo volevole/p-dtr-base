@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import MediaViewer from '../MediaViewer';
 import { getFileIcon, formatFileSize } from './mediaUtils';
 import API_URL, { config } from '../config/api';
+import { Link } from 'react-router-dom';
 
 function AllMediaPage() {
   const [mediaFiles, setMediaFiles] = useState([]);
@@ -315,13 +316,7 @@ function AllMediaPage() {
     }
   };
 
-  const openTestPage = (mediaItem) => {
-      // process.env.PUBLIC_URL = '' на локале, '/larchik' на проде
-      const baseUrl = process.env.PUBLIC_URL || '';
-      window.open(`${baseUrl}/test-refresh?id=${mediaItem.id}`, '_blank');
-  };
-
-  const filteredMedia = mediaFiles.filter(item => {
+   const filteredMedia = mediaFiles.filter(item => {
     if (!filter) return true;
     const search = filter.toLowerCase();
     return (item.file_name || '').toLowerCase().includes(search) ||
@@ -998,21 +993,24 @@ function AllMediaPage() {
                     >
                       🖼️ Превью
                     </button>
-                    <button
-                      onClick={() => openTestPage(item)}
+                    <Link
+                      to={`/test-refresh?id=${item.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       style={{
                         padding: '4px 8px',
                         backgroundColor: '#6c757d',
                         color: 'white',
-                        border: 'none',
+                        textDecoration: 'none',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        fontSize: '10px'
+                        fontSize: '10px',
+                        display: 'inline-block'
                       }}
                       title="Открыть Тестовую страницу с вариантами отображения и подробностями о медиафайле"
                     >
                       🧪 Тест-Инфо
-                    </button>
+                    </Link>
                     <button
                       onClick={() => handleDelete(item.id)}
                       disabled={isUpdating}

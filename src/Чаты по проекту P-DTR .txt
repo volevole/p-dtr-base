@@ -86,7 +86,7 @@ git pull origin feature/migrate-to-regru-local-db  и обновите код
 git log --oneline -5    Посмотрите последние коммиты
 git show --stat      # Посмотрите, какие файлы были изменены в последнем коммите
 npm run build  Пересоберите фронтенд
-pm2 restart muscule-app Перезапустите бэкенд
+pm2 restart muscule-api Перезапустите бэкенд
 systemctl restart nodejs  или так, если ещё не был запущен бэкенд 
 systemctl restart nginx   перезапус  nginx
 pm2 status Проверьте, что сервер запустился
