@@ -20,3 +20,11 @@ console.log('📦 Перемещаю build/ → larchik/');
 fs.renameSync(buildDir, larchikDir);
 
 console.log('✅ Готово! Папка larchik/ обновлена.');
+
+const { execSync } = require('child_process');
+try {
+  execSync(`chown -R www-data:www-data ${larchikDir}`);
+  console.log('🔧 Владелец larchik/ изменён на www-data');
+} catch (e) {
+  console.warn('⚠️ Не удалось изменить владельца:', e.message);
+}
