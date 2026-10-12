@@ -2,6 +2,7 @@
   "name": "muscule-app",
   "version": "0.1.0",
   "private": true,
+  "homepage": "/larchik",
   "dependencies": {
     "@dnd-kit/sortable": "^10.0.0",
     "@supabase/supabase-js": "^2.51.0",

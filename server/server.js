@@ -2659,6 +2659,58 @@ app.get('/api/usefulness/:id', async (req, res) => {
   }
 });
 
+
+// GET /api/db-info — информация о подключении к БД (без пароля)
+app.get('/api/db-info', async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT current_database(), current_user, version(), inet_server_addr(), inet_server_port()'
+    );
+    const row = result.rows[0];
+    
+    const tablesResult = await db.query(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+    `);
+    
+    const sizeResult = await db.query(`
+      SELECT pg_size_pretty(pg_database_size(current_database())) as size
+    `);
+    
+    res.json({
+      success: true,
+      data: {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT) || 5432,
+        database: process.env.DB_NAME || 'p-dtr-db',
+        user: process.env.DB_USER || 'pdtr_admin',
+        currentDatabase: row.current_database,
+        currentUser: row.current_user,
+        serverAddress: row.inet_server_addr,
+        serverPort: row.inet_server_port,
+        version: row.version.split(' ').slice(0, 2).join(' '),
+        tablesCount: parseInt(tablesResult.rows[0].count),
+        databaseSize: sizeResult.rows[0].size,
+        hasPassword: !!process.env.REGRU_DB_PASSWORD
+      }
+    });
+  } catch (error) {
+    console.error('[ERROR] /api/db-info:', error.message);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      data: {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT) || 5432,
+        database: process.env.DB_NAME || 'p-dtr-db',
+        user: process.env.DB_USER || 'pdtr_admin',
+        connected: false
+      }
+    });
+  }
+});
+
 /////    ниже старые эндпоинты, а выше новые через рег.ру
 
 

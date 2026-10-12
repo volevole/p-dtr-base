@@ -17,6 +17,9 @@
 База данных лежит по адресу:  'https://btqttycwerqqbvfzmqlo.supabase.co' 
 Управляется через интерфейс на https://supabase.com/dashboard/project/btqttycwerqqbvfzmqlo/editor/17576?schema=public
 
+Потом в мае 2026 БД перешла на рег руread_vole.me
+А в октябре 2026 БД перешла на react.c-e.ru (там порт наружу закрыт, поэтому работает тепрь только через SSH-туннель)
+
 
 Также картинки и видео хранятся на Яндекс-диске   
 Адрес API https://cloud-api.yandex.net/v1/disk/resources
@@ -37,6 +40,15 @@
 и затем  npm start
 Запустится сервер  с последней строкой 
 Server started at port 3001
+
+SSH-туннель (для    react.c-e.ru)read_vole.me
+В отдельном терминале запустить 
+
+ssh -L 5433:localhost:5432 administrator@react.c-e.ru
+
+Этот терминал НЕ ЗАКРЫВАТЬ. Пока он открыт — туннель работает.
+
+
 
 
 Работа с GIT

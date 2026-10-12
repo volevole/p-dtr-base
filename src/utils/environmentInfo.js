@@ -1,24 +1,15 @@
 // utils/environmentInfo.js
 import API_URL from '../config/api';
-console.log('API_URL imported from Config:', API_URL); // или проверьте путь
-
-
 
 /**
  * Получение информации о текущем окружении приложения
  * @returns {Object} Объект с информацией об окружении
  */
 export const getEnvironmentInfo = () => {
-  // Определяем, фронтенд это или сервер
   const isClientSide = typeof window !== 'undefined';
-  
-  // Получаем текущий URL
   const currentUrl = isClientSide ? window.location.href : '';
-  
-  // Получаем базовый URL API
   const apiUrl = API_URL || 'Не настроен';
   
-  // Получаем информацию о браузере (только на клиенте)
   const browserInfo = isClientSide ? {
     userAgent: navigator.userAgent,
     platform: navigator.platform,
@@ -27,7 +18,6 @@ export const getEnvironmentInfo = () => {
     viewport: `${window.innerWidth}x${window.innerHeight}`
   } : null;
   
-  // Информация о приложении
   const appInfo = {
     environment: process.env.NODE_ENV || 'development',
     isProduction: process.env.NODE_ENV === 'production',
@@ -36,35 +26,25 @@ export const getEnvironmentInfo = () => {
     buildDate: process.env.REACT_APP_BUILD_DATE || new Date().toISOString()
   };
   
-  // Информация о сервере (на основе API_URL)
   const serverInfo = {
-      apiUrl: apiUrl,
-      protocol: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('https')) ? 'HTTPS' : 
-                (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) ? 'HTTP' : 'Неизвестно',
-      hostname: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
-        ? new URL(apiUrl).hostname 
-        : 'Неизвестно',
-      port: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
-        ? new URL(apiUrl).port || (apiUrl.startsWith('https') ? 443 : 80) 
-        : null
-    };
+    apiUrl: apiUrl,
+    protocol: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('https')) ? 'HTTPS' : 
+              (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) ? 'HTTP' : 'Неизвестно',
+    hostname: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
+      ? new URL(apiUrl).hostname 
+      : 'Неизвестно',
+    port: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
+      ? new URL(apiUrl).port || (apiUrl.startsWith('https') ? 443 : 80) 
+      : null
+  };
   
   return {
-    // Основная информация
     isClientSide,
     currentUrl,
     timestamp: new Date().toISOString(),
-    
-    // Информация о приложении
     app: appInfo,
-    
-    // Информация о сервере
     server: serverInfo,
-    
-    // Информация о клиенте (только если на клиенте)
     client: isClientSide ? browserInfo : null,
-    
-    // Дополнительная информация
     meta: {
       reactVersion: process.env.REACT_APP_REACT_VERSION || '17+',
       nodeEnv: process.env.NODE_ENV,
@@ -75,32 +55,39 @@ export const getEnvironmentInfo = () => {
 };
 
 /**
+ * Получение информации о БД с бэкенда
+ * @returns {Promise<Object>}
+ */
+export const getDatabaseInfo = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/db-info`);
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Ошибка получения информации о БД:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
  * Получение информации в формате для отображения
- * @returns {Object} Форматированная информация
  */
 export const getDisplayEnvironmentInfo = () => {
   const info = getEnvironmentInfo();
   
   return {
-    // Основное
     'Текущий URL': info.currentUrl || 'Серверная сторона',
     'Окружение': info.app.environment,
     'Версия приложения': info.app.version,
-    
-    // Сервер
     'API URL': info.server.apiUrl,
     'Хост сервера': info.server.hostname,
     'Протокол': info.server.protocol,
-    
-    // Клиент (если доступно)
     ...(info.client ? {
       'Разрешение экрана': info.client.screenResolution,
       'Размер окна': info.client.viewport,
       'Платформа': info.client.platform,
       'Язык': info.client.language
     } : {}),
-    
-    // Meta
     'Сборка от': new Date(info.app.buildDate).toLocaleString('ru-RU'),
     'Текущее время': new Date(info.timestamp).toLocaleString('ru-RU'),
     'React версия': info.meta.reactVersion,
@@ -121,7 +108,6 @@ export const copyEnvironmentInfoToClipboard = async () => {
       await navigator.clipboard.writeText(text);
       return true;
     } else {
-      // Fallback для старых браузеров
       const textArea = document.createElement('textarea');
       textArea.value = text;
       document.body.appendChild(textArea);
@@ -157,5 +143,6 @@ export const logEnvironmentInfo = () => {
   console.groupEnd();
   return info;
 };
+
 
 export default getEnvironmentInfo;
