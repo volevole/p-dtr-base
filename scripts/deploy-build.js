@@ -1,8 +1,8 @@
-// config/deploy-build.js
+// scripts/deploy-build.js
 const fs = require('fs');
 const path = require('path');
+const rootDir = path.resolve(__dirname, '..');   // < из scripts/ на 1 уровень вверх = корень проекта
 
-const rootDir = path.resolve(__dirname, '..');
 const buildDir = path.join(rootDir, 'build');
 const larchikDir = path.join(rootDir, 'larchik');
 
