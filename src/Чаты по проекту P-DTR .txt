@@ -85,7 +85,12 @@ git pull origin feature/migrate-to-regru-local-db  и обновите код
 	и потом cp /tmp/App.css.prod src/App.css
 git log --oneline -5    Посмотрите последние коммиты
 git show --stat      # Посмотрите, какие файлы были изменены в последнем коммите
-npm run build  Пересоберите фронтенд
+      так делалось раньше    npm run build  Пересоберите фронтенд
+NODE_OPTIONS=--max-old-space-size=3072 npm run build
+sudo rm -rf larchik    делаем из-за ларчика не в корне
+sudo mv build larchik
+sudo chown -R www-data:www-data larchik
+
 pm2 restart muscule-api Перезапустите бэкенд
 systemctl restart nodejs  или так, если ещё не был запущен бэкенд 
 systemctl restart nginx   перезапус  nginx
