@@ -345,6 +345,11 @@ function TestRefreshLinks() {
       return;
     }
 
+    // Проверка: только для PDF
+      if (!isPdf) {
+        setError('Вариант 4 (react-pdf) доступен только для PDF-файлов');
+        return;
+      }
     setPdfLoading(true);
     setPdfError(null);
     setPdfBlobUrl(null);
@@ -606,11 +611,19 @@ function TestRefreshLinks() {
             
             <button 
               onClick={showViaReactPdf} 
-              disabled={loading || pdfLoading} 
-              style={buttonStyle('#9c27b0', loading || pdfLoading)}
-              title="Вариант 4: рендеринг PDF через react-pdf (pdf.js) на canvas. Работает на Android."
+              disabled={loading || pdfLoading || !isPdf}
+              style={buttonStyle('#9c27b0', loading || pdfLoading || !isPdf)}
+              title={
+                isPdf 
+                  ? "Вариант 4: рендеринг PDF через react-pdf (pdf.js) на canvas. Работает на Android."
+                  : "Вариант 4 доступен только для PDF-файлов (этот файл — не PDF)."
+              }
             >
-              {pdfLoading ? '⏳ Загрузка...' : '📱 Вариант 4: react-pdf'}
+              {pdfLoading 
+                ? '⏳ Загрузка...' 
+                : isPdf 
+                  ? '📱 Вариант 4: react-pdf' 
+                  : '📱 Вариант 4 (только PDF)'}
             </button>
             
             {(displayMode || blobData || pdfBlobUrl) && (

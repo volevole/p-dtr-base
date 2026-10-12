@@ -316,7 +316,9 @@ function AllMediaPage() {
   };
 
   const openTestPage = (mediaItem) => {
-    window.open(`/test-refresh?id=${mediaItem.id}`, '_blank');
+      // process.env.PUBLIC_URL = '' на локале, '/larchik' на проде
+      const baseUrl = process.env.PUBLIC_URL || '';
+      window.open(`${baseUrl}/test-refresh?id=${mediaItem.id}`, '_blank');
   };
 
   const filteredMedia = mediaFiles.filter(item => {

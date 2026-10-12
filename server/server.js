@@ -3642,10 +3642,21 @@ app.get('/api/media/:entityType/:entityId', async (req, res) => {
       try {
         // Динамически строим CASE для всех сущностей из SUPPORTED_ENTITIES
         const entityCases = SUPPORTED_ENTITIES.map(entity => {
-          const tableName = entity === 'muscle' ? 'muscles' :
-                            entity === 'muscle_group' ? 'muscle_groups' :
-                            entity === 'receptor_class' ? 'receptor_classes' :
-                            `${entity}s`;
+          // Явное сопоставление entity → имя таблицы (учитывает нестандартные множественные числа)
+          const tableMap = {
+            muscle: 'muscles',
+            organ: 'organs',
+            meridian: 'meridians',
+            dysfunction: 'dysfunctions',
+            muscle_group: 'muscle_groups',
+            receptor: 'receptors',
+            receptor_class: 'receptor_classes',
+            tool: 'tools',
+            entry: 'entries',          // ← ключевое исправление
+            usefulness: 'usefulness'
+          };
+          
+          const tableName = tableMap[entity] || `${entity}s`;
           const nameField = entity === 'muscle' ? 'name_ru' : 'name';
           return `WHEN em.entity_type = '${entity}' THEN (SELECT ${nameField} FROM ${tableName} WHERE id = em.entity_id)`;
         }).join(' ');

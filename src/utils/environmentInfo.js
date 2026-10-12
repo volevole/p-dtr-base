@@ -8,7 +8,9 @@ import API_URL from '../config/api';
 export const getEnvironmentInfo = () => {
   const isClientSide = typeof window !== 'undefined';
   const currentUrl = isClientSide ? window.location.href : '';
-  const apiUrl = API_URL || 'Не настроен';
+  const apiUrl = API_URL && API_URL.trim() !== '' 
+  ? API_URL 
+  : '(относительные запросы — same-origin)';
   
   const browserInfo = isClientSide ? {
     userAgent: navigator.userAgent,
@@ -29,13 +31,14 @@ export const getEnvironmentInfo = () => {
   const serverInfo = {
     apiUrl: apiUrl,
     protocol: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('https')) ? 'HTTPS' : 
-              (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) ? 'HTTP' : 'Неизвестно',
+              (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) ? 'HTTP' : 
+              'same-origin (HTTPS)',
     hostname: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
       ? new URL(apiUrl).hostname 
-      : 'Неизвестно',
+      : window.location.hostname,   // ← текущий домен
     port: (apiUrl && typeof apiUrl === 'string' && apiUrl.startsWith('http')) 
       ? new URL(apiUrl).port || (apiUrl.startsWith('https') ? 443 : 80) 
-      : null
+      : (window.location.protocol === 'https:' ? 443 : 80)
   };
   
   return {
