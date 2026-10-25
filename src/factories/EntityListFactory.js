@@ -1,6 +1,7 @@
 // src/factories/EntityListFactory.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // 👈 ДОБАВИЛИ ИМПОРТ
 import { 
   FaEdit, 
   FaTrash, 
@@ -30,30 +31,16 @@ const styles = {
   empty: { textAlign: 'center', padding: '3rem', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#666' }
 };
 
-// Стили для сообщения об ошибке сети
 const networkErrorStyles = {
-  container: {
-    backgroundColor: '#f8d7da',
-    color: '#721c24',
-    padding: '20px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    border: '1px solid #f5c6cb',
-    textAlign: 'center'
-  },
+  container: { backgroundColor: '#f8d7da', color: '#721c24', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #f5c6cb', textAlign: 'center' },
   icon: { fontSize: '48px', marginBottom: '10px' },
   title: { margin: '0 0 10px 0' },
-  text: { margin: 0 },
-  button: {
-    marginTop: '15px',
-    padding: '10px 25px',
-    backgroundColor: '#007bff',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px'
-  }
+  text: { margin: '0 0 5px 0' },
+  hint: { margin: '0 0 15px 0', fontSize: '14px', color: '#856404' },
+  linkBox: { backgroundColor: '#fff', padding: '10px 15px', borderRadius: '6px', display: 'inline-block', marginBottom: '15px', border: '1px solid #f5c6cb' },
+  link: { color: '#0056b3', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px', wordBreak: 'break-all' },
+  linkUrl: { fontSize: '12px', color: '#666', display: 'block', marginTop: '4px' },
+  retryButton: { marginTop: '10px', padding: '10px 25px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px' }
 };
 
 export function createEntityList({
@@ -68,21 +55,25 @@ export function createEntityList({
 }) {
   return function EntityListPage() {
     const navigate = useNavigate();
+    const { user } = useAuth(); // 👈 ПОЛУЧАЕМ ПОЛЬЗОВАТЕЛЯ
+    
+    // 👈 ПРОВЕРКА ПРАВ
+    const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
+
     const [items, setItems] = useState([]);
     const [filteredItems, setFilteredItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState(null);
-    const [networkError, setNetworkError] = useState(false); // 👈 НОВОЕ СОСТОЯНИЕ
+    const [networkError, setNetworkError] = useState(false);
 
     const loadItems = useCallback(async () => {
       try {
         setLoading(true);
-        setNetworkError(false); // Сбрасываем ошибку при новом запросе
+        setNetworkError(false);
         
         const response = await fetch(`${API_URL}/api/${tableName}`);
         
-        // Проверяем HTTP статус
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -132,6 +123,7 @@ export function createEntityList({
     }, [searchTerm, items, columns]);
 
     const handleDelete = async (id) => {
+      if (!canEdit) return;
       if (!window.confirm(`Вы уверены, что хотите удалить эту ${entityName.toLowerCase()}?`)) return;
       
       try {
@@ -154,6 +146,7 @@ export function createEntityList({
     };
 
     const handleCopy = async (id) => {
+      if (!canEdit) return;
       try {
         const response = await fetch(`${API_URL}/api/${tableName}/${id}/copy`, { method: 'POST' });
         const result = await response.json();
@@ -170,7 +163,7 @@ export function createEntityList({
     };
 
     const handleMoveUp = async (index) => {
-      if (index === 0) return;
+      if (!canEdit || index === 0) return;
       
       const newOrder = [...filteredItems];
       [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
@@ -193,6 +186,7 @@ export function createEntityList({
     };
 
     const handleAdd = async () => {
+      if (!canEdit) return;
       try {
         const response = await fetch(`${API_URL}/api/${tableName}`, {
           method: 'POST',
@@ -213,7 +207,7 @@ export function createEntityList({
     };
 
     const handleMoveDown = async (index) => {
-      if (index === filteredItems.length - 1) return;
+      if (!canEdit || index === filteredItems.length - 1) return;
       
       const newOrder = [...filteredItems];
       [newOrder[index + 1], newOrder[index]] = [newOrder[index], newOrder[index + 1]];
@@ -235,9 +229,6 @@ export function createEntityList({
       }
     };
 
-    // ==== РЕНДЕРИНГ ====
-
-    // Показываем загрузку
     if (loading) {
       return <div style={styles.loading}>Загрузка...</div>;
     }
@@ -262,87 +253,56 @@ export function createEntityList({
             )}
           </div>
           
-          <button onClick={handleAdd} style={styles.addButton}>
-            <FaPlus /> Добавить {entityName.toLowerCase()}
-          </button>
+          {/* 👈 СКРЫВАЕМ КНОПКУ ДОБАВЛЕНИЯ, ЕСЛИ НЕТ ПРАВ */}
+          {canEdit && (
+            <button onClick={handleAdd} style={styles.addButton}>
+              <FaPlus /> Добавить {entityName.toLowerCase()}
+            </button>
+          )}
         </div>
 
-        {/* ОШИБКА СЕТИ */}
-      {networkError && (
-        <div style={{
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          padding: '20px',
-          borderRadius: '8px',
-          marginBottom: '20px',
-          border: '1px solid #f5c6cb',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '48px', marginBottom: '10px' }}>📡</div>
-          <h3 style={{ margin: '0 0 10px 0' }}>Связь с сервером потеряна</h3>
-          <p style={{ margin: '0 0 5px 0' }}>
-            Не удалось загрузить данные. Проверьте подключение к интернету.
-          </p>
-          <p style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#856404' }}>
-            💡 Если интернет есть, возможно сервер временно недоступен.
-            <br />
-            Проверьте доступность сервера по ссылке ниже:
-          </p>
+        {networkError && (
+          <div style={networkErrorStyles.container}>
+            <div style={networkErrorStyles.icon}>📡</div>
+            <h3 style={networkErrorStyles.title}>Связь с сервером потеряна</h3>
+            <p style={networkErrorStyles.text}>
+              Не удалось загрузить данные. Проверьте подключение к интернету.
+            </p>
+            <p style={networkErrorStyles.hint}>
+              💡 Если интернет есть, возможно сервер временно недоступен.
+              <br />
+              Проверьте доступность сервера по ссылке ниже:
+            </p>
 
-          {/* Ссылка для проверки сервера */}
-          <div style={{
-            backgroundColor: '#fff',
-            padding: '10px 15px',
-            borderRadius: '6px',
-            display: 'inline-block',
-            marginBottom: '15px',
-            marginRight: '15px',
-            border: '1px solid #f5c6cb'
-          }}>
-            <a
-              href={`${API_URL}/api/media/supported-entities`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: '#0056b3',
-                textDecoration: 'none',
-                fontWeight: 'bold',
-                fontSize: '14px',
-                wordBreak: 'break-all'
-              }}
-              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-            >
-              🔗 Проверить сервер
-            </a>
-            <span style={{ fontSize: '12px', color: '#666', display: 'block', marginTop: '4px' }}>
-              {API_URL}/api/media/supported-entities
-            </span>
+            <div style={networkErrorStyles.linkBox}>
+              <a
+                href={`${API_URL}/api/media/supported-entities`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={networkErrorStyles.link}
+                onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+              >
+                🔗 Проверить сервер
+              </a>
+              <span style={networkErrorStyles.linkUrl}>
+                {API_URL}/api/media/supported-entities
+              </span>
+            </div>
+
+            <div style={{ marginTop: '15px' }}>      
+              <button
+                onClick={loadItems}
+                style={networkErrorStyles.retryButton}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#0056b3'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#007bff'}
+              >
+                🔄 Повторить попытку
+              </button>
+            </div>
           </div>
+        )}
 
-          <div style={{ marginTop: '15px' }}>      
-          <button
-            onClick={loadItems}
-            style={{
-              marginTop: '10px',
-              padding: '10px 25px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '16px'
-            }}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#0056b3'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = '#007bff'}
-          >
-            🔄 Повторить попытку
-          </button>
-          </div>
-        </div>
-      )}
-
-        {/* СТАТИСТИКА (только если нет ошибки сети) */}
         {!networkError && stats && (
           <div style={styles.stats}>
             {Object.entries(stats).map(([key, value]) => (
@@ -353,15 +313,16 @@ export function createEntityList({
           </div>
         )}
 
-        {/* СПИСОК */}
         <div style={styles.list}>
           {!networkError && filteredItems.length === 0 ? (
-            // Пустое состояние (только если нет ошибки сети)
             <div style={styles.empty}>
               <p>Нет ничего из {entityName}</p>
-              <button onClick={handleAdd} style={styles.addButton}>
-                <FaPlus /> Добавить первый {entityName.toLowerCase()}
-              </button>
+              {/* 👈 СКРЫВАЕМ КНОПКУ СОЗДАНИЯ, ЕСЛИ НЕТ ПРАВ */}
+              {canEdit && (
+                <button onClick={handleAdd} style={styles.addButton}>
+                  <FaPlus /> Добавить первый {entityName.toLowerCase()}
+                </button>
+              )}
             </div>
           ) : (
             !networkError && filteredItems.map((item, index) => {
@@ -370,7 +331,8 @@ export function createEntityList({
                 onEdit: () => navigate(`/${entityType}/${item.id}/edit`),
                 onDelete: () => handleDelete(item.id),
                 onMoveUp: enableMove ? () => handleMoveUp(index) : null,
-                onMoveDown: enableMove ? () => handleMoveDown(index) : null
+                onMoveDown: enableMove ? () => handleMoveDown(index) : null,
+                canEdit: canEdit // 👈 ПЕРЕДАЕМ ПРАВА В КАРТОЧКУ
               };
               
               return renderCard(item, index, actions, filteredItems.length);

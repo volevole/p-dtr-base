@@ -11,7 +11,6 @@ import {
   FaList,
   FaEdit,
   FaTrash,
-  FaCopy,
   FaArrowUp,
   FaArrowDown
 } from 'react-icons/fa';
@@ -30,7 +29,8 @@ function EntityList({
   renderCard,
   searchPlaceholder = "Поиск...",
   entityName = "Элементы",
-  defaultSort = "default"
+  defaultSort = "default",
+  canAdd = true // 👈 Добавили пропс, по умолчанию true
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -132,22 +132,25 @@ function EntityList({
             Фильтры
           </button>
           
-          <button 
-            onClick={onAdd}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-          >
-            <FaPlusSquare style={{ marginRight: '5px' }} />
-            Добавить
-          </button>
+          {/* 👈 СКРЫВАЕМ КНОПКУ ДОБАВЛЕНИЯ, ЕСЛИ canAdd = false */}
+          {canAdd && (
+            <button 
+              onClick={onAdd}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              <FaPlusSquare style={{ marginRight: '5px' }} />
+              Добавить
+            </button>
+          )}
         </div>
       </div>
 
@@ -226,8 +229,9 @@ function EntityList({
         }}>
           <h3>Ничего не найдено</h3>
           <p>Попробуйте изменить поисковый запрос или фильтры</p>
-          {/* Кнопка "Создать первый элемент" показываем только если ВСЕГО нет элементов */}
-          {filterBy === 'all' && searchTerm === '' && entities.length === 0 && onAdd && (
+          
+          {/* 👈 СКРЫВАЕМ КНОПКУ "СОЗДАТЬ ПЕРВЫЙ", ЕСЛИ canAdd = false */}
+          {canAdd && filterBy === 'all' && searchTerm === '' && entities.length === 0 && onAdd && (
             <button 
               onClick={onAdd}
               style={{
@@ -243,6 +247,7 @@ function EntityList({
               Создать первый элемент
             </button>
           )}
+          
           {/* Кнопка "Сбросить фильтры" если фильтры активны */}
           {(filterBy !== 'all' || searchTerm !== '') && (
             <button 
@@ -280,6 +285,7 @@ function EntityList({
                 onMoveDown: () => onMove && onMove(entity.id, 'down')				  
               })
             ) : (
+              // Дефолтная карточка (если renderCard не передан)
               <div 
                 key={entity.id} 
                 style={{ 

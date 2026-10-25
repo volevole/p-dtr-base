@@ -145,15 +145,20 @@
   width: 250px;
   background-color: #f8f9fa;
   border-right: 1px solid #dee2e6;
-  min-height: 100vh;
   padding: 20px;
   position: fixed;
   left: 0;
   top: 0;
-  overflow-y: auto;
   z-index: 1000;
   transition: transform 0.3s ease;
   box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+  
+  /* 👈 ИСПРАВЛЕНО: Flexbox для прижатия кнопки Выйти вниз */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden; /* Убираем прокрутку у самого сайдбара */
 }
 .sidebar-section-title {
   font-size: 14px;
@@ -559,7 +564,7 @@
   .entity-list { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 0.8rem; }
 }
 
-/* Телефоны (≤768px) — КАК БЫЛО РАНЬШЕ, БЕЗ АГРЕССИВНЫХ ФИКСОВ */
+/* Телефоны (≤768px) */
 @media (max-width: 768px) {
   .main-content {
     margin-left: 0;
@@ -608,7 +613,7 @@
   }
   .table-responsive table { min-width: 900px; }
 
-  /* ===== КАРТОЧКИ НА ТЕЛЕФОНЕ (как было раньше) ===== */
+  /* ===== КАРТОЧКИ НА ТЕЛЕФОНЕ ===== */
   .entity-list {
     grid-template-columns: 1fr !important;
     gap: 0.6rem;
@@ -701,7 +706,7 @@
 @media (max-width: 768px) and (orientation: landscape) {
   .sidebar { width: 300px; }
   .main-content { padding-top: 60px; }
-  .sidebar ul { max-height: 80vh; overflow-y: auto; }
+  /* Убираем max-height у ul, так как теперь скроллится вся обертка flex */
 }
 
 /* Тёмная тема */

@@ -6,6 +6,10 @@ const multer = require('multer');
 const fetch = require('node-fetch').default;
 const cors = require('cors');
 const { exec } = require('child_process');
+const { connectDB } = require('./db');
+const cookieParser = require('cookie-parser');
+const authRoutes = require('./routes/auth');
+const adminUsersRoutes = require('./routes/admin-users');
 
 // 2. Инициализация
 const app = express();
@@ -31,56 +35,12 @@ let isProcessing = false;
   ];
 
 
-async function connectDB() {
-  if (db && db._connected && !db._ending) {
-    return db;
-  }
-
-  try {
-    if (db && !db._ended) {
-      try {
-        await db.end();
-      } catch (e) {}
-    }
-
-    // db = new Client({
-    //   host: '194.226.165.244',
-    //   port: 5432,
-    //   database: 'p-dtr-db',
-    //   user: 'pdtr_admin',
-    //   password: process.env.REGRU_DB_PASSWORD
-    // });
-
-    db = new Client({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
-      database: process.env.DB_NAME || 'p-dtr-db',
-      user: process.env.DB_USER || 'pdtr_admin',
-      password: process.env.REGRU_DB_PASSWORD
-    });
-
-    await db.connect();
-    console.log('Connected to PostgreSQL at Reg.ru');
-    
-    db.on('error', (err) => {
-      console.error('Database connection error:', err.message);
-      db = null;
-    });
-    
-    return db;
-  } catch (error) {
-    console.error('Database connection failed:', error.message);
-    db = null;
-    throw error;
-  }
-}
 
 // ========== КОНЕЦ НОВОГО КОДА ==========
 
 
 // 3. Middleware
 app.use(express.json());
-
 
 // Настройка CORS
 const corsOptions = {
@@ -99,6 +59,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+app.use(cookieParser()); // ОБЯЗАТЕЛЬНО для чтения cookies
+
 
 // Обработка preflight запросов для всех API endpoints
 //app.options('*', cors(corsOptions));  // ? Это обработает ВСЕ OPTIONS запросы
@@ -122,6 +85,9 @@ app.use(cors(corsOptions));
 // 4. Multer middleware
 const upload = multer({ storage: multer.memoryStorage() });
 
+
+app.use('/api/auth', authRoutes);
+app.use('/api/admin/users', adminUsersRoutes);
 
 // ========== МЫШЦЫ ==========
 

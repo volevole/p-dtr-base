@@ -1,10 +1,11 @@
-//index.js
+// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration'; // ?? ДОБАВИТЬ
+import * as serviceWorkerRegistration from './serviceWorkerRegistration';
+import { AuthProvider } from './context/AuthContext'; // рџ‘€ Р”РћР‘РђР’РР›Р РРњРџРћР Рў
 
 import { BrowserRouter } from 'react-router-dom';
 
@@ -12,26 +13,17 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <BrowserRouter basename="/larchik">
-      <App />
+      <AuthProvider>        {/* рџ‘€ РћР‘Р•Р РќРЈР›Р App Р’ РџР РћР’РђР™Р”Р•Р  */}
+        <App />
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );
 
-// ?? ЗАМЕНИТЬ reportWebVitals() на это:
-// Если хотите включить Service Worker (PWA):
-//serviceWorkerRegistration.register();
-
-// Если хотите оставить как было (без PWA):
-// serviceWorkerRegistration.unregister();
-// reportWebVitals();
-
-// Для разработки — отключаем Service Worker
 if (process.env.NODE_ENV === 'production') {
   serviceWorkerRegistration.register();
 } else {
   serviceWorkerRegistration.unregister();
 }
 
-
-// Если нужны и PWA, и reportWebVitals:
 reportWebVitals();

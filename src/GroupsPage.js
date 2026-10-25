@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API_URL from './config/api';
 import EntityList from './EntityList';
+import { useAuth } from './context/AuthContext'; // 👈 ДОБАВИЛИ ИМПОРТ
 import { 
   FaEdit, 
   FaTrash,
@@ -15,8 +16,12 @@ import './App.css';
 function GroupsPage() {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [networkError, setNetworkError] = useState(false); // 👈 НОВОЕ СОСТОЯНИЕ
+  const [networkError, setNetworkError] = useState(false);
   const navigate = useNavigate();
+
+  // 👈 ПРОВЕРКА ПРАВ
+  const { user } = useAuth();
+  const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
 
   useEffect(() => {
     fetchGroups();
@@ -25,11 +30,10 @@ function GroupsPage() {
   const fetchGroups = async () => {
     try {
       setLoading(true);
-      setNetworkError(false); // Сбрасываем ошибку при новом запросе
+      setNetworkError(false);
       
       const response = await fetch(`${API_URL}/api/groups`);
       
-      // Проверяем HTTP статус
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -180,17 +184,20 @@ function GroupsPage() {
             </h3>
           </div>
           
-          <div className="entity-card-actions">
-            <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
-              <HiDuplicate size={14} />
-            </button>
-            <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
-              <FaEdit size={14} />
-            </button>
-            <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
-              <FaTrash size={14} />
-            </button>
-          </div>
+          {/* 👈 СКРЫВАЕМ КНОПКИ ДЕЙСТВИЙ, ЕСЛИ НЕТ ПРАВ */}
+          {canEdit && (
+            <div className="entity-card-actions">
+              <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
+                <HiDuplicate size={14} />
+              </button>
+              <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
+                <FaEdit size={14} />
+              </button>
+              <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
+                <FaTrash size={14} />
+              </button>
+            </div>
+          )}
         </div>
 
         {group.description && (
@@ -214,35 +221,35 @@ function GroupsPage() {
           )}
         </div>
 
-        <div className="entity-move-buttons">
-          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-            <button 
-              onClick={actions.onMoveUp} 
-              disabled={index === 0}
-              className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
-              title="Переместить выше"
-            >
-              <FaArrowUp size={10} />
-              <span>Вверх</span>
-            </button>
-            <button 
-              onClick={actions.onMoveDown} 
-              disabled={index === totalCount - 1}
-              className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
-              title="Переместить ниже"
-            >
-              <FaArrowDown size={10} />
-              <span>Вниз</span>
-            </button>
+        {/* 👈 СКРЫВАЕМ СТРЕЛКИ СОРТИРОВКИ, ЕСЛИ НЕТ ПРАВ */}
+        {canEdit && (
+          <div className="entity-move-buttons">
+            <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+              <button 
+                onClick={actions.onMoveUp} 
+                disabled={index === 0}
+                className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
+                title="Переместить выше"
+              >
+                <FaArrowUp size={10} />
+                <span>Вверх</span>
+              </button>
+              <button 
+                onClick={actions.onMoveDown} 
+                disabled={index === totalCount - 1}
+                className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
+                title="Переместить ниже"
+              >
+                <FaArrowDown size={10} />
+                <span>Вниз</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
 
-  // === РЕНДЕРИНГ ===
-
-  // Показываем загрузку
   if (loading) {
     return <div className="detail-container">Загрузка...</div>;
   }
@@ -332,7 +339,7 @@ function GroupsPage() {
         </div>
       )}
 
-      {/* ОСНОВНОЙ КОНТЕНТ — только если нет ошибки сети */}
+      {/* ОСНОВНОЙ КОНТЕНТ */}
       {!networkError && (
         <EntityList
           entities={groups}
@@ -348,6 +355,7 @@ function GroupsPage() {
           searchPlaceholder="Поиск по названию группы..."
           renderCard={renderGroupCard}
           defaultSort="display_order"
+          canAdd={canEdit} // 👈 ПЕРЕДАЕМ ПРОПС В ФАБРИКУ
         />
       )}
     </>

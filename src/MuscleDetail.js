@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import API_URL from './config/api';
 import { FaEdit } from 'react-icons/fa';
 import MediaManager from './MediaManager';
+import { useAuth } from './context/AuthContext'; // 👈 ДОБАВИЛИ ИМПОРТ
 import './App.css';
 
 const truncateText = (text, maxLength = 200) => {
@@ -17,6 +18,11 @@ function MuscleDetail() {
   const [muscle, setMuscle] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
+  // 👈 ПРОВЕРКА ПРАВ
+  const { user } = useAuth();
+  const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
+
   const [dysfunctionsCount, setDysfunctionsCount] = useState(0);
   const [relationships, setRelationships] = useState([]);
   
@@ -317,13 +323,18 @@ function MuscleDetail() {
     <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
       <div className="detail-navigation">
         <Link className="link-text" to="/">← Назад</Link>
-        <button 
-          onClick={() => navigate(`/muscle/${id}/edit`)}
-          className="action-btn edit-btn"
-          title="Редактировать"
-        >
-          ✏️
-        </button>
+        
+        {/* 👈 СКРЫВАЕМ КНОПКУ, ЕСЛИ НЕТ ПРАВ */}
+        {canEdit && (
+          <button 
+            onClick={() => navigate(`/muscle/${id}/edit`)}
+            className="action-btn edit-btn"
+            title="Редактировать"
+          >
+            ✏️
+          </button>
+        )}
+
         {dysfunctionsCount > 0 && (
           <Link to={`/muscle/${id}/dysfunctions`} className="link-text">
             Список дисфункций: {dysfunctionsCount}
@@ -425,7 +436,7 @@ function MuscleDetail() {
         entityName={muscle?.name_ru || ''}
         showTitle={true}
         readonly={true}
-        viewMode="inline"   // <-- добавляем эту строку для теста
+        viewMode="inline"
       />
       
       <hr className="separator" />

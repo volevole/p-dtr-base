@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import API_URL from './config/api';
 import MediaManager from './MediaManager';
+import { useAuth } from './context/AuthContext'; // 👈 ДОБАВИЛИ ИМПОРТ
 import './App.css';
 
 function GroupDetail() {
@@ -12,6 +13,10 @@ function GroupDetail() {
   const [loading, setLoading] = useState(true);
   const [muscles, setMuscles] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
+
+  // 👈 ПРОВЕРКА ПРАВ
+  const { user } = useAuth();
+  const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -67,13 +72,17 @@ function GroupDetail() {
     <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
       <div className="detail-navigation">
         <Link to="/groups" className="link-text">← Назад к списку групп</Link>
-        <button 
-          onClick={() => navigate(`/group/${id}/edit`)}
-          className="action-btn edit-btn"
-          title="Редактировать"
-        >
-          ✏️
-        </button>
+        
+        {/* 👈 СКРЫВАЕМ КНОПКУ, ЕСЛИ НЕТ ПРАВ */}
+        {canEdit && (
+          <button 
+            onClick={() => navigate(`/group/${id}/edit`)}
+            className="action-btn edit-btn"
+            title="Редактировать"
+          >
+            ✏️
+          </button>
+        )}
       </div>
 
       <h1 className="detail-title">{group.name}</h1>

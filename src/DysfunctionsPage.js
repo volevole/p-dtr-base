@@ -47,17 +47,20 @@ const renderDysfunctionCard = (dysfunction, index, actions, totalCount) => {
           </h3>
         </div>
         
-        <div style={{ display: 'flex', gap: '5px' }}>
-          <button onClick={actions.onCopy} title="Копировать" style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer' }}>
-            <HiDuplicate size={14} />
-          </button>
-          <button onClick={actions.onEdit} title="Редактировать" style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer' }}>
-            <FaEdit size={14} />
-          </button>
-          <button onClick={actions.onDelete} title="Удалить" style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer', color: '#dc3545' }}>
-            <FaTrash size={14} />
-          </button>
-        </div>
+        {/* 👈 СКРЫВАЕМ КНОПКИ ДЕЙСТВИЙ, ЕСЛИ НЕТ ПРАВ */}
+        {actions.canEdit && (
+          <div style={{ display: 'flex', gap: '5px' }}>
+            <button onClick={actions.onCopy} title="Копировать" style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer' }}>
+              <HiDuplicate size={14} />
+            </button>
+            <button onClick={actions.onEdit} title="Редактировать" style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer' }}>
+              <FaEdit size={14} />
+            </button>
+            <button onClick={actions.onDelete} title="Удалить" style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer', color: '#dc3545' }}>
+              <FaTrash size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {dysfunction.description && (
@@ -111,24 +114,27 @@ const renderDysfunctionCard = (dysfunction, index, actions, totalCount) => {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '5px', marginTop: '15px', borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
-        <button 
-          onClick={actions.onMoveUp} 
-          disabled={index === 0}
-          title="Переместить выше"
-          style={{ padding: '4px 8px', backgroundColor: index === 0 ? '#f8f9fa' : '#007bff', color: index === 0 ? '#6c757d' : 'white', border: 'none', borderRadius: '4px', cursor: index === 0 ? 'not-allowed' : 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center' }}
-        >
-          <FaArrowUp size={10} />
-        </button>
-        <button 
-          onClick={actions.onMoveDown} 
-          disabled={index === totalCount - 1}
-          title="Переместить ниже"
-          style={{ padding: '4px 8px', backgroundColor: index === totalCount - 1 ? '#f8f9fa' : '#007bff', color: index === totalCount - 1 ? '#6c757d' : 'white', border: 'none', borderRadius: '4px', cursor: index === totalCount - 1 ? 'not-allowed' : 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center' }}
-        >
-          <FaArrowDown size={10} />
-        </button>
-      </div>
+      {/* 👈 СКРЫВАЕМ КНОПКИ ПЕРЕМЕЩЕНИЯ, ЕСЛИ НЕТ ПРАВ */}
+      {actions.canEdit && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '5px', marginTop: '15px', borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
+          <button 
+            onClick={actions.onMoveUp} 
+            disabled={index === 0}
+            title="Переместить выше"
+            style={{ padding: '4px 8px', backgroundColor: index === 0 ? '#f8f9fa' : '#007bff', color: index === 0 ? '#6c757d' : 'white', border: 'none', borderRadius: '4px', cursor: index === 0 ? 'not-allowed' : 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center' }}
+          >
+            <FaArrowUp size={10} />
+          </button>
+          <button 
+            onClick={actions.onMoveDown} 
+            disabled={index === totalCount - 1}
+            title="Переместить ниже"
+            style={{ padding: '4px 8px', backgroundColor: index === totalCount - 1 ? '#f8f9fa' : '#007bff', color: index === totalCount - 1 ? '#6c757d' : 'white', border: 'none', borderRadius: '4px', cursor: index === totalCount - 1 ? 'not-allowed' : 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center' }}
+          >
+            <FaArrowDown size={10} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

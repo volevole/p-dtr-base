@@ -1,8 +1,9 @@
-// factories/EntityDetailFactory.js - исправленная версия
+// src/factories/EntityDetailFactory.js
 import React, { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import API_URL from '../config/api';
 import MediaManager from '../MediaManager';
+import { useAuth } from '../context/AuthContext'; // 👈 ДОБАВИЛИ ИМПОРТ
 
 export function createEntityDetail(config) {
   return function EntityDetailComponent() {
@@ -19,6 +20,11 @@ export function createEntityDetail(config) {
 
     const { id } = useParams();
     const navigate = useNavigate();
+    
+    // 👈 ПОЛУЧАЕМ ПОЛЬЗОВАТЕЛЯ И ПРОВЕРЯЕМ ПРАВА
+    const { user } = useAuth();
+    const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
+
     const [entity, setEntity] = useState(null);
     const [relatedData, setRelatedData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -63,13 +69,17 @@ export function createEntityDetail(config) {
       <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
         <div className="detail-navigation">
           <Link to={config.listPath || `/${entityType}s`} className="link-text">← Назад к списку</Link>
-          <button 
-            onClick={() => navigate(`/${entityType}/${id}/edit`)}
-            className="action-btn edit-btn"
-            title="Редактировать"
-          >
-            ✏️
-          </button>
+          
+          {/* 👈 СКРЫВАЕМ КНОПКУ РЕДАКТИРОВАНИЯ, ЕСЛИ НЕТ ПРАВ */}
+          {canEdit && (
+            <button 
+              onClick={() => navigate(`/${entityType}/${id}/edit`)}
+              className="action-btn edit-btn"
+              title="Редактировать"
+            >
+              ✏️
+            </button>
+          )}
         </div>
 
         <h1 className="detail-title">{entity.name}</h1>

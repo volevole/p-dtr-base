@@ -1,8 +1,9 @@
-// MusclesPage.js - ПОЛНОСТЬЮ НА НОВОЙ БД
+// MusclesPage.js
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API_URL from './config/api';
 import EntityList from './EntityList';
+import { useAuth } from './context/AuthContext'; // 👈 Добавили импорт
 import { 
   FaEdit, 
   FaTrash,
@@ -15,8 +16,12 @@ import './App.css';
 function MusclesPage() {
   const [muscles, setMuscles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [networkError, setNetworkError] = useState(false); // 👈 НОВОЕ СОСТОЯНИЕ
+  const [networkError, setNetworkError] = useState(false);
   const navigate = useNavigate();
+  
+  // 👈 ПРОВЕРКА ПРАВ
+  const { user } = useAuth();
+  const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
 
   useEffect(() => {
     fetchMuscles();
@@ -26,11 +31,10 @@ function MusclesPage() {
   const fetchMuscles = async () => {
     try {
       setLoading(true);
-      setNetworkError(false); // Сбрасываем ошибку при новом запросе
+      setNetworkError(false);
       
       const response = await fetch(`${API_URL}/api/muscles`);
       
-      // Проверяем HTTP статус
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -193,17 +197,20 @@ function MusclesPage() {
             </div>
           </div>
           
-          <div className="entity-card-actions">
-            <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
-              <HiDuplicate size={14} />
-            </button>
-            <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
-              <FaEdit size={14} />
-            </button>
-            <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
-              <FaTrash size={14} />
-            </button>
-          </div>
+          {/* 👈 СКРЫВАЕМ КНОПКИ ДЕЙСТВИЙ, ЕСЛИ НЕТ ПРАВ */}
+          {canEdit && (
+            <div className="entity-card-actions">
+              <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
+                <HiDuplicate size={14} />
+              </button>
+              <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
+                <FaEdit size={14} />
+              </button>
+              <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
+                <FaTrash size={14} />
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="entity-move-buttons" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -225,26 +232,29 @@ function MusclesPage() {
             </Link>
           )}
           
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              onClick={actions.onMoveUp} 
-              disabled={index === 0}
-              className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
-              title="Переместить выше"
-            >
-              <FaArrowUp size={10} />
-              <span>Вверх</span>
-            </button>
-            <button 
-              onClick={actions.onMoveDown} 
-              disabled={index === totalCount - 1}
-              className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
-              title="Переместить ниже"
-            >
-              <FaArrowDown size={10} />
-              <span>Вниз</span>
-            </button>
-          </div>
+          {/* 👈 СКРЫВАЕМ СТРЕЛКИ СОРТИРОВКИ, ЕСЛИ НЕТ ПРАВ */}
+          {canEdit && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={actions.onMoveUp} 
+                disabled={index === 0}
+                className={`entity-move-btn up-btn ${index === 0 ? 'disabled' : ''}`}
+                title="Переместить выше"
+              >
+                <FaArrowUp size={10} />
+                <span>Вверх</span>
+              </button>
+              <button 
+                onClick={actions.onMoveDown} 
+                disabled={index === totalCount - 1}
+                className={`entity-move-btn down-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
+                title="Переместить ниже"
+              >
+                <FaArrowDown size={10} />
+                <span>Вниз</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -252,7 +262,6 @@ function MusclesPage() {
 
   // === РЕНДЕРИНГ ===
 
-  // Показываем загрузку
   if (loading) {
     return <div className="detail-container">Загрузка...</div>;
   }
@@ -365,6 +374,7 @@ function MusclesPage() {
           searchPlaceholder="Поиск по названию мышцы..."
           renderCard={renderMuscleCard}
           defaultSort="display_order" 
+          canAdd={canEdit} // 👈 ПЕРЕДАЕМ ПРОПС В ФАБРИКУ
         />
       )}
     </>

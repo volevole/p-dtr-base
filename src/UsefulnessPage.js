@@ -18,86 +18,77 @@ const truncateText = (text, maxLength = 200) => {
   return text.substring(0, maxLength) + '...';
 };
 
-// Кастомная карточка для полезностей
+// Кастомная карточка для полезностей (в едином стиле entity-card)
 const renderUsefulnessCard = (item, index, actions, totalCount) => {
   const isMobile = window.innerWidth <= 768;
   
   return (  
-    <div key={item.id} className="entry-card">
-      {/* Верхняя часть с заголовком и кнопками */}
-      <div className="entry-card-header">
-        <div className="entry-card-title-section">
-          <h3 className="entry-card-title">
-            <Link 
-              to={`/usefulness/${item.id}`}
-              className="link-text"
-            >
+    <div key={item.id} className="entity-card">
+      <div className="entity-card-header">
+        <div className="entity-card-title-section">
+          <h3 className="entity-card-title">
+            <Link to={`/usefulness/${item.id}`} className="link-text">
               {item.name}
             </Link>
           </h3>
           {!item.is_active && (
-            <span className="entry-card-inactive">Неактивен</span>
+            <span className="entity-badge badge-danger" style={{ marginTop: '5px' }}>
+              Неактивна
+            </span>
           )}
         </div>
         
-        <div className="entry-card-actions">
-          <button 
-            onClick={actions.onCopy} 
-            className="entry-card-action-btn"
-            title="Копировать"
-          >
-            <HiDuplicate size={14} />
-          </button>
-          <button 
-            onClick={actions.onEdit} 
-            className="entry-card-action-btn"
-            title="Редактировать"
-          >
-            <FaEdit size={14} />
-          </button>
-          <button 
-            onClick={actions.onDelete} 
-            className="entry-card-action-btn delete-btn"
-            title="Удалить"
-          >
-            <FaTrash size={14} />
-          </button>
-        </div>
+        {/* 👈 СКРЫВАЕМ КНОПКИ ДЕЙСТВИЙ, ЕСЛИ НЕТ ПРАВ */}
+        {actions.canEdit && (
+          <div className="entity-card-actions">
+            <button onClick={actions.onCopy} className="entity-action-btn" title="Копировать">
+              <HiDuplicate size={14} />
+            </button>
+            <button onClick={actions.onEdit} className="entity-action-btn" title="Редактировать">
+              <FaEdit size={14} />
+            </button>
+            <button onClick={actions.onDelete} className="entity-action-btn delete-btn" title="Удалить">
+              <FaTrash size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Описание */}
       {item.description && (
-        <div className="entry-card-description">
+        <div className="entity-card-description">
           {truncateText(item.description, isMobile ? 100 : 200)}
         </div>
       )}
 
-      {/* Дата создания */}
       {item.created_at && (
-        <div className="entry-card-date">
-          Создан: {new Date(item.created_at).toLocaleDateString('ru-RU')}
+        <div className="entity-card-meta">
+          Создана: {new Date(item.created_at).toLocaleDateString('ru-RU')}
         </div>
       )}
 
-      {/* Кнопки перемещения */}
-      <div className="entry-card-move-buttons">
-        <button 
-          onClick={actions.onMoveUp} 
-          disabled={index === 0}
-          className={`entry-card-move-btn ${index === 0 ? 'disabled' : ''}`}
-          title="Переместить выше"
-        >
-          <FaArrowUp size={10} />
-        </button>
-        <button 
-          onClick={actions.onMoveDown} 
-          disabled={index === totalCount - 1}
-          className={`entry-card-move-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
-          title="Переместить ниже"
-        >
-          <FaArrowDown size={10} />
-        </button>
-      </div>
+      {/* 👈 СКРЫВАЕМ КНОПКИ ПЕРЕМЕЩЕНИЯ, ЕСЛИ НЕТ ПРАВ */}
+      {actions.canEdit && (
+        <div className="entity-move-buttons">
+          <button 
+            onClick={actions.onMoveUp} 
+            disabled={index === 0}
+            className={`entity-move-btn ${index === 0 ? 'disabled' : ''}`}
+            title="Переместить выше"
+          >
+            <FaArrowUp size={10} />
+            <span>Вверх</span>
+          </button>
+          <button 
+            onClick={actions.onMoveDown} 
+            disabled={index === totalCount - 1}
+            className={`entity-move-btn ${index === totalCount - 1 ? 'disabled' : ''}`}
+            title="Переместить ниже"
+          >
+            <FaArrowDown size={10} />
+            <span>Вниз</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

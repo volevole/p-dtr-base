@@ -3,10 +3,16 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import API_URL from './config/api';
 import MediaManager from './MediaManager';
+import { useAuth } from './context/AuthContext'; // 👈 ДОБАВИЛИ ИМПОРТ
 
 function DysfunctionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  
+  // 👈 ПРОВЕРКА ПРАВ
+  const { user } = useAuth();
+  const canEdit = user?.roles?.includes('admin') || user?.roles?.includes('admin_content');
+
   const [dysfunction, setDysfunction] = useState(null);
   const [muscles, setMuscles] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -169,13 +175,16 @@ function DysfunctionDetail() {
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: 'auto' }}>      
       <div style={{ marginBottom: '20px' }}>
         <Link to="/dysfunctions">← Назад к списку</Link>
-        <button 
-          onClick={() => navigate(`/dysfunction/${id}/edit`)}
-          className="action-btn edit-btn"
-          
-        >
-          ✏️ 
-        </button>
+        
+        {/* 👈 СКРЫВАЕМ КНОПКУ, ЕСЛИ НЕТ ПРАВ */}
+        {canEdit && (
+          <button 
+            onClick={() => navigate(`/dysfunction/${id}/edit`)}
+            className="action-btn edit-btn"
+          >
+            ✏️ 
+          </button>
+        )}
       </div>
 
       <h1 style={{ marginBottom: '10px' }}>
