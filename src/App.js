@@ -11,6 +11,7 @@ import EnvironmentInfoPage from './EnvironmentInfoPage';
 import MediaViewerPage from './MediaViewerPage';
 import LoginPage from './LoginPage';
 import RegisterPage from './RegisterPage';
+import AboutPage from './AboutPage';
 import MuscleDetail from './MuscleDetail';      
 import MuscleEditPage from './MuscleEditPage'
 import MusclesPage from './MusclesPage';
@@ -96,6 +97,7 @@ function App() {
     <div className="App">      
       <Routes>
         {/* Публичные */}
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 

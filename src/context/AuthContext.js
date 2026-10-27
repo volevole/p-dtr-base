@@ -1,8 +1,34 @@
 // src/context/AuthContext.js
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import API_URL from '../config/api';
+import FingerprintJS from '@fingerprintjs/fingerprintjs';
 
 const AuthContext = createContext(null);
+
+// Генерация и получение ID устройства
+    // Инициализируем агент один раз при старте приложения (для кэширования)
+const fpPromise = FingerprintJS.load();
+
+    // 👈 Универсальная функция получения ID
+const getDeviceId = async () => {
+    try {
+        // 1. Пытаемся получить отпечаток через библиотеку
+        const fp = await fpPromise;
+        const result = await fp.get();
+        return result.visitorId; 
+    } catch (error) {
+        console.warn('Не удалось получить отпечаток, используем резервный ID:', error);
+        
+        // 2. Резервный вариант: берем из localStorage или создаем новый
+        let fallbackId = localStorage.getItem('larchik_fallback_device_id');
+        if (!fallbackId) {
+        // Если crypto.randomUUID нет (старые браузеры), делаем простой рандом
+        fallbackId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('larchik_fallback_device_id', fallbackId);
+        }
+        return `fallback_${fallbackId}`; // Добавляем префикс, чтобы отличать от настоящих отпечатков
+    }
+    };
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -35,11 +61,12 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (phone, password, rememberMe) => {
+    const deviceId = await getDeviceId();  // 👈 Получаем ID    
     const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ phone, password, rememberMe })
+      body: JSON.stringify({ phone, password, rememberMe, deviceId })
     });
 
     const data = await response.json();

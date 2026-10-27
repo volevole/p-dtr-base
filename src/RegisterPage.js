@@ -1,7 +1,7 @@
 // src/RegisterPage.js
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaArrowLeft } from 'react-icons/fa'; // 👈 Добавили иконку
 import API_URL from './config/api';
 
 function RegisterPage() {
@@ -25,7 +25,6 @@ function RegisterPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Валидация формы
   const passwordsMatch = formData.password === formData.confirmPassword;
   const isPasswordLongEnough = formData.password.length >= 8;
   const isFormFilled = formData.phone.trim() !== '' && formData.name.trim() !== '';
@@ -34,7 +33,7 @@ function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!isFormValid) return; // Защита на всякий случай
+    if (!isFormValid) return;
 
     setError('');
     setLoading(true);
@@ -68,13 +67,18 @@ function RegisterPage() {
   if (success) {
     return (
       <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', textAlign: 'center' }}>
+        <div style={{ marginBottom: '20px', textAlign: 'left' }}>
+          <a href="/" style={{ display: 'inline-flex', alignItems: 'center', color: '#495057', textDecoration: 'none', fontSize: '14px' }}>
+            <FaArrowLeft style={{ marginRight: '8px' }} /> На главную
+          </a>
+        </div>
         <h2 style={{ color: '#28a745' }}>✅ Заявка отправлена</h2>
         <p style={{ marginTop: '20px', lineHeight: '1.6' }}>
           Ваша регистрация успешно создана и ожидает подтверждения администратора.
         </p>
         <p style={{ fontSize: '14px', color: '#666' }}>
           💡 Уведомление о подтверждении придёт на указанный Email. 
-          Если Email не указан — администратор свяжется с вами через мессенджеры (Telegram, MAX, WhatsApp), привязанные к вашему номеру телефона.
+          Если Email не указан — администратор свяжется с вами через мессенджеры (Telegram, MAX, WhatsApp).
         </p>
         <Link to="/login" style={{ display: 'inline-block', marginTop: '20px', color: '#007bff', textDecoration: 'none' }}>
           Вернуться на страницу входа
@@ -85,7 +89,21 @@ function RegisterPage() {
 
   return (
     <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px' }}>
-      <h2>Регистрация</h2>
+      
+      {/* 👈 ССЫЛКА НА СТРАНИЦУ О ПРОЕКТЕ */}
+      <div style={{ marginBottom: '20px' }}>
+        <Link 
+          to="/about" 
+          style={{ display: 'inline-flex', alignItems: 'center', color: '#495057', textDecoration: 'none', fontSize: '14px' }}
+          onMouseEnter={(e) => e.target.style.color = '#007bff'}
+          onMouseLeave={(e) => e.target.style.color = '#495057'}
+        >
+          <FaArrowLeft style={{ marginRight: '8px' }} /> 
+          О проекте
+        </Link>
+      </div>
+
+      <h2 style={{ marginTop: 0 }}>Регистрация в Ларчик</h2>
       
       {error && (
         <div style={{ color: '#721c24', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>
@@ -162,7 +180,6 @@ function RegisterPage() {
               {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
             </button>
           </div>
-          {/* Валидация длины пароля */}
           {formData.password.length > 0 && !isPasswordLongEnough && (
             <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>
               Минимум 8 символов
@@ -197,7 +214,6 @@ function RegisterPage() {
               {showConfirmPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
             </button>
           </div>
-          {/* Валидация совпадения паролей */}
           {formData.confirmPassword.length > 0 && !passwordsMatch && (
             <div style={{ color: '#dc3545', fontSize: '12px', marginTop: '4px' }}>
               Пароли не совпадают

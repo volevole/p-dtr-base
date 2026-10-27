@@ -1,42 +1,31 @@
 // server/db.js
-const { Client } = require('pg');
+const { Pool } = require('pg');
 
-let db = null;
+// Создаем пул соединений
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME || 'p-dtr-db',
+  user: process.env.DB_USER || 'pdtr_admin',
+  password: process.env.REGRU_DB_PASSWORD
+});
 
+// Логируем подключение при первом успешном коннекте
+pool.on('connect', () => {
+  const dbHost = process.env.DB_HOST || 'localhost';
+  const dbPort = process.env.DB_PORT || 5432;
+  const dbName = process.env.DB_NAME || 'p-dtr-db';
+  console.log(`Connected to PostgreSQL at ${dbHost}:${dbPort}/${dbName}`);
+});
+
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
+// Наша старая функция теперь просто возвращает пул
 async function connectDB() {
-  if (db && db._connected && !db._ending) {
-    return db;
-  }
-
-  try {
-    if (db && !db._ended) {
-      try {
-        await db.end();
-      } catch (e) {}
-    }
-
-    db = new Client({
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT) || 5432,
-      database: process.env.DB_NAME || 'p-dtr-db',
-      user: process.env.DB_USER || 'pdtr_admin',
-      password: process.env.REGRU_DB_PASSWORD
-    });
-
-    await db.connect();
-    console.log('Connected to PostgreSQL at Reg.ru');
-    
-    db.on('error', (err) => {
-      console.error('Database connection error:', err.message);
-      db = null;
-    });
-    
-    return db;
-  } catch (error) {
-    console.error('Database connection failed:', error.message);
-    db = null;
-    throw error;
-  }
+  return pool;
 }
 
 module.exports = { connectDB };

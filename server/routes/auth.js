@@ -74,99 +74,175 @@ const registerLimiter = rateLimit({
     }
   });
   
-  /**
+    /**
    * POST /api/auth/login — вход
    */
-  router.post('/login', loginLimiter, async (req, res) => {
-    const { phone, password, rememberMe } = req.body;
-    
-    if (!phone || !password) {
-      return res.status(400).json({ success: false, error: 'Телефон и пароль обязательны' });
-    }
-    
-    const normalizedPhone = phone.replace(/[\s\-()]/g, '');
-    
-    try {
-      const client = await connectDB();
-      
-      // Ищем пользователя
-      const result = await client.query(
-        'SELECT id, phone, name, email, password_hash, is_active, must_change_password FROM users WHERE phone = $1',
-        [normalizedPhone]
-      );
-      
-      if (result.rowCount === 0) {
-        return res.status(401).json({ success: false, error: 'Неверный телефон или пароль' });
-      }
-      
-      const user = result.rows[0];
-      
-      if (!user.is_active) {
-        return res.status(403).json({ success: false, error: 'Учётная запись ожидает подтверждения администратора' });
-      }
-      
-      // Проверяем пароль
-      const isValid = await verifyPassword(password, user.password_hash);
-      if (!isValid) {
-        return res.status(401).json({ success: false, error: 'Неверный телефон или пароль' });
-      }
-      
-      // Загружаем роли
-      const rolesResult = await client.query('SELECT role FROM user_roles WHERE user_id = $1', [user.id]);
-      const roles = rolesResult.rows.map(r => r.role);
-      
-      // Генерируем токены
-      const accessToken = generateAccessToken(user);
-      const refreshToken = generateRefreshToken(user, rememberMe);
-      
-      // Сохраняем refreshToken в БД (хеш)
-      const refreshHash = await hashRefreshToken(refreshToken);
-      const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000);
-      
-      await client.query(
-        `INSERT INTO user_sessions (user_id, refresh_token_hash, user_agent, ip_address, expires_at) 
-         VALUES ($1, $2, $3, $4, $5)`,
-        [user.id, refreshHash, req.headers['user-agent'] || null, req.ip, expiresAt]
-      );
-      
-      // Обновляем last_login_at
-      await client.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
-      
-      // Устанавливаем cookies
-      const cookieOptions = {
-        httpOnly: true,
-        secure: process.env.COOKIE_SECURE === 'true',
-        sameSite: 'strict',
-        domain: process.env.COOKIE_DOMAIN || undefined
-      };
-      
-      res.cookie('accessToken', accessToken, {
-        ...cookieOptions,
-        maxAge: 24 * 60 * 60 * 1000  // 24 часа
-      });
-      
-      res.cookie('refreshToken', refreshToken, {
-        ...cookieOptions,
-        maxAge: (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000,
-        path: '/api/auth/refresh'
-      });
-      
-      res.json({
-        success: true,
-        user: {
-          id: user.id,
-          phone: user.phone,
-          name: user.name,
-          email: user.email,
-          roles: roles,
-          mustChangePassword: user.must_change_password
+    router.post('/login', loginLimiter, async (req, res) => {
+        const { phone, password, rememberMe } = req.body;
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const userAgent = req.headers['user-agent'] || null;
+        const deviceId = req.body.deviceId || null; // 👈 Ждем отпечаток устройства с фронта
+
+        if (!phone || !password) {
+        return res.status(400).json({ success: false, error: 'Телефон и пароль обязательны' });
         }
-      });
-    } catch (err) {
-      console.error('[POST /api/auth/login] Error:', err.message);
-      res.status(500).json({ success: false, error: 'Ошибка сервера' });
-    }
-  });
+        
+        const normalizedPhone = phone.replace(/[\s\-()]/g, '');
+        
+        try {
+        const client = await connectDB();
+        
+        // 👈 ПРОВЕРКА НА БРУТФОРС
+        let captchaRequired = false;
+
+        if (deviceId) {
+            const recentFails = await client.query(
+            `SELECT COUNT(*) FROM auth_logs 
+            WHERE device_id = $1 
+                AND action = 'login_fail' 
+                AND created_at > NOW() - INTERVAL '30 minutes'`,
+            [deviceId]
+            );
+
+            const failCount = parseInt(recentFails.rows[0].count);
+
+            if (failCount >= 10) {
+            // Логируем блокировку
+            await client.query(
+                `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details) 
+                VALUES ($1, $2, $3, $4, 'login_blocked', 'blocked', 'too_many_attempts')`,
+                [phone, deviceId, ipAddress, userAgent]
+            );
+            
+            return res.status(429).json({ 
+                success: false, 
+                error: 'Слишком много неудачных попыток входа. Ваше устройство заблокировано на 30 минут.' 
+            });
+            }
+
+            if (failCount >= 3) {
+            captchaRequired = true;
+            }
+        }
+
+
+        // Ищем пользователя
+        const result = await client.query(
+            'SELECT id, phone, name, email, password_hash, is_active, must_change_password, banned_until, ban_reason_public FROM users WHERE phone = $1',
+            [normalizedPhone]
+        );
+
+        // 👈 ЛОГИРОВАНИЕ: Пользователь не найден
+        if (result.rowCount === 0) {
+            await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details) 
+            VALUES ($1, $2, $3, $4, 'login_fail', 'fail', 'phone_not_found')`,
+            [normalizedPhone, deviceId, ipAddress, userAgent]
+            );
+            return res.status(401).json({ success: false, error: 'Неверный телефон или пароль' });
+        }
+        
+        const user = result.rows[0];
+        
+        // 👈 ПРОВЕРКА БАНА
+        if (user.banned_until && new Date(user.banned_until) > new Date()) {
+            await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status) 
+            VALUES ($1, $2, $3, $4, 'login_banned', 'blocked')`,
+            [normalizedPhone, deviceId, ipAddress, userAgent]
+            );
+            return res.status(403).json({ 
+            success: false, 
+            error: user.ban_reason_public || 'Ваш аккаунт временно заблокирован' 
+            });
+        }
+
+        if (!user.is_active) {
+            await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status) 
+            VALUES ($1, $2, $3, $4, 'login_inactive', 'fail')`,
+            [normalizedPhone, deviceId, ipAddress, userAgent]
+            );
+            return res.status(403).json({ success: false, error: 'Учётная запись ожидает подтверждения администратора' });
+        }
+        
+        // Проверяем пароль
+        const isValid = await verifyPassword(password, user.password_hash);
+        
+        // 👈 ЛОГИРОВАНИЕ: Неверный пароль
+        if (!isValid) {
+            await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details) 
+            VALUES ($1, $2, $3, $4, 'login_fail', 'fail', 'wrong_password')`,
+            [normalizedPhone, deviceId, ipAddress, userAgent]
+            );
+            return res.status(401).json({ success: false, error: 'Неверный телефон или пароль' });
+        }
+        
+        // 👈 ЛОГИРОВАНИЕ: Успешный вход
+        await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status) 
+            VALUES ($1, $2, $3, $4, 'login_success', 'success')`,
+            [normalizedPhone, deviceId, ipAddress, userAgent]
+        );
+
+        // Загружаем роли
+        const rolesResult = await client.query('SELECT role FROM user_roles WHERE user_id = $1', [user.id]);
+        const roles = rolesResult.rows.map(r => r.role);
+        
+        // Генерируем токены
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user, rememberMe);
+        
+        // Сохраняем refreshToken в БД (хеш)
+        const refreshHash = await hashRefreshToken(refreshToken);
+        const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000);
+        
+        await client.query(
+            `INSERT INTO user_sessions (user_id, refresh_token_hash, user_agent, ip_address, expires_at) 
+            VALUES ($1, $2, $3, $4, $5)`,
+            [user.id, refreshHash, userAgent, ipAddress, expiresAt]
+        );
+        
+        // Обновляем last_login_at
+        await client.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+        
+        // Устанавливаем cookies
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.COOKIE_SECURE === 'true',
+            sameSite: 'strict',
+            domain: process.env.COOKIE_DOMAIN || undefined
+        };
+        
+        res.cookie('accessToken', accessToken, {
+            ...cookieOptions,
+            maxAge: 24 * 60 * 60 * 1000  // 24 часа
+        });
+        
+        res.cookie('refreshToken', refreshToken, {
+            ...cookieOptions,
+            maxAge: (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000,
+            path: '/api/auth/refresh'
+        });
+        
+        res.json({
+            success: true,
+            user: {
+            id: user.id,
+            phone: user.phone,
+            name: user.name,
+            email: user.email,
+            roles: roles,
+            mustChangePassword: user.must_change_password
+            },
+            captchaRequired // 👈 Отдаем на фронт
+        });
+        } catch (err) {
+        console.error('[POST /api/auth/login] Error:', err.message);
+        res.status(500).json({ success: false, error: 'Ошибка сервера' });
+        }
+    });
   
   /**
    * POST /api/auth/logout — выход

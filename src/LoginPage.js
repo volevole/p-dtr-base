@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaArrowLeft } from 'react-icons/fa'; // 👈 Добавили иконку стрелочки
 
 function LoginPage() {
   const [phone, setPhone] = useState('');
@@ -12,7 +12,6 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
-  // Состояние для показа подсказки о восстановлении пароля
   const [showRecoveryInfo, setShowRecoveryInfo] = useState(false);
 
   const { login } = useAuth();
@@ -25,7 +24,7 @@ function LoginPage() {
 
     try {
       await login(phone, password, rememberMe);
-      navigate('/'); // Перенаправляем на главную
+      navigate('/');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,7 +34,21 @@ function LoginPage() {
 
   return (
     <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px' }}>
-      <h2>Вход в систему</h2>
+      
+      {/* 👈 ССЫЛКА НА СТРАНИЦУ О ПРОЕКТЕ */}
+      <div style={{ marginBottom: '20px' }}>
+        <Link 
+          to="/about" 
+          style={{ display: 'inline-flex', alignItems: 'center', color: '#495057', textDecoration: 'none', fontSize: '14px' }}
+          onMouseEnter={(e) => e.target.style.color = '#007bff'}
+          onMouseLeave={(e) => e.target.style.color = '#495057'}
+        >
+          <FaArrowLeft style={{ marginRight: '8px' }} /> 
+          О проекте
+        </Link>
+      </div>
+
+      <h2 style={{ marginTop: 0 }}>Вход в Ларчик</h2>
       
       {error && (
         <div style={{ color: '#721c24', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>
@@ -59,7 +72,7 @@ function LoginPage() {
               padding: '10px', 
               border: '1px solid #ddd', 
               borderRadius: '4px',
-              boxSizing: 'border-box', // 👈 Вот это выровняет ширину
+              boxSizing: 'border-box',
               fontSize: '16px'
             }}
           />
@@ -81,10 +94,10 @@ function LoginPage() {
               onChange={e => setPassword(e.target.value)} 
               required 
               style={{ 
-                flex: 1, // Занимает всё свободное место
+                flex: 1,
                 width: '100%',
                 padding: '10px', 
-                border: 'none', // Убираем рамку у самого инпута
+                border: 'none',
                 outline: 'none',
                 backgroundColor: 'transparent',
                 fontSize: '16px'
@@ -100,7 +113,7 @@ function LoginPage() {
                 color: '#6c757d',
                 display: 'flex',
                 alignItems: 'center',
-                padding: '0 10px', // Отступы по бокам для кнопки
+                padding: '0 10px',
                 height: '100%'
               }}
               title={showPassword ? "Скрыть пароль" : "Показать пароль"}
@@ -130,7 +143,6 @@ function LoginPage() {
           </button>
         </div>
 
-                {/* Подсказка по восстановлению пароля */}
         {showRecoveryInfo && (
           <div style={{ 
             backgroundColor: '#e3f2fd', 
@@ -144,15 +156,9 @@ function LoginPage() {
               💡 Для восстановления пароля обратитесь к администратору:
             </div>
             <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
-              <li>
-                📞 <a href="tel:+79031462318" style={{ color: '#0d47a1' }}>+7 903 146-23-18</a>
-              </li>
-              <li>
-                ✈️ <a href="https://t.me/oleg_vavilov_108" target="_blank" rel="noopener noreferrer" style={{ color: '#0d47a1' }}>Telegram: @oleg_vavilov_108</a>
-              </li>
-              <li>
-                ✉️ <a href="mailto:there@rambler.ru" style={{ color: '#0d47a1' }}>there@rambler.ru</a>
-              </li>
+              <li>📞 <a href="tel:+79031462318" style={{ color: '#0d47a1' }}>+7 903 146-23-18</a></li>
+              <li>✈️ <a href="https://t.me/oleg_vavilov_108" target="_blank" rel="noopener noreferrer" style={{ color: '#0d47a1' }}>Telegram: @oleg_vavilov_108</a></li>
+              <li>✉️ <a href="mailto:there@rambler.ru" style={{ color: '#0d47a1' }}>there@rambler.ru</a></li>
             </ul>
             <div style={{ marginTop: '10px', fontSize: '12px', color: '#1565c0' }}>
               Укажите ваш номер телефона, и администратор сбросит вам пароль.
@@ -169,7 +175,6 @@ function LoginPage() {
         </button>
       </form>
 
-      {/* Ссылка на регистрацию */}
       <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px' }}>
         Нет аккаунта? <Link to="/register" style={{ color: '#007bff', textDecoration: 'none', fontWeight: '500' }}>Зарегистрироваться</Link>
       </div>
