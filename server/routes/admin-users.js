@@ -5,7 +5,17 @@ const { connectDB } = require('../db');
 const { hashPassword } = require('../auth');
 const { requireAuth, requireRole } = require('../middleware/auth');
 
-const SUPPORTED_ROLES = ['admin', 'admin_content', 'pddtr_content', 'appointments'];
+const SUPPORTED_ROLES = [
+  'admin', 
+  'admin_content', 
+  'pdtr_content', // 👈 Исправлено
+  'appointments',
+  // 👈 Новые роли в нижнем регистре:
+  'supplement_pdtr_advance',
+  'supplement_pdtr_intermedia',
+  'supplement_pdtr_integrative',
+  'supplement_pdtr_sourcecode'
+];
 
 
   // Все роуты — только для admin

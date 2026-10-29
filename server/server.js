@@ -10,6 +10,10 @@ const { connectDB } = require('./db');
 const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth');
 const adminUsersRoutes = require('./routes/admin-users');
+const appointmentsSpecializationsRouter = require('./routes/appointments/specializations');
+const appointmentsServicesRouter = require('./routes/appointments/services');
+const appointmentsScheduleRouter = require('./routes/appointments/schedule');
+const { requireAuth, requireRole } = require('./middleware/auth');
 
 // 2. Инициализация
 const app = express();
@@ -31,7 +35,8 @@ let isProcessing = false;
     'receptor_class', 
     'tool', 
     'entry', 
-    'usefulness'
+    'usefulness',
+    'user' //для фото юзера
   ];
 
 
@@ -88,6 +93,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
+app.use('/api/appt', appointmentsSpecializationsRouter);
+app.use('/api/appt', appointmentsServicesRouter);
+app.use('/api/appt/schedule', appointmentsScheduleRouter);
 
 // ========== МЫШЦЫ ==========
 
@@ -2674,6 +2682,28 @@ app.get('/api/db-info', async (req, res) => {
         connected: false
       }
     });
+  }
+});
+
+// ============================================================
+// ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+// ============================================================
+
+// PUT /api/profile/avatar — обновить ссылку на аватар
+app.put('/api/profile/avatar', requireAuth, async (req, res) => {
+  const client = await connectDB();
+  const { avatar_url } = req.body;
+  
+  if (!avatar_url) {
+    return res.status(400).json({ success: false, error: 'avatar_url обязателен' });
+  }
+
+  try {
+    await client.query('UPDATE users SET avatar_url = $1 WHERE id = $2', [avatar_url, req.user.id]);
+    res.json({ success: true, message: 'Аватар обновлен' });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/profile/avatar:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import API_URL from './config/api';
 import { 
   FaBars, FaHeart, FaProjectDiagram, FaChartBar, FaClipboardList,
   FaTools, FaChevronDown, FaChevronRight, FaUsers, FaCog,
+  FaUserFriends, FaCalendarAlt, 
   FaImages, FaDatabase, FaSignInAlt, FaLightbulb
 } from 'react-icons/fa';
 
@@ -19,7 +21,8 @@ function Sidebar({ isOpen, onToggle }) {
   
   const isAdmin = user?.roles?.includes('admin');
   const isAdminContent = user?.roles?.includes('admin_content');
-  const hasContentAccess = isAdmin || isAdminContent || user?.roles?.includes('pddtr_content');
+  const hasContentAccess = isAdmin || isAdminContent || user?.roles?.includes('pdtr_content');
+  const hasAppointmentsAccess = isAdmin || user?.roles?.includes('appointments');
   
   // 👈 Здесь мы задаём, кто может видеть медиа и экспорт
   const hasSystemAccess = isAdmin || isAdminContent; 
@@ -34,6 +37,8 @@ function Sidebar({ isOpen, onToggle }) {
   
   const getActiveEntity = () => {
     const path = location.pathname;
+    
+    // --- Сущности ---
     if (path === '/' || path.startsWith('/muscle')) return 'muscle';
     if (path.startsWith('/organ')) return 'organ';
     if (path.startsWith('/meridian')) return 'meridian';
@@ -43,11 +48,19 @@ function Sidebar({ isOpen, onToggle }) {
     if (path.startsWith('/receptor')) return 'receptor';
     if (path.startsWith('/tool')) return 'tool';
     if (path.startsWith('/entry')) return 'entry';
-    if (path.startsWith('/usefulness')) return 'usefulness';
-    if (path.startsWith('/settings')) return 'settings';
+    if (path.startsWith('/usefulness')) return 'usefulness'; 
+
+    // --- Приёмы ---
+    if (path.startsWith('/appointments/clients')) return 'appt-clients';
+    if (path.startsWith('/appointments/schedule')) return 'appt-schedule';   
+
+    // --- Система (сначала специфичные, потом общие!) ---
     if (path.startsWith('/all-media')) return 'all-media';
     if (path.startsWith('/export')) return 'export';
-    if (path.startsWith('/environment-info')) return 'environment-info';
+    if (path.startsWith('/environment-info')) return 'environment-info'; // 👈 Добавили проверку
+    if (path.startsWith('/settings/profile')) return 'settings-profile'; // 👈 Подняли выше /settings
+    if (path.startsWith('/settings')) return 'settings';
+    
     return '';
   };
 
@@ -164,6 +177,28 @@ function Sidebar({ isOpen, onToggle }) {
           </>
         )}
 
+        {/* 👈 Раздел Ведение приёмов */}
+        {hasAppointmentsAccess && (
+          <div style={{ marginTop: '20px' }}>
+            <h4 className="sidebar-section-title" style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>
+              Ведение приёмов
+            </h4>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              <li style={{ marginBottom: '8px' }}>
+                <Link to="/appointments/clients" className="sidebar-menu-link" style={getMenuItemStyle('appt-clients')}>
+                  <FaUserFriends style={{ marginRight: '8px' }} /> Клиенты
+                </Link>
+              </li>
+              <li style={{ marginBottom: '8px' }}>
+                <Link to="/appointments/schedule" className="sidebar-menu-link" style={getMenuItemStyle('appt-schedule')}>
+                  <FaCalendarAlt style={{ marginRight: '8px', flexShrink: 0, width: '16px', height: '16px' }} /> 
+                  <span style={{ whiteSpace: 'nowrap' }}>Расписание (Записи)</span>
+              </Link>
+            </li>
+            </ul>
+          </div>
+        )}
+
         {/* 👈 СИСТЕМА (ДОСТУПНА ВСЕМ) */}
         <div style={{ marginTop: '20px' }}>
           <h4 className="sidebar-section-title" style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>
@@ -190,7 +225,13 @@ function Sidebar({ isOpen, onToggle }) {
               {settingsOpen && (
                 <div style={{ marginTop: '5px', marginLeft: '20px', borderLeft: '2px solid #dee2e6', paddingLeft: '10px' }}>
                   <ul style={{ listStyle: 'none', padding: 0 }}>
-                    
+                    {/* 👈 ВИДЯТ ВСЕ (включая будущую роль client) */}
+                    <li style={{ marginBottom: '5px' }}>
+                      <Link to="/settings/profile" className="sidebar-submenu-link" style={getSubMenuItemStyle('settings-profile')}>
+                        <div style={getSubMenuIndicatorStyle('settings-profile')} />
+                        👤 Мой профиль 
+                      </Link>
+                    </li>
                     {/* 👈 ВИДЯТ ТОЛЬКО АДМИНЫ */}
                     {hasSystemAccess && (
                       <>
@@ -206,16 +247,17 @@ function Sidebar({ isOpen, onToggle }) {
                             <FaDatabase style={{ marginRight: '8px', fontSize: '12px' }} />Экспорт данных
                           </Link>
                         </li>
+                        <li style={{ marginBottom: '5px' }}>
+                        <Link to="/settings" className="sidebar-submenu-link" style={getSubMenuItemStyle('settings')}>
+                          <div style={getSubMenuIndicatorStyle('settings')} />
+                          ⚙️ Настройки
+                        </Link>
+                      </li>
                       </>
                     )}
                     
-                    {/* 👈 ВИДЯТ ВСЕ (включая будущую роль client) */}
-                    <li style={{ marginBottom: '5px' }}>
-                      <Link to="/settings" className="sidebar-submenu-link" style={getSubMenuItemStyle('settings')}>
-                        <div style={getSubMenuIndicatorStyle('settings')} />
-                        ⚙️ Настройки
-                      </Link>
-                    </li>
+                    {/* 👈 ВИДЯТ ВСЕ (включая будущую роль client) */}                    
+                    
                     <li style={{ marginBottom: '5px' }}>
                       <Link to="/environment-info" className="sidebar-submenu-link" style={getSubMenuItemStyle('environment-info')}>
                         <div style={getSubMenuIndicatorStyle('environment-info')} />
@@ -230,13 +272,48 @@ function Sidebar({ isOpen, onToggle }) {
         </div>
       </div>
 
-      {/* ФИКСИРОВАННЫЙ ПРОФИЛЬ ВНИЗУ */}
+       {/* 👈 ФИКСИРОВАННЫЙ ПРОФИЛЬ ВНИЗУ */}
       {user && (
         <div style={{ flexShrink: 0, paddingTop: '15px', borderTop: '1px solid #dee2e6' }}>
-          <div style={{ padding: '0 8px', marginBottom: '10px' }}>
-            <div style={{ fontWeight: 'bold', color: '#212529' }}>{user.name}</div>
-            <div style={{ fontSize: '12px', color: '#6c757d' }}>{user.roles?.join(', ')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px', padding: '0 8px' }}>
+            
+            {/* Блок с аватаром */}
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '50%', 
+              backgroundColor: '#e9ecef', 
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              {user.avatar_url ? (
+                <img 
+                  src={`${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(user.avatar_url)}&size=S`} 
+                  alt="Аватар" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+              ) : (
+                // Если фото нет, показываем первую букву имени
+                <span style={{ fontWeight: 'bold', color: '#6c757d', fontSize: '16px' }}>
+                  {user.name?.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            {/* Блок с именем и ролями */}
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontWeight: 'bold', color: '#212529', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.name}
+              </div>
+              <div style={{ fontSize: '12px', color: '#6c757d', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user.roles?.join(', ')}
+              </div>
+            </div>
           </div>
+
           <button onClick={handleLogout} style={{ width: '100%', padding: '8px', backgroundColor: '#f8f9fa', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', cursor: 'pointer', fontWeight: '500' }}>
             Выйти
           </button>

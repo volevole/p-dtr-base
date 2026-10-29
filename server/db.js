@@ -15,7 +15,8 @@ pool.on('connect', () => {
   const dbHost = process.env.DB_HOST || 'localhost';
   const dbPort = process.env.DB_PORT || 5432;
   const dbName = process.env.DB_NAME || 'p-dtr-db';
-  console.log(`Connected to PostgreSQL at ${dbHost}:${dbPort}/${dbName}`);
+  const now = new Date().toLocaleTimeString('ru-RU');
+  console.log(`[${now}] Connected to PostgreSQL at ${dbHost}:${dbPort}/${dbName}`);
 });
 
 pool.on('error', (err) => {

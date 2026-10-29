@@ -343,6 +343,7 @@ const registerLimiter = rateLimit({
         phone: req.user.phone,
         name: req.user.name,
         email: req.user.email,
+        avatar_url: req.user.avatar_url, // 👈 Добавили эту строку
         roles: req.user.roles
       }
     });

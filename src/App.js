@@ -43,9 +43,12 @@ import EntryEdit from './EntryEditPage';
 import UsefulnessPage from './UsefulnessPage';
 import UsefulnessDetail from './UsefulnessDetail';
 import UsefulnessEditPage from './UsefulnessEditPage';
+import ClientsPage from './appointments/ClientsPage';
+import SchedulePage from './appointments/SchedulePage';
 import TestPreview from './TestPreview';
 import TestRefreshLinks from './TestRefreshLinks';
 import TestImage from './TestImage';
+import SettingsProfilePage from './SettingsProfilePage';
 import './App.css';
 
 function ProtectedLayout() {
@@ -180,6 +183,18 @@ function App() {
               </RoleRoute>
             } />
           
+          <Route path="/appointments/clients" element={
+            <RoleRoute allowedRoles={['admin', 'appointments']}>
+              <ClientsPage />
+            </RoleRoute>
+            } />
+
+          <Route path="/appointments/schedule" element={
+              <RoleRoute allowedRoles={['admin', 'appointments']}>
+                <SchedulePage />
+              </RoleRoute>
+            } />
+
           <Route path="/all-media" element={<AllMediaPage />} />	
           <Route path="/all-media" element={
               <RoleRoute allowedRoles={['admin', 'admin_content']}>
@@ -191,6 +206,7 @@ function App() {
           <Route path="/test-image" element={<TestImage />} />
           <Route path="/media-viewer/:id" element={<MediaViewerPage />} />
           <Route path="/environment-info" element={<EnvironmentInfoPage />} />
+          <Route path="/settings/profile" element={<SettingsProfilePage />} />
           
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

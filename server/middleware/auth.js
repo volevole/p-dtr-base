@@ -28,7 +28,7 @@ async function requireAuth(req, res, next) {
     // 4. Загружаем пользователя из БД (чтобы проверить is_active и роли)
     const client = await connectDB();
     const userResult = await client.query(
-      'SELECT id, phone, name, email, is_active FROM users WHERE id = $1',
+      'SELECT id, phone, name, email, is_active, avatar_url FROM users WHERE id = $1',
       [payload.id]
     );
     
