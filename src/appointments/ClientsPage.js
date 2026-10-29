@@ -5,6 +5,7 @@ import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser } from 'react-icons/fa';
 import API_URL from '../config/api';
 
 export default function ClientsPage() {
+  const isMobile = window.innerWidth <= 768 ;
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -160,48 +161,66 @@ export default function ClientsPage() {
       {showForm && (
         <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #dee2e6' }}>
           <h3 style={{ marginTop: 0 }}>Новый клиент</h3>
-          <form onSubmit={handleAddClient} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+          <form onSubmit={handleAddClient} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Имя *</label>
+            {/* 1. Имя */}
+            <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Имя *</label>
               <input required type="text" value={newClient.name} onChange={e => setNewClient({...newClient, name: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
             </div>
             
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Телефон</label>
+            {/* 2. Телефон */}
+            <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Телефон</label>
               <input type="tel" value={newClient.phone} onChange={e => setNewClient({...newClient, phone: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Дата рождения</label>
-              <input type="date" value={newClient.birthday} onChange={e => setNewClient({...newClient, birthday: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+            {/* 3. Дата рождения */}
+            <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Дата рождения</label>
+              <input 
+                type="date" 
+                value={newClient.birthday} 
+                onChange={e => setNewClient({...newClient, birthday: e.target.value})} 
+                style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} 
+              />
             </div>
 
-            <div>
-                <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Возраст (если нет даты рождения)</label>
-                <input type="number" placeholder="35" value={newClient.age} onChange={e => setNewClient({...newClient, age: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+            {/* 4. Возраст */}
+            <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
+                <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Возраст (если нет даты рождения)</label>
+                <input 
+                  type="number" 
+                  placeholder="35" 
+                  value={newClient.age} 
+                  onChange={e => setNewClient({...newClient, age: e.target.value})} 
+                  style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} 
+                />
             </div>
 
+            {/* 5. Пол */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Пол</label>
-              <select value={newClient.gender} onChange={e => setNewClient({...newClient, gender: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Пол</label>
+              <select value={newClient.gender} onChange={e => setNewClient({...newClient, gender: e.target.value})} style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
                 <option value="">Не указан</option>
                 <option value="female">Женский</option>
                 <option value="male">Мужской</option>
               </select>
             </div>
 
+            {/* 6. Рост */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Рост (см)</label>
-              <input type="number" value={newClient.height} onChange={e => setNewClient({...newClient, height: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Рост (см)</label>
+              <input type="number" value={newClient.height} onChange={e => setNewClient({...newClient, height: e.target.value})} style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
             </div>
 
+            {/* 7. Вес */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Вес (кг)</label>
-              <input type="number" value={newClient.weight} onChange={e => setNewClient({...newClient, weight: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+              <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Вес (кг)</label>
+              <input type="number" value={newClient.weight} onChange={e => setNewClient({...newClient, weight: e.target.value})} style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
             </div>
 
-            <div style={{ gridColumn: '1 / -1', textAlign: 'right' }}>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'right', marginTop: '10px' }}>
               <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Сохранить клиента</button>
             </div>
           </form>
@@ -228,8 +247,8 @@ export default function ClientsPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => handleEditClient(client)} style={{ padding: '6px 12px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '4px', cursor: 'pointer', color: '#007bff' }}>
-                    <FaEdit /> Редактировать
+                <button onClick={() => handleEditClient(client)} style={{ padding: '6px 12px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '4px', cursor: 'pointer', color: '#007bff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FaEdit /> {!isMobile && 'Редактировать'}
                 </button>
                 <button onClick={() => handleDelete(client.id)} style={{ padding: '6px 12px', backgroundColor: 'transparent', border: '1px solid #dc3545', color: '#dc3545', borderRadius: '4px', cursor: 'pointer' }}><FaTrash /></button>
               </div>

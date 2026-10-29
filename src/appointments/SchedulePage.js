@@ -636,23 +636,23 @@ export default function SchedulePage() {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Длительность (мин)</label>
                   <input 
                     type="number" 
                     value={editApptData.duration_minutes} 
                     onChange={e => setEditApptData({...editApptData, duration_minutes: e.target.value})}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                    style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Стоимость (руб)</label>
                   <input 
                     type="number" 
                     value={editApptData.final_price} 
                     onChange={e => setEditApptData({...editApptData, final_price: e.target.value})}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                    style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
                   />
                 </div>
               </div>
@@ -674,23 +674,23 @@ export default function SchedulePage() {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "до" (мин)</label>
                   <input 
                     type="number" 
                     value={editApptData.buffer_before_minutes} 
                     onChange={e => setEditApptData({...editApptData, buffer_before_minutes: e.target.value})}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "после" (мин)</label>
                   <input 
                     type="number" 
                     value={editApptData.buffer_after_minutes} 
                     onChange={e => setEditApptData({...editApptData, buffer_after_minutes: e.target.value})}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                    style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                   />
                 </div>
               </div>

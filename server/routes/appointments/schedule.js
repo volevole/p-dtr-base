@@ -41,6 +41,67 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/appt/schedule/list — получить список всех приёмов с фильтрами
+// ВАЖНО: Этот маршрут должен быть ДО маршрута /:id, чтобы слово "list" не воспринималось как ID
+router.get('/list', async (req, res) => {
+  const client = await connectDB();
+  try {
+    const { startDate, endDate, search, limit = 50, offset = 0 } = req.query;
+    
+    let query = `
+      SELECT a.*, 
+             c.name as client_name, c.phone as client_phone,
+             s.name as service_name,
+             l.name as location_name
+      FROM appointments a
+      LEFT JOIN appt_clients c ON c.id = a.client_id
+      LEFT JOIN appt_services s ON s.id = a.service_id
+      LEFT JOIN appt_locations l ON l.id = a.location_id
+      WHERE a.master_id = $1
+    `;
+    const params = [req.user.id];
+    let paramIndex = 2;
+
+    if (startDate) {
+      query += ` AND a.appointment_date >= $${paramIndex}`;
+      params.push(startDate);
+      paramIndex++;
+    }
+    
+    if (endDate) {
+      query += ` AND a.appointment_date <= $${paramIndex}`;
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    if (search) {
+      query += ` AND (c.name ILIKE $${paramIndex} OR s.name ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    // Считаем общее количество для пагинации
+    const countQuery = `SELECT COUNT(*) FROM (${query}) AS filtered`;
+    const countResult = await client.query(countQuery, params);
+    const totalCount = parseInt(countResult.rows[0].count);
+
+    // Добавляем сортировку и пагинацию
+    query += ` ORDER BY a.appointment_date DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(limit, offset);
+
+    const result = await client.query(query, params);
+
+    res.json({
+      success: true,
+      data: result.rows,
+      total: totalCount
+    });
+  } catch (err) {
+    console.error('Error fetching appointments list:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/appt/schedule — создать новый приём (запись)
 router.post('/', async (req, res) => {
   const client = await connectDB();

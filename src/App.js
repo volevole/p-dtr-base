@@ -45,6 +45,7 @@ import UsefulnessDetail from './UsefulnessDetail';
 import UsefulnessEditPage from './UsefulnessEditPage';
 import ClientsPage from './appointments/ClientsPage';
 import SchedulePage from './appointments/SchedulePage';
+import AppointmentsListPage from './appointments/AppointmentsListPage';
 import TestPreview from './TestPreview';
 import TestRefreshLinks from './TestRefreshLinks';
 import TestImage from './TestImage';
@@ -193,7 +194,19 @@ function App() {
               <RoleRoute allowedRoles={['admin', 'appointments']}>
                 <SchedulePage />
               </RoleRoute>
-            } />
+           } />
+
+          <Route path="/appointments" element={
+            <RoleRoute allowedRoles={['admin', 'appointments']}>
+                <AppointmentsListPage /> 
+            </RoleRoute>
+          } />
+            
+          <Route path="/appointments/:id" element={
+            <RoleRoute allowedRoles={['admin', 'appointments']}>
+                <div>Карточка приёма (в разработке)</div>
+            </RoleRoute>
+          } />            
 
           <Route path="/all-media" element={<AllMediaPage />} />	
           <Route path="/all-media" element={

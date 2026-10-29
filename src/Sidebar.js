@@ -52,7 +52,8 @@ function Sidebar({ isOpen, onToggle }) {
 
     // --- Приёмы ---
     if (path.startsWith('/appointments/clients')) return 'appt-clients';
-    if (path.startsWith('/appointments/schedule')) return 'appt-schedule';   
+    if (path.startsWith('/appointments/schedule')) return 'appt-schedule'; 
+    if (path === '/appointments') return 'appt-list';  
 
     // --- Система (сначала специфичные, потом общие!) ---
     if (path.startsWith('/all-media')) return 'all-media';
@@ -185,6 +186,12 @@ function Sidebar({ isOpen, onToggle }) {
             </h4>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               <li style={{ marginBottom: '8px' }}>
+                <Link to="/appointments" className="sidebar-menu-link" style={getMenuItemStyle('appt-list')}>
+                  <FaClipboardList style={{ marginRight: '8px', flexShrink: 0 }} /> 
+                  <span style={{ whiteSpace: 'nowrap' }}>Все приёмы</span>
+                </Link>
+              </li>
+              <li style={{ marginBottom: '8px' }}>
                 <Link to="/appointments/clients" className="sidebar-menu-link" style={getMenuItemStyle('appt-clients')}>
                   <FaUserFriends style={{ marginRight: '8px' }} /> Клиенты
                 </Link>
@@ -193,8 +200,8 @@ function Sidebar({ isOpen, onToggle }) {
                 <Link to="/appointments/schedule" className="sidebar-menu-link" style={getMenuItemStyle('appt-schedule')}>
                   <FaCalendarAlt style={{ marginRight: '8px', flexShrink: 0, width: '16px', height: '16px' }} /> 
                   <span style={{ whiteSpace: 'nowrap' }}>Расписание (Записи)</span>
-              </Link>
-            </li>
+                </Link>
+              </li>
             </ul>
           </div>
         )}

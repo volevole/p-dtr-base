@@ -74,7 +74,7 @@ git commit -m "Major update: migrate to Reg.ru DB"   Любое название
 git push origin feature/migrate-to-regru-local-db  Отправьте изменения на GitHub
 Это не делать виснет сервер   git push regru feature/migrate-to-regru-local-db:main   Или в два места, чтобы сразу был деплой на рег.ру
 
-ssh root@194.226.165.244
+ssh administrator@react.c-e.ru       было раньше ssh root@194.226.165.244
 cd /var/www/muscule-app			Перейдите в папку проекта 
 git pull origin feature/migrate-to-regru-local-db  и обновите код
   если ошибка  error: Your local changes to the following files would be overwritten by merge:
