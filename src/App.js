@@ -46,6 +46,7 @@ import UsefulnessEditPage from './UsefulnessEditPage';
 import ClientsPage from './appointments/ClientsPage';
 import SchedulePage from './appointments/SchedulePage';
 import AppointmentsListPage from './appointments/AppointmentsListPage';
+import AppointmentDetailPage from './appointments/AppointmentDetailPage';
 import TestPreview from './TestPreview';
 import TestRefreshLinks from './TestRefreshLinks';
 import TestImage from './TestImage';
@@ -204,7 +205,7 @@ function App() {
             
           <Route path="/appointments/:id" element={
             <RoleRoute allowedRoles={['admin', 'appointments']}>
-                <div>Карточка приёма (в разработке)</div>
+                <AppointmentDetailPage />
             </RoleRoute>
           } />            
 

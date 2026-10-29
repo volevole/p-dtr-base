@@ -1,6 +1,7 @@
 // src/appointments/SchedulePage.js
 import React, { useState, useEffect } from 'react';
-import { FaUser, FaMapMarkerAlt, FaStickyNote } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt } from 'react-icons/fa';
 import API_URL from '../config/api';
 
 // Компонент поиска клиента
@@ -87,7 +88,8 @@ export default function SchedulePage() {
     buffer_after_minutes: '', 
     final_price: 0, 
     status: 'scheduled', 
-    general_notes: '' 
+    general_notes: '',
+    record_notes: ''  
   });
 
   const [newAppt, setNewAppt] = useState({
@@ -200,7 +202,8 @@ export default function SchedulePage() {
       base_price: selectedService?.default_price || 0,
       discount_amount: 0,
       final_price: selectedService?.default_price || 0,
-      notes: newAppt.notes
+      record_notes: newAppt.notes, // 👈 Отправляем в новое поле
+      general_notes: ''            // 👈 Медицинские пока пустые
     };
 
     try {
@@ -238,7 +241,8 @@ export default function SchedulePage() {
         buffer_after_minutes: Number(editApptData.buffer_after_minutes),
         final_price: Number(editApptData.final_price),
         status: editApptData.status,
-        general_notes: editApptData.general_notes
+        general_notes: editApptData.general_notes,
+        record_notes: editApptData.record_notes
       };
 
       const res = await fetch(`${API_URL}/api/appt/schedule/${selectedAppt.id}`, {
@@ -393,7 +397,8 @@ export default function SchedulePage() {
                       buffer_after_minutes: appt.buffer_after_minutes || 0,
                       final_price: appt.final_price || 0,
                       status: appt.status || 'scheduled',
-                      general_notes: appt.general_notes || ''
+                      general_notes: appt.general_notes || '',
+                      record_notes: appt.record_notes || ''
                     });
                   }}
                   style={{
@@ -429,9 +434,9 @@ export default function SchedulePage() {
                       {appt.location_name && <span><FaMapMarkerAlt /> {appt.location_name}</span>}
                     </div>
 
-                    {appt.general_notes && (
+                    {appt.record_notes && (
                       <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <FaStickyNote /> {appt.general_notes}
+                        <FaStickyNote /> {appt.record_notes}
                       </div>
                     )}
                   </div>
@@ -555,12 +560,20 @@ export default function SchedulePage() {
               )}
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Примечание</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
                 <textarea 
-                  value={newAppt.notes} 
-                  onChange={e => setNewAppt({...newAppt, notes: e.target.value})}
-                  placeholder="Например: Мастер-класс"
+                  value={editApptData.record_notes} 
+                  onChange={e => setEditApptData({...editApptData, record_notes: e.target.value})}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Общие заметки мастера</label>
+                <textarea 
+                  value={editApptData.general_notes} 
+                  onChange={e => setEditApptData({...editApptData, general_notes: e.target.value})}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '50px' }}
                 />
               </div>
 
@@ -697,41 +710,101 @@ export default function SchedulePage() {
 
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Статус</label>
-                <select 
-                  value={editApptData.status} 
-                  onChange={e => setEditApptData({...editApptData, status: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                >
-                  <option value="scheduled">Запланирован</option>
-                  <option value="completed">Выполнен</option>
-                  <option value="canceled">Отменён</option>
-                  <option value="no_show">Не пришёл</option>
-                </select>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {[
+                    { value: 'scheduled', label: 'Запланирован', color: '#0056b3', bg: '#e3f2fd' },
+                    { value: 'completed', label: 'Выполнен', color: '#28a745', bg: '#d4edda' },
+                    { value: 'canceled', label: 'Отменён', color: '#dc3545', bg: '#f8d7da' },
+                    { value: 'no_show', label: 'Не пришёл', color: '#856404', bg: '#fff3cd' }
+                  ].map(s => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      onClick={() => setEditApptData({...editApptData, status: s.value})}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: editApptData.status === s.value ? s.color : '#ddd',
+                        backgroundColor: editApptData.status === s.value ? s.bg : 'white',
+                        color: editApptData.status === s.value ? s.color : '#6c757d',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
                 <textarea 
-                  value={editApptData.general_notes} 
-                  onChange={e => setEditApptData({...editApptData, general_notes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '80px' }}
+                  value={editApptData.record_notes} 
+                  onChange={e => setEditApptData({...editApptData, record_notes: e.target.value})}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '40px' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Общие заметки мастера</label>
+                <textarea 
+                  value={editApptData.general_notes} 
+                  onChange={e => setEditApptData({...editApptData, general_notes: e.target.value})}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '30px' }}
+                />
+              </div>
+
+              
+              {/* Кнопки управления */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px', gap: '8px' }}>
                 <button 
                   type="button" 
                   onClick={handleDeleteAppointment}
-                  style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  title="Удалить запись на приём"
+                  style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  Удалить
+                  <FaTrash />
                 </button>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button type="button" onClick={() => setSelectedAppt(null)} style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer' }}>Закрыть</button>
-                  <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Сохранить</button>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {/* Ссылка на полную карточку (иконка документа/папки) */}
+                  <Link 
+                    to={`/appointments/${selectedAppt.id}`} 
+                    title="Открыть полную карточку приёма"
+                    style={{ padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#0056b3', 
+                        border: 'none', borderRadius: '4px', display: 'flex', 
+                        alignItems: 'center', justifyContent: 'center', textDecoration: 'none', 
+                        gap: '8px',           // 👈 Вот он, отступ между иконкой и текстом
+                        fontWeight: 'bold',   // 👈 Чтобы текст смотрелся аккуратнее
+                        fontSize: '13px'      // 👈 Чуть уменьшим шрифт, чтобы всё влезло в один ряд
+                    }}
+                  >
+                    <FaFileAlt />  В карточку приёма
+                  </Link>
+
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedAppt(null)} 
+                    title="Закрыть запись на приём без сохранения"
+                    style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <FaTimes />
+                  </button>
+                  
+                  <button 
+                    type="submit" 
+                    title="Сохранить запись на приём"
+                    style={{ padding: '8px 12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <FaSave />
+                  </button>
                 </div>
-              </div>
-            </form>
+              </div> 
+           </form>
           </div>
         </div>
       )}

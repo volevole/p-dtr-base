@@ -116,7 +116,8 @@ router.post('/', async (req, res) => {
     base_price,
     discount_amount,
     final_price,
-    notes
+    notes,
+    record_notes
   } = req.body;
 
   if (!appointment_date || !service_id) {
@@ -171,7 +172,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO appointments 
        (master_id, client_id, service_id, location_id, appointment_date, 
         duration_minutes, buffer_before_minutes, buffer_after_minutes, 
-        base_price, discount_amount, final_price, general_notes, status) 
+        base_price, discount_amount, final_price, general_notes, record_notes, status) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'scheduled') 
        RETURNING *`,
       [
@@ -180,7 +181,9 @@ router.post('/', async (req, res) => {
         buffer_before_minutes || 0, 
         buffer_after_minutes || 0,
         base_price, discount_amount || 0, 
-        final_price, notes || null
+        final_price, 
+        notes || null, // это уйдет в general_notes (пока оставим так для совместимости)
+        record_notes || null
       ]
     );
 
@@ -229,7 +232,8 @@ router.put('/:id', async (req, res) => {
   const { 
     client_id, service_id, location_id, appointment_date,
     duration_minutes, buffer_before_minutes, buffer_after_minutes,
-    base_price, discount_amount, final_price, status, general_notes, notes // notes для совместимости
+    base_price, discount_amount, final_price, status, general_notes, notes, // notes для совместимости
+    record_notes
   } = req.body;
 
   try {
@@ -278,13 +282,13 @@ router.put('/:id', async (req, res) => {
        SET client_id = $1, service_id = $2, location_id = $3, appointment_date = $4,
            duration_minutes = $5, buffer_before_minutes = $6, buffer_after_minutes = $7,
            base_price = $8, discount_amount = $9, final_price = $10,
-           status = $11, general_notes = $12, updated_at = NOW()
-       WHERE id = $13 AND master_id = $14 RETURNING *`,
+           status = $11, general_notes = $12, record_notes = $13, updated_at = NOW()
+       WHERE id = $14 AND master_id = $15 RETURNING *`,
       [
         client_id || null, service_id, location_id || null, appointment_date,
         duration_minutes || 60, buffer_before_minutes || 0, buffer_after_minutes || 0,
         base_price || 0, discount_amount || 0, final_price || 0,
-        status || 'scheduled', general_notes || '', req.params.id, req.user.id
+        status || 'scheduled', general_notes || '', record_notes || '', req.params.id, req.user.id // 👈 ДОБАВИТЬ record_notes
       ]
     );
 
