@@ -92,8 +92,16 @@ export default function SchedulePage() {
     record_notes: ''  
   });
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [newAppt, setNewAppt] = useState({
-    time: '10:00', client_id: '', service_id: '', location_id: '', notes: '',
+    time: '10:00', client_id: '', service_id: '', location_id: '', notes: '', general_notes: '',
     buffer_before_minutes: '', buffer_after_minutes: '', duration_minutes: ''
   });
   
@@ -147,6 +155,7 @@ export default function SchedulePage() {
   const handleSlotClick = (time) => {
     setNewAppt({ 
       time, client_id: '', service_id: '', location_id: '', notes: '',
+      general_notes: '', // 👈 Обязательно очищаем
       buffer_before_minutes: '', buffer_after_minutes: '', duration_minutes: ''
     });
     setSelectedService(null);
@@ -202,8 +211,8 @@ export default function SchedulePage() {
       base_price: selectedService?.default_price || 0,
       discount_amount: 0,
       final_price: selectedService?.default_price || 0,
-      record_notes: newAppt.notes, // 👈 Отправляем в новое поле
-      general_notes: ''            // 👈 Медицинские пока пустые
+      general_notes: newAppt.general_notes || '', // 👈 Берем из состояния формы
+      record_notes: newAppt.notes || ''           // 👈 Берем из состояния формы  👈 Передаем то, что ввели в поле "Примечание к записи"
     };
 
     try {
@@ -279,19 +288,24 @@ export default function SchedulePage() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
   });
 
-  const isMobile = window.innerWidth <= 768;
-
+  
   return (
     <div className="detail-container" style={{ maxWidth: '800px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 className="detail-title" style={{ margin: 0 }}>Расписание</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <span style={{ fontWeight: 'bold', color: '#495057', fontSize: isMobile ? '12px' : '16px' }}>{formattedDate}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h1 className="detail-title" style={{ margin: 0, fontSize: isMobile ? '20px' : '28px' }}>Расписание</h1>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '15px', flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 'bold', color: '#495057', fontSize: isMobile ? '13px' : '16px' }}>
+            {isMobile 
+              ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long' })
+              : new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            }
+          </span>
           <input 
             type="date" 
             value={selectedDate} 
             onChange={e => setSelectedDate(e.target.value)}
-            style={{ padding: '8px', fontSize: '16px', borderRadius: '4px', border: '1px solid #ddd' }}
+            style={{ padding: isMobile ? '4px 8px' : '8px', fontSize: isMobile ? '14px' : '16px', borderRadius: '4px', border: '1px solid #ddd', maxWidth: isMobile ? '130px' : 'none' }}
           />
         </div>
       </div>
@@ -299,9 +313,10 @@ export default function SchedulePage() {
       {loading ? (
         <div>Загрузка...</div>
       ) : (
-        <div style={{ backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', position: 'relative' }}>
+        <div style={{ backgroundColor: 'white', border: isMobile ? 'none' : '1px solid #dee2e6', borderRadius: '8px', position: 'relative', width: '100%', overflow: 'hidden' }}>
           
-          <div style={{ marginLeft: '90px', position: 'relative' }}>
+          <div style={{ marginLeft: isMobile ? '45px' : '90px', position: 'relative', 
+                width: isMobile ? 'calc(100% - 45px)' : 'auto', paddingTop: 0, marginTop: 0 }}>
             
             {/* БУФЕРЫ */}
             {appointments.map(appt => {
@@ -444,13 +459,14 @@ export default function SchedulePage() {
               );
             })}
 
-            {/* СЛОТЫ */}
+                       {/* СЛОТЫ */}
             {timeSlots.map(time => (
               <div 
                 key={time} 
                 style={{ 
                   display: 'flex', borderBottom: '1px solid #eee', height: `${SLOT_HEIGHT}px`,
-                  position: 'relative'
+                  position: 'relative',
+                  boxSizing: 'border-box'
                 }}
                 onClick={() => {
                   const currentAppts = appointments.some(a => {
@@ -462,7 +478,19 @@ export default function SchedulePage() {
                   if (!currentAppts) handleSlotClick(time);
                 }}
               >
-                <div style={{ width: '80px', position: 'absolute', left: '-85px', top: '0', bottom: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontWeight: 'bold', color: '#495057' }}>
+                <div style={{ 
+                  width: isMobile ? '50px' : '80px', 
+                  position: 'absolute', 
+                  left: isMobile ? '-55px' : '-85px', 
+                  top: -45,          // 👈 Это костыль, при правке шапки его значение опять придётся подбирать руками
+                  bottom: 0,       // 👈 До самого низа
+                  display: 'flex', 
+                  alignItems: 'center', // 👈 Центрируем текст по вертикали
+                  justifyContent: 'flex-end', 
+                  fontWeight: 'bold', 
+                  color: '#495057', 
+                  fontSize: isMobile ? '12px' : '16px' 
+                }}>
                   {time}
                 </div>
               </div>
@@ -488,30 +516,35 @@ export default function SchedulePage() {
             
             {error && (
               <div style={{ color: '#721c24', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '13px' }}>
-                ⚠️ {error} <br/>
-                <small>Вы можете изменить время или буферы ниже и попробовать снова.</small>
+                ⚠️ {error}
+                {error.includes('Накладка') && (
+                  <>
+                    <br/>
+                    <small>Вы можете изменить время или буферы ниже и попробовать снова.</small>
+                  </>
+                )}
               </div>
             )}
             
             <form onSubmit={handleCreateAppointment}>
               
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Начало</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Начало</label>
                 <input 
                   type="time" 
                   value={newAppt.time} 
                   onChange={e => setNewAppt({...newAppt, time: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                 />
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Клиент</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
                 <ClientSearch clients={clients} value={newAppt.client_id} onChange={(id) => setNewAppt({...newAppt, client_id: id})} />
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Услуга *</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Услуга *</label>
                 <select required value={newAppt.service_id} onChange={handleServiceChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
                   <option value="">Выберите услугу</option>
                   {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -519,17 +552,17 @@ export default function SchedulePage() {
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Длительность (мин)</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Длительность (мин)</label>
                 <input 
                   type="number" 
                   value={newAppt.duration_minutes !== '' ? newAppt.duration_minutes : (selectedService?.default_duration_minutes || 60)} 
                   onChange={e => setNewAppt({...newAppt, duration_minutes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                  style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
                 />
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Место</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Место</label>
                 <select value={newAppt.location_id} onChange={handleLocationChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
                   <option value="">Не указано</option>
                   {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
@@ -537,23 +570,23 @@ export default function SchedulePage() {
               </div>
 
               {selectedLocation && (
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Время "до" (мин)</label>
+                <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "до" (мин)</label>
                     <input 
                       type="number" 
                       value={newAppt.buffer_before_minutes !== '' ? newAppt.buffer_before_minutes : selectedLocation.buffer_before_minutes} 
                       onChange={e => setNewAppt({...newAppt, buffer_before_minutes: e.target.value})}
-                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                      style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                     />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px' }}>Время "после" (мин)</label>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "после" (мин)</label>
                     <input 
                       type="number" 
                       value={newAppt.buffer_after_minutes !== '' ? newAppt.buffer_after_minutes : selectedLocation.buffer_after_minutes} 
                       onChange={e => setNewAppt({...newAppt, buffer_after_minutes: e.target.value})}
-                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                      style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                     />
                   </div>
                 </div>
@@ -562,8 +595,8 @@ export default function SchedulePage() {
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
                 <textarea 
-                  value={editApptData.record_notes} 
-                  onChange={e => setEditApptData({...editApptData, record_notes: e.target.value})}
+                  value={newAppt.notes} 
+                  onChange={e => setNewAppt({...newAppt, notes: e.target.value})}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }}
                 />
               </div>
@@ -571,9 +604,9 @@ export default function SchedulePage() {
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Общие заметки мастера</label>
                 <textarea 
-                  value={editApptData.general_notes} 
-                  onChange={e => setEditApptData({...editApptData, general_notes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '50px' }}
+                  value={newAppt.general_notes} 
+                  onChange={e => setNewAppt({...newAppt, general_notes: e.target.value})}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }}
                 />
               </div>
 
@@ -712,10 +745,11 @@ export default function SchedulePage() {
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Статус</label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
                   {[
+                    { value: 'pending', label: 'Ожидает', color: '#856404', bg: '#fff3cd' }, 
                     { value: 'scheduled', label: 'Запланирован', color: '#0056b3', bg: '#e3f2fd' },
                     { value: 'completed', label: 'Выполнен', color: '#28a745', bg: '#d4edda' },
                     { value: 'canceled', label: 'Отменён', color: '#dc3545', bg: '#f8d7da' },
-                    { value: 'no_show', label: 'Не пришёл', color: '#856404', bg: '#fff3cd' }
+                    { value: 'no_show', label: 'Не пришёл', color: '#6c757d', bg: '#e2e3e5' }
                   ].map(s => (
                     <button
                       key={s.value}

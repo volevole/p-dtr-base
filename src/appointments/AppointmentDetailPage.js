@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FaArrowLeft, FaSave, FaUser, FaCalendarAlt, FaClock, FaTooth, FaStickyNote } from 'react-icons/fa';
 import API_URL from '../config/api';
+import { SPECIALIZATION_CONFIG, renderSpecializationField } from './specializationFields';
 
 export default function AppointmentDetailPage() {
   const { id } = useParams();
@@ -118,10 +119,7 @@ export default function AppointmentDetailPage() {
   const dateStr = apptDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = apptDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-  // Заглушка: определяем специализацию мастера (в будущем брать из профиля)
-  const isDentist = false; // appt.specialization_code === 'dentist'
-  const isOsteopath = false; // appt.specialization_code === 'osteopath'
-
+  
   return (
     <div className="detail-container" style={{ maxWidth: '900px' }}>
       
@@ -237,23 +235,22 @@ export default function AppointmentDetailPage() {
           </div>
         </div>
 
-        {/* Блок специализации (Зубы, Остеопатия и т.д.) */}
-        <div style={{ backgroundColor: '#f0f7ff', padding: '20px', borderRadius: '8px', border: '1px solid #cce5ff' }}>
-          <h3 style={{ marginTop: 0, borderBottom: '1px solid #cce5ff', paddingBottom: '10px', color: '#004085', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FaTooth /> Специфические данные
-          </h3>
-          
-          <div style={{ color: '#004085', fontSize: '14px', padding: '20px', textAlign: 'center', backgroundColor: 'white', borderRadius: '4px', border: '1px dashed #b8daff' }}>
-            {isDentist && <div>Здесь будет интерактивная карта 32 зубов (JSONB)</div>}
-            {isOsteopath && <div>Здесь будут поля остеопата (JSONB)</div>}
-            {!isDentist && !isOsteopath && (
-              <div style={{ color: '#6c757d' }}>
-                Для этой услуги специфические поля не предусмотрены.<br/>
-                <small>(В будущем здесь появятся поля в зависимости от специализации мастера)</small>
-              </div>
-            )}
+        {/* Блок специализации (Динамический) */}
+        {appt.specialization_code && SPECIALIZATION_CONFIG[appt.specialization_code] ? (
+          <div style={{ backgroundColor: '#f0f7ff', padding: '20px', borderRadius: '8px', border: '1px solid #cce5ff' }}>
+            <h3 style={{ marginTop: 0, borderBottom: '1px solid #cce5ff', paddingBottom: '10px', color: '#004085', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {SPECIALIZATION_CONFIG[appt.specialization_code].icon} {SPECIALIZATION_CONFIG[appt.specialization_code].title}
+            </h3>
+            
+            {/* Вызываем наш рендерер из specializationFields.js */}
+            {renderSpecializationField(appt.specialization_code, specializationData, setSpecializationData)}
+            
           </div>
-        </div>
+        ) : (
+          <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6', textAlign: 'center', color: '#6c757d', fontSize: '14px' }}>
+            Для этой услуги не предусмотрены специфические поля.
+          </div>
+        )}
 
       </div>
     </div>

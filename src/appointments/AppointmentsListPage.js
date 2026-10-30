@@ -75,6 +75,7 @@ export default function AppointmentsListPage() {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'pending': return  <span style={{ color: '#856404', backgroundColor: '#fff3cd', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Ожидает</span>;
       case 'scheduled': return <span style={{ color: '#0056b3', backgroundColor: '#e3f2fd', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Запланирован</span>;
       case 'completed': return <span style={{ color: '#28a745', backgroundColor: '#d4edda', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Выполнен</span>;
       case 'canceled': return <span style={{ color: '#dc3545', backgroundColor: '#f8d7da', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>Отменён</span>;

@@ -116,8 +116,8 @@ router.post('/', async (req, res) => {
     base_price,
     discount_amount,
     final_price,
-    notes,
-    record_notes
+    general_notes, // 👈 Берем из тела запроса
+    record_notes   // 👈 Берем из тела запроса
   } = req.body;
 
   if (!appointment_date || !service_id) {
@@ -152,11 +152,7 @@ router.post('/', async (req, res) => {
       if (blockStart < exBlockEnd && blockEnd > exBlockStart) {
         await client.query('ROLLBACK');
         
-        const exEnd = new Date(new Date(existing.appointment_date).getTime() + (existing.duration_minutes || 60) * 60000);
         const exEndStr = exEnd.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-        
-        // Считаем минимально возможное время старта для текущего сеанса
-        // Конец предыдущего + буфер после предыдущего + буфер до текущего
         const minStartTime = new Date(exEnd.getTime() + ((existing.buffer_after_minutes || 0) + (buffer_before_minutes || 0)) * 60000);
         const minStartStr = minStartTime.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
@@ -173,17 +169,17 @@ router.post('/', async (req, res) => {
        (master_id, client_id, service_id, location_id, appointment_date, 
         duration_minutes, buffer_before_minutes, buffer_after_minutes, 
         base_price, discount_amount, final_price, general_notes, record_notes, status) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'scheduled') 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'scheduled') 
        RETURNING *`,
       [
         req.user.id, client_id, service_id, location_id, appointment_date,
         duration_minutes, 
         buffer_before_minutes || 0, 
         buffer_after_minutes || 0,
-        base_price, discount_amount || 0, 
-        final_price, 
-        notes || null, // это уйдет в general_notes (пока оставим так для совместимости)
-        record_notes || null
+        base_price || 0, discount_amount || 0, 
+        final_price || 0, 
+        general_notes || '', // $12
+        record_notes || ''   // $13
       ]
     );
 
@@ -206,7 +202,8 @@ router.get('/:id', async (req, res) => {
         c.name as client_name,
         c.phone as client_phone,
         s.name as service_name,
-        l.name as location_name
+        l.name as location_name,
+        s.specialization_code
        FROM appointments a
        LEFT JOIN appt_clients c ON c.id = a.client_id
        LEFT JOIN appt_services s ON s.id = a.service_id
