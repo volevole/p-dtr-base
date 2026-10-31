@@ -23,7 +23,8 @@ function ClientSearch({ clients, value, onChange }) {
   };
 
   return (
-    <div style={{ position: 'relative' }}>
+    // 👈 Добавляем width: '100%' и boxSizing: 'border-box' на самый верхний контейнер
+    <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
       <input 
         type="text"
         placeholder={selectedClient ? selectedClient.name : "Поиск по имени..."}
@@ -35,7 +36,8 @@ function ClientSearch({ clients, value, onChange }) {
         }}
         onFocus={() => setIsOpen(true)}
         onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+        // 👈 Добавляем boxSizing: 'border-box' в стиль инпута
+        style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
       />
       {isOpen && (
         <div style={{ 
@@ -141,7 +143,44 @@ export default function SchedulePage() {
       const servData = await servRes.json();
       const locData = await locRes.json();
 
-      if (apptData.success) setAppointments(apptData.data);
+      if (apptData.success) {
+        setAppointments(apptData.data);
+
+        // 👈 ЛОГИКА АВТООТКРЫТИЯ МОДАЛКИ
+        const params = new URLSearchParams(window.location.search);
+        const openApptId = params.get('openApptId');
+        
+        if (openApptId) {
+          const apptToOpen = apptData.data.find(a => a.id === openApptId);
+          if (apptToOpen) {
+            setSelectedAppt(apptToOpen);
+            
+            // Заполняем форму редактирования (как при клике)
+            const d = new Date(apptToOpen.appointment_date);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            
+            setEditApptData({ 
+              client_id: apptToOpen.client_id || '',
+              service_id: apptToOpen.service_id || '',
+              location_id: apptToOpen.location_id || '',
+              date: dateStr,
+              time: timeStr,
+              duration_minutes: apptToOpen.duration_minutes || 60,
+              buffer_before_minutes: apptToOpen.buffer_before_minutes || 0,
+              buffer_after_minutes: apptToOpen.buffer_after_minutes || 0,
+              final_price: apptToOpen.final_price || 0,
+              status: apptToOpen.status || 'scheduled',
+              general_notes: apptToOpen.general_notes || '',
+              record_notes: apptToOpen.record_notes || ''
+            });
+
+            // Очищаем URL, чтобы при обновлении страницы модалка не открывалась снова
+            window.history.replaceState({}, document.title, window.location.pathname + `?date=${selectedDate}`);
+          }
+        }
+      }
+      
       if (cliData.success) setClients(cliData.data);
       if (servData.success) setServices(servData.data);
       if (locData.success) setLocations(locData.data);
@@ -514,8 +553,11 @@ export default function SchedulePage() {
             width: isMobile ? '100vw' : '450px', 
             height: isMobile ? '100vh' : 'auto',
             maxWidth: isMobile ? '100vw' : '95%',
-            overflowY: 'auto',
-            boxSizing: 'border-box'
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
+            paddingBottom: isMobile ? '10px' : '20px'
           }}>
             <h3 style={{ marginTop: 0 }}>Новый приём</h3>
             
@@ -531,7 +573,10 @@ export default function SchedulePage() {
               </div>
             )}
             
-            <form onSubmit={handleCreateAppointment}>
+            <form onSubmit={handleCreateAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              
+              {/* 👈 НАЧАЛО СКРОЛЛИРУЕМОЙ ОБЛАСТИ */}
+              <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
               
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Начало</label>
@@ -545,7 +590,9 @@ export default function SchedulePage() {
 
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
+                
                 <ClientSearch clients={clients} value={newAppt.client_id} onChange={(id) => setNewAppt({...newAppt, client_id: id})} />
+                
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -609,12 +656,12 @@ export default function SchedulePage() {
                 </div>
               )}
 
-              <div style={{ marginBottom: '15px' }}>
+                            <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
                 <textarea 
                   value={newAppt.notes} 
                   onChange={e => setNewAppt({...newAppt, notes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }} // 👈 boxSizing добавлен
                 />
               </div>
 
@@ -623,11 +670,13 @@ export default function SchedulePage() {
                 <textarea 
                   value={newAppt.general_notes} 
                   onChange={e => setNewAppt({...newAppt, general_notes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }} // 👈 boxSizing добавлен
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              </div> {/* 👈 ЗАКРЫВАЕМ СКРОЛЛИРУЕМУЮ ОБЛАСТЬ */}
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #eee', flexShrink: 0 }}>
                 <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer' }}>Отмена</button>
                 <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Создать</button>
               </div>
@@ -638,25 +687,29 @@ export default function SchedulePage() {
 
       {/* МОДАЛЬНОЕ ОКНО ПРОСМОТРА/РЕДАКТИРОВАНИЯ */}
       {selectedAppt && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }}>
-          <div style={{ 
-            backgroundColor: 'white', 
-            padding: '20px', 
-            borderRadius: isMobile ? 0 : '8px', 
-            width: isMobile ? '100vw' : '500px', 
-            height: isMobile ? '100vh' : 'auto',
-            maxWidth: isMobile ? '100vw' : '95%',
-            maxHeight: isMobile ? '100vh' : '90vh',
-            overflowY: 'auto',
-            boxSizing: 'border-box'
-          }}>
-            <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-              Редактирование записи на приём
-            </h3>
-            
-            <form onSubmit={handleUpdateAppointment}>
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }}>
+            <div style={{ 
+                backgroundColor: 'white', 
+                padding: '20px', 
+                borderRadius: isMobile ? 0 : '8px', 
+                width: isMobile ? '100vw' : '500px', 
+                height: isMobile ? '100vh' : 'auto',
+                maxWidth: isMobile ? '100vw' : '95%',
+                maxHeight: isMobile ? '100vh' : '90vh',
+                display: 'flex',          // 👈 Делаем контейнер flex
+                flexDirection: 'column',  // 👈 Направление колонкой
+                overflow: 'hidden',       // 👈 Убираем скролл с самого окна
+                boxSizing: 'border-box',
+                paddingBottom: isMobile ? '10px' : '20px' // 👈 Чуть уменьшаем нижний отступ
+            }}>
+                <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+                Редактирование записи на приём
+                </h3>
+                
+                <form onSubmit={handleUpdateAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
               
-                            <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
+            <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>              
+               <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Дата</label>
                   <input 
@@ -795,12 +848,12 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
+                            <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
                 <textarea 
                   value={editApptData.record_notes} 
                   onChange={e => setEditApptData({...editApptData, record_notes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '40px' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minheight: '40px' }}
                 />
               </div>
 
@@ -809,9 +862,10 @@ export default function SchedulePage() {
                 <textarea 
                   value={editApptData.general_notes} 
                   onChange={e => setEditApptData({...editApptData, general_notes: e.target.value})}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '30px' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minheight: '40px' }}
                 />
               </div>
+            </div> 
 
               
               {/* Кнопки управления */}
