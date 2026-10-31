@@ -248,7 +248,8 @@ router.put('/:id', async (req, res) => {
          FROM appointments
          WHERE master_id = $1 
            AND DATE(appointment_date) = DATE($2)
-           AND status != 'canceled'
+           AND status != 'canceled'  // 👈 Пока оставим так, но в будущем, когда будем делать онлайн-запись, 
+                                    // мы, возможно, захотим исключить 'pending' из проверки накладок
            AND id != $3`,
         [req.user.id, appointment_date, req.params.id]
       );

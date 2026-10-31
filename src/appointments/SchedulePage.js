@@ -398,7 +398,12 @@ export default function SchedulePage() {
                     e.stopPropagation();
                     setSelectedAppt(appt);
                     const d = new Date(appt.appointment_date);
-                    const dateStr = d.toISOString().split('T')[0];
+                    
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`; // 👈 Берем ЛОКАЛЬНУЮ дату
+
                     const timeStr = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
                     
                     setEditApptData({ 
@@ -575,8 +580,14 @@ export default function SchedulePage() {
                     <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "до" (мин)</label>
                     <input 
                       type="number" 
-                      value={newAppt.buffer_before_minutes !== '' ? newAppt.buffer_before_minutes : selectedLocation.buffer_before_minutes} 
+                      value={newAppt.buffer_before_minutes} // 👈 Теперь только из стейта
                       onChange={e => setNewAppt({...newAppt, buffer_before_minutes: e.target.value})}
+                      onFocus={(e) => {
+                        if (newAppt.buffer_before_minutes === '' && selectedLocation.buffer_before_minutes) {
+                           setNewAppt({...newAppt, buffer_before_minutes: selectedLocation.buffer_before_minutes});
+                        }
+                      }}
+                      placeholder={selectedLocation.buffer_before_minutes} // Показываем дефолт как подсказку
                       style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                     />
                   </div>
@@ -584,8 +595,14 @@ export default function SchedulePage() {
                     <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "после" (мин)</label>
                     <input 
                       type="number" 
-                      value={newAppt.buffer_after_minutes !== '' ? newAppt.buffer_after_minutes : selectedLocation.buffer_after_minutes} 
+                      value={newAppt.buffer_after_minutes} // 👈 Теперь только из стейта
                       onChange={e => setNewAppt({...newAppt, buffer_after_minutes: e.target.value})}
+                      onFocus={(e) => {
+                        if (newAppt.buffer_after_minutes === '' && selectedLocation.buffer_after_minutes) {
+                           setNewAppt({...newAppt, buffer_after_minutes: selectedLocation.buffer_after_minutes});
+                        }
+                      }}
+                      placeholder={selectedLocation.buffer_after_minutes} // Показываем дефолт как подсказку
                       style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                     />
                   </div>
@@ -744,31 +761,35 @@ export default function SchedulePage() {
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Статус</label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  {[
-                    { value: 'pending', label: 'Ожидает', color: '#856404', bg: '#fff3cd' }, 
-                    { value: 'scheduled', label: 'Запланирован', color: '#0056b3', bg: '#e3f2fd' },
-                    { value: 'completed', label: 'Выполнен', color: '#28a745', bg: '#d4edda' },
-                    { value: 'canceled', label: 'Отменён', color: '#dc3545', bg: '#f8d7da' },
-                    { value: 'no_show', label: 'Не пришёл', color: '#6c757d', bg: '#e2e3e5' }
+                                    {[
+                    { value: 'pending', label: 'Ожидает', icon: '⏳', color: '#856404', bg: '#fff3cd' },
+                    { value: 'scheduled', label: 'План', icon: '📅', color: '#0056b3', bg: '#e3f2fd' },
+                    { value: 'completed', label: 'Готово', icon: '✅', color: '#28a745', bg: '#d4edda' },
+                    { value: 'canceled', label: 'Отмена', icon: '❌', color: '#dc3545', bg: '#f8d7da' },
+                    { value: 'no_show', label: 'Не пришёл', icon: '👻', color: '#6c757d', bg: '#e2e3e5' }
                   ].map(s => (
                     <button
                       key={s.value}
                       type="button"
                       onClick={() => setEditApptData({...editApptData, status: s.value})}
                       style={{
-                        padding: '6px 12px',
+                        padding: '6px 8px',
                         borderRadius: '20px',
-                        fontSize: '13px',
+                        fontSize: '12px',
                         fontWeight: 'bold',
                         cursor: 'pointer',
                         border: '1px solid',
                         borderColor: editApptData.status === s.value ? s.color : '#ddd',
                         backgroundColor: editApptData.status === s.value ? s.bg : 'white',
                         color: editApptData.status === s.value ? s.color : '#6c757d',
-                        transition: 'all 0.2s'
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
                       }}
                     >
-                      {s.label}
+                      <span>{s.icon}</span>
+                      {!isMobile && <span>{s.label}</span>} {/* На телефоне только иконки */}
                     </button>
                   ))}
                 </div>
