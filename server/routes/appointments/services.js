@@ -174,8 +174,8 @@ router.get('/clients', async (req, res) => {
 // POST /api/appt/clients — создать клиента
 router.post('/clients', async (req, res) => {
   const client = await connectDB();
-  // 👈 Добавляем extra_data в деструктуризацию
-  const { name, phone, email, birthday, gender, address, notes, extra_data } = req.body;
+  // 👈 Добавили source_id в деструктуризацию
+  const { name, phone, email, birthday, gender, address, notes, extra_data, source_id, children_info } = req.body;
 
   if (!name) {
     return res.status(400).json({ success: false, error: 'Имя клиента обязательно' });
@@ -183,11 +183,10 @@ router.post('/clients', async (req, res) => {
 
   try {
     const result = await client.query(
-      // 👈 Добавляем extra_data в SQL (10-я колонка)
-      `INSERT INTO appt_clients 
-       (master_id, name, phone, email, birthday, gender, address, notes, extra_data) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [req.user.id, name, phone || null, email || null, birthday || null, gender || null, address || null, notes || null, extra_data || {}]
+        `INSERT INTO appt_clients 
+        (master_id, name, phone, email, birthday, gender, address, notes, extra_data, source_id, children_info) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [req.user.id, name, phone || null, email || null, birthday || null, gender || null, address || null, notes || null, extra_data || {}, source_id || null, children_info || null]
     );
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -199,15 +198,23 @@ router.post('/clients', async (req, res) => {
 // PUT /api/appt/clients/:id — обновить клиента
 router.put('/clients/:id', async (req, res) => {
   const client = await connectDB();
-  const { name, phone, email, birthday, gender, address, notes, extra_data } = req.body;
+  // 👈 Добавили source_id в деструктуризацию
+  const { name, phone, email, birthday, gender, address, notes, extra_data, source_id, children_info } = req.body;
+
 
   try {
     const result = await client.query(
-      `UPDATE appt_clients 
-       SET name = $1, phone = $2, email = $3, birthday = $4, gender = $5, address = $6, notes = $7, extra_data = $8 
-       WHERE id = $9 AND master_id = $10 RETURNING *`,
-      [name, phone, email, birthday, gender, address, notes, extra_data || {}, req.params.id, req.user.id]
+        `UPDATE appt_clients 
+        SET name = $1, phone = $2, email = $3, birthday = $4, gender = $5, address = $6, notes = $7, extra_data = $8, source_id = $9, children_info = $10 
+        WHERE id = $11 AND master_id = $12 RETURNING *`,
+        [name, phone || null, email || null, birthday || null, gender || null, address || null, notes || null, extra_data || {}, source_id || null, children_info || null, req.params.id, req.user.id]
     );
+    
+    // Если запись не найдена (например, чужой клиент)
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Клиент не найден' });
+    }
+
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('[ERROR] PUT /api/appt/clients/:id:', error.message);
@@ -227,5 +234,22 @@ router.delete('/clients/:id', async (req, res) => {
   }
 });
 
+
+// GET /api/appt/sources — получить список источников (общие + личные мастера)
+router.get('/sources', async (req, res) => {
+  const client = await connectDB();
+  try {
+    const result = await client.query(
+      `SELECT id, name FROM appt_sources 
+       WHERE master_id IS NULL OR master_id = $1 
+       ORDER BY name ASC`, 
+      [req.user.id]
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('[ERROR] GET /api/appt/sources:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 module.exports = router;

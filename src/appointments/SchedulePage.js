@@ -1,11 +1,11 @@
 // src/appointments/SchedulePage.js
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt, FaPlus, FaEdit } from 'react-icons/fa';
 import API_URL from '../config/api';
 
 // Компонент поиска клиента
-function ClientSearch({ clients, value, onChange }) {
+function ClientSearch({ clients, value, onChange, onAddNew }) {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
@@ -23,7 +23,6 @@ function ClientSearch({ clients, value, onChange }) {
   };
 
   return (
-    // 👈 Добавляем width: '100%' и boxSizing: 'border-box' на самый верхний контейнер
     <div style={{ position: 'relative', width: '100%', boxSizing: 'border-box' }}>
       <input 
         type="text"
@@ -36,14 +35,14 @@ function ClientSearch({ clients, value, onChange }) {
         }}
         onFocus={() => setIsOpen(true)}
         onBlur={() => setTimeout(() => setIsOpen(false), 200)}
-        // 👈 Добавляем boxSizing: 'border-box' в стиль инпута
         style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
       />
       {isOpen && (
         <div style={{ 
           position: 'absolute', top: '100%', left: 0, right: 0, 
           backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '4px', 
-          maxHeight: '150px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 8px rgba(0,0,0,0.1)' 
+          maxHeight: '150px', overflowY: 'auto', zIndex: 100, boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+          display: 'flex', flexDirection: 'column'
         }}>
           {filtered.length === 0 ? (
             <div style={{ padding: '8px', color: '#999', fontSize: '12px' }}>Не найдено</div>
@@ -59,6 +58,33 @@ function ClientSearch({ clients, value, onChange }) {
                 {c.name} <span style={{color: '#999', fontSize: '11px'}}>{c.phone}</span>
               </div>
             ))
+          )}
+          
+          {/* 👈 Кнопка добавления нового клиента */}
+          {onAddNew && (
+            <div 
+              onClick={() => {
+                onAddNew(search); // Передаем введенный текст как начальное имя
+                setIsOpen(false);
+                setSearch('');
+              }}
+              style={{ 
+                padding: '10px 8px', 
+                cursor: 'pointer', 
+                backgroundColor: '#e3f2fd', 
+                color: '#007bff', 
+                fontSize: '13px', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderTop: '1px solid #eee'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#d0e8ff'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#e3f2fd'}
+            >
+              <FaPlus /> Добавить {search ? `"${search}"` : 'нового клиента'}
+            </div>
           )}
         </div>
       )}
@@ -78,6 +104,10 @@ export default function SchedulePage() {
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [locations, setLocations] = useState([]);
+
+// Состояние для быстрого добавления клиента из расписания
+  const [quickClientModal, setQuickClientModal] = useState({ isOpen: false, initialName: '' });
+  const [quickClientData, setQuickClientData] = useState({ name: '', phone: '', address: '' });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState(null);
@@ -132,6 +162,44 @@ export default function SchedulePage() {
   useEffect(() => {
     fetchData();
   }, [selectedDate]);
+
+  // 👈 ДОБАВЛЯЕМ useEffect ДЛЯ ОТКРЫТИЯ ПРИЁМА ИЗ URL
+  useEffect(() => {
+    if (loading || appointments.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const openApptId = params.get('openApptId');
+    
+    if (openApptId) {
+      const apptToOpen = appointments.find(a => a.id === openApptId);
+      if (apptToOpen) {
+        setSelectedAppt(apptToOpen);
+        
+        // Заполняем форму редактирования (тот же код, что и при клике на карточку)
+        const d = new Date(apptToOpen.appointment_date);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        
+        setEditApptData({ 
+          client_id: apptToOpen.client_id || '',
+          service_id: apptToOpen.service_id || '',
+          location_id: apptToOpen.location_id || '',
+          date: dateStr,
+          time: timeStr,
+          duration_minutes: apptToOpen.duration_minutes || 60,
+          buffer_before_minutes: apptToOpen.buffer_before_minutes || 0,
+          buffer_after_minutes: apptToOpen.buffer_after_minutes || 0,
+          final_price: apptToOpen.final_price || 0,
+          status: apptToOpen.status || 'scheduled',
+          general_notes: apptToOpen.general_notes || '',
+          record_notes: apptToOpen.record_notes || ''
+        });
+
+        // Очищаем URL, чтобы при обновлении страницы модалка не открывалась снова
+        window.history.replaceState({}, document.title, window.location.pathname + `?date=${selectedDate}`);
+      }
+    }
+  }, [appointments, loading, selectedDate]); // 👈 Зависимости
 
   const fetchData = async () => {
     try {
@@ -251,6 +319,43 @@ export default function SchedulePage() {
     setSelectedLocation(loc);
   };
 
+  const handleQuickAddClient = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_URL}/api/appt/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: quickClientData.name,
+          phone: quickClientData.phone,
+          address: quickClientData.address
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // 1. Добавляем нового клиента в общий список
+        setClients([...clients, data.data]);
+        
+        // 2. Автоматически выбираем его в текущей форме (создание или редактирование)
+        if (isModalOpen) {
+          setNewAppt(prev => ({ ...prev, client_id: data.data.id }));
+        } else if (selectedAppt) {
+          setEditApptData(prev => ({ ...prev, client_id: data.data.id }));
+        }
+
+        // 3. Закрываем окно быстрого добавления
+        setQuickClientModal({ isOpen: false, initialName: '' });
+        setQuickClientData({ name: '', phone: '', address: '' });
+      } else {
+        alert('Ошибка: ' + data.error);
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    }
+  };
+
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
     setError('');
@@ -368,43 +473,66 @@ export default function SchedulePage() {
   
   return (
     <div className="detail-container" style={{ maxWidth: '800px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+      {/* 👈 НАЧАЛО ШАПКИ */}
+        <div style={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row', // 👈 На мобилке — колонка
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        marginBottom: '20px', 
+        gap: '10px',
         position: 'sticky',
         top: 0,
         zIndex: 100,
         backgroundColor: 'white',
-        paddingTop: '1px',
+        paddingTop: '10px',
         paddingBottom: '10px',
-        marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h1 className="detail-title" style={{ margin: 0, paddingLeft: isMobile ? '40px' : '10px', fontSize: isMobile ? '20px' : '28px' }}>Расписание</h1>
+        paddingLeft: isMobile ? '40px' : '20px' 
+        }}>
+        {/* Заголовок (всегда сверху) */}
+        <h1 className="detail-title" style={{ margin: 0, fontSize: isMobile ? '20px' : '28px', flexShrink: 0 }}>
+            Расписание
+        </h1>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '15px', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 'bold', color: '#495057', fontSize: isMobile ? '13px' : '16px' }}>
+        {/* Блок управления (на мобилке — снизу, на десктопе — справа) */}
+        <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: isMobile ? '8px' : '15px', 
+            flexWrap: 'nowrap', // 👈 Запрещаем перенос внутри этого блока
+            justifyContent: isMobile ? 'space-between' : 'flex-end',
+            width: isMobile ? '100%' : 'auto' // 👈 На мобилке растягиваем на всю ширину
+        }}>
+            <span style={{ fontWeight: 'bold', color: '#495057', fontSize: isMobile ? '13px' : '16px', whiteSpace: 'nowrap' }}>
             {isMobile 
-              ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long' })
-              : new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'short' }) // 👈 На мобилке "пн" вместо "понедельник"
+                : new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
             }
-          </span>
-          <button 
-            onClick={() => shiftDate(-1)} 
-            title="Предыдущий день"
-            style={{ padding: isMobile ? '4px 8px' : '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', fontSize: isMobile ? '14px' : '16px' }}
-            >←
-          </button>
-          <input 
-            type="date" 
-            value={selectedDate} 
-            onChange={e => setSelectedDate(e.target.value)}
-            style={{ padding: isMobile ? '4px 8px' : '8px', fontSize: isMobile ? '14px' : '16px', borderRadius: '4px', border: '1px solid #ddd', maxWidth: isMobile ? '130px' : 'none' }}
-          />
-          <button 
-            onClick={() => shiftDate(1)} 
-            title="Следующий день"
-            style={{ padding: isMobile ? '4px 8px' : '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', fontSize: isMobile ? '14px' : '16px' }}
-            >→
-        </button>
+            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button 
+                onClick={() => shiftDate(-1)} 
+                title="Предыдущий день"
+                style={{ padding: isMobile ? '6px 10px' : '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', fontSize: isMobile ? '16px' : '16px', lineHeight: 1 }}
+            >←</button>
+            
+            <input 
+                type="date" 
+                value={selectedDate} 
+                onChange={e => setSelectedDate(e.target.value)}
+                style={{ padding: isMobile ? '4px 8px' : '8px', fontSize: isMobile ? '14px' : '16px', borderRadius: '4px', border: '1px solid #ddd', width: isMobile ? '130px' : 'auto', boxSizing: 'border-box' }}
+            />
+            
+            <button 
+                onClick={() => shiftDate(1)} 
+                title="Следующий день"
+                style={{ padding: isMobile ? '6px 10px' : '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', fontSize: isMobile ? '16px' : '16px', lineHeight: 1 }}
+            >→</button>
+            </div>
         </div>
-      </div>
+        </div>
+      {/* 👈 КОНЕЦ ШАПКИ */}
 
       {loading ? (
         <div>Загрузка...</div>
@@ -648,8 +776,34 @@ export default function SchedulePage() {
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
                 
-                <ClientSearch clients={clients} value={newAppt.client_id} onChange={(id) => setNewAppt({...newAppt, client_id: id})} />
-                
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <ClientSearch 
+                      clients={clients} 
+                      value={newAppt.client_id} 
+                      onChange={(id) => setNewAppt({...newAppt, client_id: id})} 
+                      onAddNew={(initialName) => {
+                        setQuickClientData({ name: initialName, phone: '', address: '' });
+                        setQuickClientModal({ isOpen: true, initialName });
+                      }}
+                    />
+                  </div>
+                  
+                  {/* 👈 Кнопка перехода в карточку (показываем, только если клиент выбран) */}
+                  {newAppt.client_id && (
+                    <Link 
+                      to={`/appointments/clients?editClient=${newAppt.client_id}&returnToAppt=&date=${selectedDate}`}
+                      title="Открыть карточку клиента для редактирования"
+                      style={{ 
+                        padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#007bff', 
+                        border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', 
+                        alignItems: 'center', justifyContent: 'center', textDecoration: 'none' 
+                      }}
+                    >
+                      <FaEdit /> 
+                    </Link>
+                  )}
+                </div>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -789,7 +943,34 @@ export default function SchedulePage() {
 
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
-                <ClientSearch clients={clients} value={editApptData.client_id} onChange={(id) => setEditApptData({...editApptData, client_id: id})} />
+                
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <ClientSearch 
+                      clients={clients} 
+                      value={editApptData.client_id} 
+                      onChange={(id) => setEditApptData({...editApptData, client_id: id})} 
+                      onAddNew={(initialName) => {
+                        setQuickClientData({ name: initialName, phone: '', address: '' });
+                        setQuickClientModal({ isOpen: true, initialName });
+                      }}
+                    />
+                  </div>
+                  
+                  {editApptData.client_id && (
+                    <Link 
+                      to={`/appointments/clients?editClient=${editApptData.client_id}&returnToAppt=${selectedAppt.id}&date=${selectedDate}`}
+                      title="Открыть карточку клиента для редактирования"
+                      style={{ 
+                        padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#007bff', 
+                        border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', 
+                        alignItems: 'center', justifyContent: 'center', textDecoration: 'none' 
+                      }}
+                    >
+                      <FaEdit /> 
+                    </Link>
+                  )}
+                </div>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -974,6 +1155,38 @@ export default function SchedulePage() {
           </div>
         </div>
       )}
+
+      {/* МОДАЛЬНОЕ ОКНО БЫСТРОГО ДОБАВЛЕНИЯ КЛИЕНТА */}
+      {quickClientModal.isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: isMobile ? '10px' : '20px' }}>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '100%', maxWidth: '400px', boxSizing: 'border-box' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Быстрое добавление клиента</h3>
+            
+            <form onSubmit={handleQuickAddClient}>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Имя *</label>
+                <input required type="text" value={quickClientData.name} onChange={e => setQuickClientData({...quickClientData, name: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+              </div>
+              
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Телефон</label>
+                <input type="tel" value={quickClientData.phone} onChange={e => setQuickClientData({...quickClientData, phone: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Адрес</label>
+                <input type="text" value={quickClientData.address} onChange={e => setQuickClientData({...quickClientData, address: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" onClick={() => setQuickClientModal({ isOpen: false, initialName: '' })} style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer' }}>Отмена</button>
+                <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Сохранить и выбрать</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

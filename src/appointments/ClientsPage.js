@@ -1,6 +1,6 @@
 // src/appointments/ClientsPage.js
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser } from 'react-icons/fa';
 import API_URL from '../config/api';
 
@@ -9,6 +9,8 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [sources, setSources] = useState([]);
+  const navigate = useNavigate();
   
   // Состояние для формы добавления
   const [showForm, setShowForm] = useState(false);
@@ -17,10 +19,45 @@ export default function ClientsPage() {
     height: '', weight: '', age: '' // 👈 Доп. поля
   });
 
+    // Состояния для модального окна редактирования
+    const [selectedClient, setSelectedClient] = useState(null);
+    const [editClientData, setEditClientData] = useState({
+        name: '', phone: '', email: '', birthday: '', gender: '',
+        address: '', notes: '', children_info: '', is_active: true,
+        age: '', height: '', weight: ''
+    });
+
   useEffect(() => {
     fetchClients();
-  }, []);
+    
+    // Загружаем источники
+    fetch(`${API_URL}/api/appt/sources`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => { if (data.success) setSources(data.data); })
+        .catch(err => console.error('Ошибка загрузки источников:', err));
+    }, []);
 
+    // 👈 ДОБАВЛЯЕМ НОВЫЙ useEffect ДЛЯ ОТКРЫТИЯ КАРТОЧКИ ИЗ ССЫЛКИ
+  useEffect(() => {
+    // Ждем, пока клиенты загрузятся
+    if (loading || clients.length === 0) return;
+
+    // Проверяем, есть ли в URL параметр editClient
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('editClient');
+
+    if (editId) {
+      // Ищем клиента в загруженном списке
+      const clientToEdit = clients.find(c => c.id === editId);
+      
+      if (clientToEdit) {
+        handleEditClient(clientToEdit); // Открываем модалку
+        
+        // Очищаем URL, чтобы при обновлении страницы модалка не открывалась снова
+        //window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [clients, loading]); // 👈 Этот useEffect следит за массивами clients и loading  
   const fetchClients = async (query = '') => {
     try {
       setLoading(true);
@@ -79,47 +116,80 @@ export default function ClientsPage() {
     }
   };
 
-  const handleEditClient = async (client) => {
-    const newName = window.prompt('Имя клиента:', client.name);
-    if (!newName) return;
+  const handleEditClient = (client) => {
+    setSelectedClient(client);
     
-    const newPhone = window.prompt('Телефон:', client.phone || '');
-    if (newPhone === null) return;
-
-    const newWeight = window.prompt('Вес (кг):', client.extra_data?.weight || '');
-    if (newWeight === null) return;
-
-    try {
-      const extra_data = { ...client.extra_data };
-      if (newWeight) extra_data.weight = Number(newWeight);
-      else delete extra_data.weight;
-
-      const res = await fetch(`${API_URL}/api/appt/clients/${client.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: newName,
-          phone: newPhone,
-          email: client.email,
-          birthday: client.birthday,
-          gender: client.gender,
-          address: client.address,
-          notes: client.notes,
-          extra_data // 👈 передаем обновленный JSON
-        })
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        setClients(clients.map(c => c.id === client.id ? data.data : c));
-      } else {
-        alert('Ошибка: ' + data.error);
-      }
-    } catch (err) {
-      alert('Ошибка сети: ' + err.message);
-    }
+    // Извлекаем доп. данные из JSON, если они есть
+    const extra = client.extra_data || {};
+    
+    setEditClientData({
+      name: client.name || '',
+      phone: client.phone || '',
+      email: client.email || '',
+      birthday: client.birthday ? client.birthday.split('T')[0] : '', // формат YYYY-MM-DD
+      gender: client.gender || '',
+      address: client.address || '',
+      notes: client.notes || '',
+      children_info: client.children_info || '',
+      is_active: client.is_active !== false, // если undefined, то true
+      age: extra.age || '',
+      height: extra.height || '',
+      weight: extra.weight || '',
+      source_id: client.source_id || null
+    });
   };
+
+    const handleSaveClient = async (e) => {
+        e.preventDefault();
+        
+        try {
+        const extra_data = { ...selectedClient.extra_data };
+        
+        if (editClientData.height) extra_data.height = Number(editClientData.height); else delete extra_data.height;
+        if (editClientData.weight) extra_data.weight = Number(editClientData.weight); else delete extra_data.weight;
+        if (editClientData.age) extra_data.age = editClientData.age; else delete extra_data.age;
+
+        const res = await fetch(`${API_URL}/api/appt/clients/${selectedClient.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+            name: editClientData.name,
+            phone: editClientData.phone,
+            email: editClientData.email,
+            birthday: editClientData.birthday || null,
+            gender: editClientData.gender,
+            address: editClientData.address,
+            notes: editClientData.notes,
+            children_info: editClientData.children_info,
+            is_active: editClientData.is_active,
+            extra_data,
+            source_id: editClientData.source_id || null
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            setClients(clients.map(c => c.id === selectedClient.id ? data.data : c));
+            setSelectedClient(null); // Закрываем модалку
+            
+            // 👈 ПРОВЕРЯЕМ, НУЖНО ЛИ ВЕРНУТЬСЯ В РАСПИСАНИЕ
+            const params = new URLSearchParams(window.location.search);
+            const returnToAppt = params.get('returnToAppt');
+            const returnDate = params.get('date');
+            
+            if (returnToAppt !== null) { // Проверяем наличие параметра (может быть и пустая строка)
+            // Возвращаемся в расписание с сохранением даты и ID приёма
+            navigate(`/appointments/schedule?date=${returnDate || new Date().toISOString().split('T')[0]}${returnToAppt ? `&openApptId=${returnToAppt}` : ''}`);
+            }
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+        } catch (err) {
+        alert('Ошибка сети: ' + err.message);
+        }
+    };
 
   const handleDelete = async (id) => {
     if (!window.confirm('Удалить клиента? Все его приёмы останутся в истории, но отвяжутся от карточки.')) return;
@@ -256,6 +326,142 @@ export default function ClientsPage() {
           ))}
         </div>
       )}
+
+            {/* МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ/ПРОСМОТРА КЛИЕНТА */}
+      {selectedClient && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }}>
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            borderRadius: isMobile ? 0 : '8px', 
+            width: isMobile ? '100vw' : '600px', 
+            height: isMobile ? '100vh' : 'auto',
+            maxWidth: isMobile ? '100vw' : '95%',
+            maxHeight: isMobile ? '100vh' : '90vh',
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden',
+            boxSizing: 'border-box'
+          }}>
+            <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+              Карточка клиента
+            </h3>
+            
+            <form onSubmit={handleSaveClient} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              
+              {/* Скроллируемая область */}
+              <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                  
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Имя *</label>
+                    <input required type="text" value={editClientData.name} onChange={e => setEditClientData({...editClientData, name: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Телефон</label>
+                    <input type="tel" value={editClientData.phone} onChange={e => setEditClientData({...editClientData, phone: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Email</label>
+                    <input type="email" value={editClientData.email} onChange={e => setEditClientData({...editClientData, email: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Дата рождения</label>
+                    <input type="date" value={editClientData.birthday} onChange={e => setEditClientData({...editClientData, birthday: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Возраст (если нет ДР)</label>
+                    <input type="text" placeholder="33 или 30+" value={editClientData.age} onChange={e => setEditClientData({...editClientData, age: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Пол</label>
+                    <select value={editClientData.gender} onChange={e => setEditClientData({...editClientData, gender: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '38px' }}>
+                      <option value="">Не указан</option>
+                      <option value="female">Женский</option>
+                      <option value="male">Мужской</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Рост (см)</label>
+                    <input type="number" value={editClientData.height} onChange={e => setEditClientData({...editClientData, height: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Вес (кг)</label>
+                    <input type="number" value={editClientData.weight} onChange={e => setEditClientData({...editClientData, weight: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Адрес</label>
+                    <input type="text" value={editClientData.address} onChange={e => setEditClientData({...editClientData, address: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Источник</label>
+                    <select value={editClientData.source_id || ''} onChange={ e =>  setEditClientData({...editClientData, source_id: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '38px' }}>
+                        <option value="">Не указан</option>
+                        {sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>  
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Дети (информация)</label>
+                    <textarea value={editClientData.children_info} onChange={e => setEditClientData({...editClientData, children_info: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }} />
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Заметки (общие)</label>
+                    <textarea value={editClientData.notes} onChange={e => setEditClientData({...editClientData, notes: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '80px' }} />
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input type="checkbox" id="isActive" checked={editClientData.is_active} onChange={e => setEditClientData({...editClientData, is_active: e.target.checked})} style={{ width: '18px', height: '18px' }} />
+                    <label htmlFor="isActive" style={{ fontSize: '14px', fontWeight: 'bold', color: '#0056b3', cursor: 'pointer' }}>Активный клиент</label>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Кнопки управления */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => { if(window.confirm('Удалить клиента?')) handleDelete(selectedClient.id); }}
+                  title="Удалить клиента"
+                  style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  <FaTrash />
+                </button>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedClient(null)} 
+                    style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer' }}
+                  >
+                    Отмена
+                  </button>
+                  <button 
+                    type="submit" 
+                    style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
