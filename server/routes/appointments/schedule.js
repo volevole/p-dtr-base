@@ -229,8 +229,9 @@ router.put('/:id', async (req, res) => {
   const { 
     client_id, service_id, location_id, appointment_date,
     duration_minutes, buffer_before_minutes, buffer_after_minutes,
-    base_price, discount_amount, final_price, status, general_notes, notes, // notes для совместимости
-    record_notes
+    base_price, discount_amount, final_price, status, general_notes, notes,
+    record_notes,
+    subscription_info, chief_complaint, specialization_data
   } = req.body;
 
   try {
@@ -243,13 +244,14 @@ router.put('/:id', async (req, res) => {
       const endTime = new Date(startTime.getTime() + (duration_minutes || 60) * 60000);
       const blockEnd = new Date(endTime.getTime() + (buffer_after_minutes || 0) * 60000);
 
+      // Пока исключаем только 'canceled'. В будущем, когда будем делать онлайн-запись,
+      // возможно, захотим исключить 'pending' из проверки накладок.
       const conflictCheck = await client.query(
         `SELECT id, appointment_date, duration_minutes, buffer_before_minutes, buffer_after_minutes
          FROM appointments
          WHERE master_id = $1 
            AND DATE(appointment_date) = DATE($2)
-           AND status != 'canceled'  // 👈 Пока оставим так, но в будущем, когда будем делать онлайн-запись, 
-                                    // мы, возможно, захотим исключить 'pending' из проверки накладок
+           AND status != 'canceled'
            AND id != $3`,
         [req.user.id, appointment_date, req.params.id]
       );
@@ -274,19 +276,25 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Обновляем ВСЕ поля
+    // Обновляем ВСЕ поля (включая кастомные и финансы)    
     const result = await client.query(
       `UPDATE appointments 
        SET client_id = $1, service_id = $2, location_id = $3, appointment_date = $4,
            duration_minutes = $5, buffer_before_minutes = $6, buffer_after_minutes = $7,
            base_price = $8, discount_amount = $9, final_price = $10,
-           status = $11, general_notes = $12, record_notes = $13, updated_at = NOW()
-       WHERE id = $14 AND master_id = $15 RETURNING *`,
+           status = $11, general_notes = $12, record_notes = $13,
+           subscription_info = $14, chief_complaint = $15, specialization_data = $16,
+           updated_at = NOW()
+       WHERE id = $17 AND master_id = $18 RETURNING *`,
       [
         client_id || null, service_id, location_id || null, appointment_date,
         duration_minutes || 60, buffer_before_minutes || 0, buffer_after_minutes || 0,
         base_price || 0, discount_amount || 0, final_price || 0,
-        status || 'scheduled', general_notes || '', record_notes || '', req.params.id, req.user.id // 👈 ДОБАВИТЬ record_notes
+        status || 'scheduled', general_notes || '', record_notes || '',
+        subscription_info || '',
+        chief_complaint || '',
+        specialization_data ? JSON.stringify(specialization_data) : '{}',
+        req.params.id, req.user.id
       ]
     );
 

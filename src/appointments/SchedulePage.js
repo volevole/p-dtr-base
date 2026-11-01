@@ -1,5 +1,5 @@
 // src/appointments/SchedulePage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt } from 'react-icons/fa';
 import API_URL from '../config/api';
@@ -67,7 +67,11 @@ function ClientSearch({ clients, value, onChange }) {
 }
 
 export default function SchedulePage() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const d = params.get('date');
+    return d || new Date().toISOString().split('T')[0];
+  });
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -95,6 +99,7 @@ export default function SchedulePage() {
   });
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const gridRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -190,6 +195,31 @@ export default function SchedulePage() {
       setLoading(false);
     }
   };
+
+    useEffect(() => {
+    if (loading || !gridRef.current) return;
+    
+    let topPx = 0;
+
+    if (appointments.length > 0) {
+        // Если есть записи — скроллим на 30 мин до первой
+        const first = appointments[0];
+        const d = new Date(first.appointment_date);
+        const startMin = d.getHours() * 60 + d.getMinutes();
+        topPx = Math.max(0, (startMin - START_HOUR * 60 - 30) * PX_PER_MINUTE);
+    } else {
+        // Если записей нет — скроллим на 10:00
+        topPx = (10 * 60 - START_HOUR * 60) * PX_PER_MINUTE;
+    }
+    
+    const containerTop = gridRef.current.getBoundingClientRect().top + window.scrollY;
+    const stickyHeaderHeight = 80; // оставь своё значение, которое подобрал
+    
+    window.scrollTo({ 
+        top: containerTop + topPx - stickyHeaderHeight, 
+        behavior: 'smooth' 
+    });
+    }, [appointments, loading]);
 
   const handleSlotClick = (time) => {
     setNewAppt({ 
@@ -327,11 +357,26 @@ export default function SchedulePage() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
   });
 
+  const shiftDate = (days) => {
+    const d = new Date(selectedDate + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+  };
   
   return (
     <div className="detail-container" style={{ maxWidth: '800px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h1 className="detail-title" style={{ margin: 0, fontSize: isMobile ? '20px' : '28px' }}>Расписание</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        backgroundColor: 'white',
+        paddingTop: '1px',
+        paddingBottom: '10px',
+        marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h1 className="detail-title" style={{ margin: 0, paddingLeft: isMobile ? '40px' : '10px', fontSize: isMobile ? '20px' : '28px' }}>Расписание</h1>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '8px' : '15px', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 'bold', color: '#495057', fontSize: isMobile ? '13px' : '16px' }}>
@@ -340,19 +385,31 @@ export default function SchedulePage() {
               : new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
             }
           </span>
+          <button 
+            onClick={() => shiftDate(-1)} 
+            title="Предыдущий день"
+            style={{ padding: isMobile ? '4px 8px' : '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', fontSize: isMobile ? '14px' : '16px' }}
+            >←
+          </button>
           <input 
             type="date" 
             value={selectedDate} 
             onChange={e => setSelectedDate(e.target.value)}
             style={{ padding: isMobile ? '4px 8px' : '8px', fontSize: isMobile ? '14px' : '16px', borderRadius: '4px', border: '1px solid #ddd', maxWidth: isMobile ? '130px' : 'none' }}
           />
+          <button 
+            onClick={() => shiftDate(1)} 
+            title="Следующий день"
+            style={{ padding: isMobile ? '4px 8px' : '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer', fontSize: isMobile ? '14px' : '16px' }}
+            >→
+        </button>
         </div>
       </div>
 
       {loading ? (
         <div>Загрузка...</div>
       ) : (
-        <div style={{ backgroundColor: 'white', border: isMobile ? 'none' : '1px solid #dee2e6', borderRadius: '8px', position: 'relative', width: '100%', overflow: 'hidden' }}>
+        <div ref={gridRef} style={{ backgroundColor: 'white', border: isMobile ? 'none' : '1px solid #dee2e6', borderRadius: '8px', position: 'relative', width: '100%', overflow: 'hidden' }}>
           
           <div style={{ marginLeft: isMobile ? '45px' : '90px', position: 'relative', 
                 width: isMobile ? 'calc(100% - 45px)' : 'auto', paddingTop: 0, marginTop: 0 }}>
