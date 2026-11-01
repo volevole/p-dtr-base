@@ -371,7 +371,7 @@ export default function AppointmentDetailPage() {
                 title="Завершить приём: перевести статус в «Выполнен» и сохранить карточку"
                 style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}
                 >
-                ✅ Завершить
+                ✅ {!isMobile && 'Завершить'}
                 </button>
             )}
 

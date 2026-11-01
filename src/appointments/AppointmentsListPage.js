@@ -1,7 +1,7 @@
 // src/appointments/AppointmentsListPage.js
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaSearch, FaCalendarAlt, FaUser, FaClock, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaSearch, FaCalendarAlt, FaUser, FaClock, FaChevronLeft, FaChevronRight, FaStickyNote, FaMapMarkerAlt } from 'react-icons/fa';
 import API_URL from '../config/api';
 
 export default function AppointmentsListPage() {
@@ -147,9 +147,7 @@ export default function AppointmentsListPage() {
                   borderRadius: '8px', 
                   backgroundColor: 'white',
                   display: 'flex',
-                  flexDirection: isMobile ? 'column' : 'row',
-                  justifyContent: 'space-between',
-                  alignItems: isMobile ? 'flex-start' : 'center',
+                  flexDirection: 'column', // 👈 Теперь вся карточка — колонка
                   gap: '10px',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   transition: 'all 0.2s'
@@ -157,23 +155,63 @@ export default function AppointmentsListPage() {
                 onMouseEnter={(e) => e.currentTarget.style.borderColor = '#007bff'}
                 onMouseLeave={(e) => e.currentTarget.style.borderColor = '#dee2e6'}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', color: '#0d47a1', fontSize: '15px' }}>
-                    <FaCalendarAlt /> {dt.date} <FaClock style={{ marginLeft: '10px' }} /> {dt.time}
+                {/* 👈 1. ШАПКА: Дата/время слева, Услуга справа (на всю ширину) */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', fontSize: '13px', borderBottom: '1px solid #f1f3f5', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6c757d' }}>
+                    <FaCalendarAlt /> {dt.date} 
+                    <FaClock style={{ marginLeft: '8px' }} /> {dt.time}
                   </div>
-                  <div style={{ fontSize: '14px', color: '#333' }}>
-                    <strong>{appt.service_name}</strong> — {appt.duration_minutes} мин.
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FaUser /> {appt.client_name || 'Без клиента'} {appt.client_phone && `(${appt.client_phone})`}
+                  <div style={{ color: '#007bff' }}>
+                    {appt.service_name} <span style={{ fontWeight: 'bold', opacity: 0.8 }}>— {appt.duration_minutes} мин.</span>
                   </div>
                 </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#28a745' }}>
-                    {appt.final_price} ₽
+
+                {/* 👈 2. ОСНОВНАЯ ЧАСТЬ: Клиент, примечание, место (и цена/статус) */}
+                <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '10px' }}>
+                  
+                  {/* Левая колонка с данными */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                    
+                    {/* Клиент ИЛИ Примечание */}
+                    {appt.client_name ? (
+                      <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#212529', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FaUser style={{ fontSize: '13px', color: '#6c757d' }}/> 
+                        <span>{appt.client_name}</span> 
+                        {appt.client_phone && <span style={{ fontWeight: 'normal', color: '#666', fontSize: '13px' }}>({appt.client_phone})</span>}
+                      </div>
+                    ) : (
+                      appt.record_notes && (
+                        <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#495057', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <FaStickyNote style={{ fontSize: '13px', color: '#6c757d' }}/> 
+                          <span>{appt.record_notes}</span>
+                        </div>
+                      )
+                    )}
+                    
+                    {/* Примечание (если есть клиент) */}
+                    {appt.client_name && appt.record_notes && (
+                      <div style={{ fontSize: '12px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                        <FaStickyNote style={{ fontSize: '12px', color: '#adb5bd', marginTop: '3px' }}/> 
+                        <span>{appt.record_notes}</span>
+                      </div>
+                    )}
+
+                    {/* Место */}
+                    {appt.location_name && (
+                      <div style={{ fontSize: '12px', color: '#495057', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <FaMapMarkerAlt style={{ fontSize: '12px', color: '#6c757d' }}/> 
+                        <span>{appt.location_name}</span>
+                      </div>
+                    )}
                   </div>
-                  {getStatusBadge(appt.status)}
+                  
+                  {/* Правая колонка с ценой и статусом */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexShrink: 0 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#28a745' }}>
+                      {appt.final_price} ₽
+                    </div>
+                    {getStatusBadge(appt.status)}
+                  </div>
                 </div>
               </Link>
             );

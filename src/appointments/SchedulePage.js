@@ -301,6 +301,46 @@ export default function SchedulePage() {
     setIsModalOpen(true);
   };
 
+    // Функция добавления адреса клиента в примечание
+  const appendClientAddress = (isEditMode) => {
+    // Ищем выбранного клиента в списке clients (по ID из формы)
+    const currentClientId = isEditMode ? editApptData.client_id : newAppt.client_id;
+    const client = clients.find(c => c.id === currentClientId);
+    
+    if (client && client.address) {
+      // Берем текущее примечание
+      const currentNotes = isEditMode ? editApptData.record_notes : newAppt.notes;
+      const newNotes = currentNotes ? `${currentNotes}\n${client.address}` : client.address;
+      
+      // Обновляем состояние
+      if (isEditMode) {
+        setEditApptData({ ...editApptData, record_notes: newNotes });
+      } else {
+        setNewAppt({ ...newAppt, notes: newNotes });
+      }
+    } else {
+      alert('У выбранного клиента не указан адрес в карточке.');
+    }
+  };
+
+  // Функция добавления адреса места (локации) в примечание
+  const appendLocationAddress = (isEditMode) => {
+    const currentLocId = isEditMode ? editApptData.location_id : newAppt.location_id;
+    const location = locations.find(l => l.id === currentLocId);
+    
+    if (location && location.address) {
+      const currentNotes = isEditMode ? editApptData.record_notes : newAppt.notes;
+      const newNotes = currentNotes ? `${currentNotes}\n${location.address}` : location.address;
+      
+      if (isEditMode) {
+        setEditApptData({ ...editApptData, record_notes: newNotes });
+      } else {
+        setNewAppt({ ...newAppt, notes: newNotes });
+      }
+    } else {
+      alert('У выбранного места не указан адрес в настройках.');
+    }
+  };
   const handleServiceChange = (e) => {
     const sId = e.target.value;
     const serv = services.find(s => s.id === sId);
@@ -656,7 +696,7 @@ export default function SchedulePage() {
                     cursor: 'pointer'
                   }}
                 >
-                  <div style={{ 
+                   <div style={{ 
                     backgroundColor: '#e3f2fd', 
                     borderLeft: '4px solid #007bff', 
                     padding: '6px 10px', 
@@ -668,19 +708,43 @@ export default function SchedulePage() {
                     flexDirection: 'column',
                     gap: '4px'
                   }}>
-                    <div style={{ fontWeight: 'bold', color: '#0d47a1', fontSize: '13px', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{timeStr} — {appt.service_name}</span>
-                      <span style={{ color: '#007bff', fontWeight: 'normal' }}>{appt.duration_minutes} мин</span>
+                     {/* 1. Шапка: Время слева, Услуга и Длительность справа */}
+                    <div style={{ color: '#0d47a1', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap', marginRight: '6px' }}>{timeStr}</span>
+                      <span style={{ color: '#007bff', fontSize: '12px', textAlign: 'right', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{appt.service_name}</span>
+                        <span style={{ fontWeight: 'bold', opacity: 0.8 }}>— {appt.duration_minutes} мин</span>
+                      </span>
                     </div>
                     
-                    <div style={{ fontSize: '12px', color: '#495057', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                      <span><FaUser /> {appt.client_name || 'Без клиента'}</span>
-                      {appt.location_name && <span><FaMapMarkerAlt /> {appt.location_name}</span>}
-                    </div>
+                    {/* 2. Клиент (Жирный) или Примечание (если клиента нет) */}
+                    {appt.client_name ? (
+                      <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#212529', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <FaUser style={{ fontSize: '11px', color: '#6c757d' }}/> 
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.client_name}</span>
+                      </div>
+                    ) : (
+                      appt.record_notes && (
+                        <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#495057', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <FaStickyNote style={{ fontSize: '11px', color: '#6c757d' }}/> 
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.record_notes}</span>
+                        </div>
+                      )
+                    )}
+                    
+                    {/* 3. Место (если есть) */}
+                    {appt.location_name && (
+                      <div style={{ fontSize: '11px', color: '#495057', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <FaMapMarkerAlt style={{ fontSize: '11px', color: '#6c757d' }}/> 
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.location_name}</span>
+                      </div>
+                    )}
 
-                    {appt.record_notes && (
+                    {/* 4. Примечание (показываем только если клиент ЕСТЬ, чтобы не дублировать) */}
+                    {appt.client_name && appt.record_notes && (
                       <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <FaStickyNote /> {appt.record_notes}
+                        <FaStickyNote style={{ fontSize: '11px', color: '#adb5bd' }}/> 
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.record_notes}</span>
                       </div>
                     )}
                   </div>
@@ -867,12 +931,35 @@ export default function SchedulePage() {
                 </div>
               )}
 
-                            <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
+                             <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', flexWrap: 'wrap', gap: '5px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#0056b3', margin: 0 }}>Примечание к записи (адрес, детали)</label>
+                  
+                  {/* 👈 Кнопки добавления адреса */}
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => appendClientAddress(false)} 
+                      title="Добавить адрес клиента"
+                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      + Адрес клиента
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => appendLocationAddress(false)} 
+                      title="Добавить адрес места"
+                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      + Адрес места
+                    </button>
+                  </div>
+                </div>
+
                 <textarea 
                   value={newAppt.notes} 
                   onChange={e => setNewAppt({...newAppt, notes: e.target.value})}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }} // 👈 boxSizing добавлен
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '65px' }} 
                 />
               </div>
 
@@ -1086,12 +1173,35 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-                            <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Примечание к записи (адрес, детали)</label>
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', flexWrap: 'wrap', gap: '5px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#0056b3', margin: 0 }}>Примечание к записи (адрес, детали)</label>
+                  
+                  {/* 👈 Кнопки добавления адреса */}
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => appendClientAddress(true)} 
+                      title="Добавить адрес клиента"
+                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      + Адрес клиента
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => appendLocationAddress(true)} 
+                      title="Добавить адрес места"
+                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      + Адрес места
+                    </button>
+                  </div>
+                </div>
+
                 <textarea 
                   value={editApptData.record_notes} 
                   onChange={e => setEditApptData({...editApptData, record_notes: e.target.value})}
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minheight: '40px' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '80px' }} 
                 />
               </div>
 
