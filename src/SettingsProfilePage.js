@@ -41,6 +41,8 @@ export default function SettingsProfilePage() {
     }
   }, [activeTab, hasAppointmentsAccess]);
 
+  const isMobile = window.innerWidth <= 768;
+
    const fetchAppointmentData = async () => {
     try {
       setSpecsLoading(true);
@@ -283,6 +285,14 @@ export default function SettingsProfilePage() {
     display: 'flex', alignItems: 'center', gap: '8px'
   });
 
+    // Функция для красивого вывода дат
+  const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    return new Date(dateString).toLocaleString('ru-RU', { 
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+    });
+  };
+  
   return (
     <div className="detail-container" style={{ maxWidth: '1000px' }}>
       <h1 className="detail-title">Мой профиль</h1>
@@ -293,35 +303,69 @@ export default function SettingsProfilePage() {
         </div>
       )}
 
-      {/* Блок Аватара */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
-        <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#e9ecef', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #dee2e6' }}>
-         
+      {/* 👈 ОБНОВЛЕННЫЙ БЛОК ПРОФИЛЯ */}
+      <div style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #dee2e6' }}>
+        
+        {/* Верхняя часть: Аватар и Имя */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '25px', flexWrap: 'wrap' }}>
+          <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#e9ecef', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #dee2e6', flexShrink: 0 }}>
             {avatarUrl ? (
-                <img 
-                    // 👈 Пропускаем ссылку через наш прокси
-                    src={`${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(avatarUrl)}&size=M`} 
-                    alt="Аватар" 
-                    crossOrigin="anonymous"
-                    referrerPolicy="no-referrer"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                    onError={(e) => {
-                    // Если ссылка вдруг битая, показываем иконку
+              <img 
+                  src={`${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(avatarUrl)}&size=M`} 
+                  alt="Аватар" 
+                  crossOrigin="anonymous"
+                  referrerPolicy="no-referrer"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  onError={(e) => {
                     e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<svg ...>'; // или просто оставляем пусто
-                    }}
-                />
-                ) : (
-                <FaCamera size={40} color="#adb5bd" />
-                )}
-
+                    e.target.parentElement.innerHTML = '<svg ...>'; 
+                  }}
+              />
+            ) : (
+              <FaCamera size={40} color="#adb5bd" />
+            )}
+          </div>
+          <div>
+            <h2 style={{ margin: '0 0 5px 0', color: '#0d47a1' }}>{user?.name || 'Имя не указано'}</h2>
+            <div style={{ color: '#495057', fontSize: '15px', marginBottom: '10px' }}>
+              {user?.phone ? `📞 ${user.phone}` : 'Телефон не указан'}
+            </div>
+            
+            <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} disabled={uploadingAvatar} />
+            <label htmlFor="avatar-upload" style={{ display: 'inline-block', padding: '8px 16px', backgroundColor: uploadingAvatar ? '#6c757d' : '#007bff', color: 'white', borderRadius: '4px', cursor: uploadingAvatar ? 'not-allowed' : 'pointer', fontSize: '14px' }}>
+              {uploadingAvatar ? 'Загрузка...' : 'Изменить фото'}
+            </label>
+          </div>
         </div>
-        <div>
-          <h3 style={{ margin: '0 0 10px 0' }}>Фото профиля</h3>
-          <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} disabled={uploadingAvatar} />
-          <label htmlFor="avatar-upload" style={{ display: 'inline-block', padding: '10px 20px', backgroundColor: uploadingAvatar ? '#6c757d' : '#007bff', color: 'white', borderRadius: '4px', cursor: uploadingAvatar ? 'not-allowed' : 'pointer' }}>
-            {uploadingAvatar ? 'Загрузка...' : 'Загрузить фото'}
-          </label>
+
+        {/* Нижняя часть: Детальная информация (Сетка) */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))', // Адаптивная сетка
+          gap: '15px',
+          backgroundColor: 'white',
+          padding: '15px',
+          borderRadius: '6px',
+          border: '1px solid #dee2e6'
+        }}>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Email:</strong><br/>{user?.email || '—'}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Создан:</strong><br/>{formatDate(user?.created_at)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Отредактирован:</strong><br/>{formatDate(user?.updated_at)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Последний логин:</strong><br/>{formatDate(user?.last_login_at)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>ID устройства:</strong><br/>{user?.device_id || '—'}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Подписка до:</strong><br/>{formatDate(user?.subscription_valid_until)}</div>
+          
+          {/* Блок с блокировками (показываем, если есть бан) */}
+          {user?.banned_until ? (
+            <div style={{ gridColumn: '1 / -1', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', color: '#721c24' }}>
+              <strong>Заблокирован до:</strong> {formatDate(user.banned_until)}<br/>
+              {user.ban_reason_public && <><strong>Причина:</strong> {user.ban_reason_public}</>}
+            </div>
+          ) : (
+            <div style={{ gridColumn: '1 / -1', fontSize: '13px', color: '#28a745', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <FaUserShield /> Аккаунт активен, блокировок нет
+            </div>
+          )}
         </div>
       </div>
 

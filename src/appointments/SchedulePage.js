@@ -881,8 +881,8 @@ export default function SchedulePage() {
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Длительность (мин)</label>
                 <input 
-                  type="number" 
-                  value={newAppt.duration_minutes !== '' ? newAppt.duration_minutes : (selectedService?.default_duration_minutes || 60)} 
+                  type="number"                   
+                  value={newAppt.duration_minutes } 
                   onChange={e => setNewAppt({...newAppt, duration_minutes: e.target.value})}
                   style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} 
                 />

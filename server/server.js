@@ -2636,22 +2636,29 @@ app.get('/api/usefulness/:id', async (req, res) => {
 
 // GET /api/db-info — информация о подключении к БД (без пароля)
 app.get('/api/db-info', async (req, res) => {
+  let client;
   try {
-    const result = await db.query(
+    // 👈 1. Получаем клиента из пула
+    client = await connectDB();
+    if (!client) throw new Error('Не удалось подключиться к базе данных (connectDB вернул null)');
+
+    // 2. Выполняем запросы
+    const result = await client.query(
       'SELECT current_database(), current_user, version(), inet_server_addr(), inet_server_port()'
     );
     const row = result.rows[0];
     
-    const tablesResult = await db.query(`
+    const tablesResult = await client.query(`
       SELECT COUNT(*) as count 
       FROM information_schema.tables 
       WHERE table_schema = 'public'
     `);
     
-    const sizeResult = await db.query(`
+    const sizeResult = await client.query(`
       SELECT pg_size_pretty(pg_database_size(current_database())) as size
     `);
     
+    // 3. Отправляем ответ
     res.json({
       success: true,
       data: {
@@ -2666,7 +2673,7 @@ app.get('/api/db-info', async (req, res) => {
         version: row.version.split(' ').slice(0, 2).join(' '),
         tablesCount: parseInt(tablesResult.rows[0].count),
         databaseSize: sizeResult.rows[0].size,
-        hasPassword: !!process.env.REGRU_DB_PASSWORD
+        hasPassword: !!(process.env.REGRU_DB_PASSWORD) // 👈 Проверяем 
       }
     });
   } catch (error) {
@@ -2682,6 +2689,11 @@ app.get('/api/db-info', async (req, res) => {
         connected: false
       }
     });
+  // } finally {
+  //   // 👈 4. ОБЯЗАТЕЛЬНО возвращаем клиента в пул, иначе приложение зависнет
+  //   if (client) {
+  //     client.release();
+  //   }
   }
 });
 
@@ -2788,8 +2800,8 @@ app.put('/api/media/:mediaId/update-metadata', async (req, res) => {
       success: false,
       error: error.message 
     });
-  } finally {
-    client.release();
+  //} finally {
+    //client.release();
   }
 });
 // ============================================

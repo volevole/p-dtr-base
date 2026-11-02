@@ -53,6 +53,9 @@ import TestImage from './TestImage';
 import SettingsProfilePage from './SettingsProfilePage';
 import './App.css';
 
+const APPOINTMENT_ROLES = ['admin', 'appointments'];
+const ADMIN_PDTR_ROLES  = ['admin', 'admin_content'];
+
 function ProtectedLayout() {
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -97,6 +100,27 @@ function ProtectedLayout() {
   );
 }
 
+// 👈 НОВЫЙ КОМПОНЕНТ ДЛЯ УМНОГО РЕДИРЕКТА
+function HomeRedirect() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div style={{ padding: '50px', textAlign: 'center' }}>Загрузка...</div>;
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  // 👈 Проверяем, есть ли ХОТЯ БЫ ОДНА роль из списка APPOINTMENT_ROLES у пользователя
+  const hasAppointmentAccess = user?.roles?.some(role => APPOINTMENT_ROLES.includes(role));
+
+  if (hasAppointmentAccess) {
+    return <Navigate to="/appointments/schedule" replace />;
+  }
+
+  // Если нет доступа к приёмам — отправляем на мышцы
+  return <Navigate to="/muscles" replace />;
+}
+
 function App() {
   return (   
     <div className="App">      
@@ -108,37 +132,43 @@ function App() {
 
         {/* Защищенные */}
         <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<MusclesPage />} />
+          
+          {/* 👈 Вместо <MusclesPage /> ставим умный редирект */}
+          <Route path="/" element={<HomeRedirect />} />
+          
+          {/* Страницы мышц оставляем как есть, только добавляем путь для главной мышц, если нужно */}
+          <Route path="/muscles" element={<MusclesPage />} />
+
           <Route path="/organs" element={<OrgansPage />} />
           <Route path="/meridians" element={<MeridiansPage />} />
           <Route path="/dysfunctions" element={<DysfunctionsPage />} />
           <Route path="/muscle/:id" element={<MuscleDetail />} />          
           <Route path="/muscle/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <MuscleEditPage />
               </RoleRoute>
             } />
           <Route path="/muscle/:id/dysfunctions" element={<MuscleDysfunctions />} />
           <Route path="/group/:id" element={<GroupDetail />} />          
           <Route path="/group/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <GroupEditPage />
               </RoleRoute>
             } />
           <Route path="/organ/:id" element={<OrganDetail />} />
           <Route path="/meridian/:id" element={<MeridianDetail />} />
           <Route path="/organ/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <OrganEditPage />
               </RoleRoute>
             } />          
           <Route path="/meridian/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <MeridianEditPage />
               </RoleRoute>
             } />
           <Route path="/dysfunction/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <DysfunctionEditPage />
               </RoleRoute>
             } />
@@ -148,7 +178,7 @@ function App() {
           <Route path="/receptor_classes" element={<ReceptorClassList />} />	  
           <Route path="/receptor_class/:id" element={<ReceptorClassDetail />} />
           <Route path="/receptor_class/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <ReceptorClassEditPage />
               </RoleRoute>
             } />
@@ -156,7 +186,7 @@ function App() {
           <Route path="/receptors" element={<ReceptorsPage />} />
           <Route path="/receptor/:id" element={<ReceptorDetail />} />
           <Route path="/receptor/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <ReceptorEditPage />
               </RoleRoute>
             } />
@@ -164,7 +194,7 @@ function App() {
           <Route path="/tools" element={<ToolsPage />} />
           <Route path="/tool/:id" element={<ToolDetail />} />
           <Route path="/tool/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <ToolEditPage />
               </RoleRoute>
             } />
@@ -172,7 +202,7 @@ function App() {
           <Route path="/entries" element={<EntriesPage />} />
           <Route path="/entry/:id" element={<EntryDetail />} />
           <Route path="/entry/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <EntryEdit />
               </RoleRoute>
             } />
@@ -180,38 +210,38 @@ function App() {
           <Route path="/usefulness" element={<UsefulnessPage />} />
           <Route path="/usefulness/:id" element={<UsefulnessDetail />} />
           <Route path="/usefulness/:id/edit" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <UsefulnessEditPage />
               </RoleRoute>
             } />
           
           <Route path="/appointments/clients" element={
-            <RoleRoute allowedRoles={['admin', 'appointments']}>
+            <RoleRoute allowedRoles={APPOINTMENT_ROLES}>
               <ClientsPage />
             </RoleRoute>
             } />
 
           <Route path="/appointments/schedule" element={
-              <RoleRoute allowedRoles={['admin', 'appointments']}>
+              <RoleRoute allowedRoles={APPOINTMENT_ROLES}>
                 <SchedulePage />
               </RoleRoute>
            } />
 
           <Route path="/appointments" element={
-            <RoleRoute allowedRoles={['admin', 'appointments']}>
+            <RoleRoute allowedRoles={APPOINTMENT_ROLES}>
                 <AppointmentsListPage /> 
             </RoleRoute>
           } />
             
           <Route path="/appointments/:id" element={
-            <RoleRoute allowedRoles={['admin', 'appointments']}>
+            <RoleRoute allowedRoles={APPOINTMENT_ROLES}>
                 <AppointmentDetailPage />
             </RoleRoute>
           } />            
 
           <Route path="/all-media" element={<AllMediaPage />} />	
           <Route path="/all-media" element={
-              <RoleRoute allowedRoles={['admin', 'admin_content']}>
+              <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <AllMediaPage />
               </RoleRoute>
             } />

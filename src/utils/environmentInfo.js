@@ -1,5 +1,6 @@
 // utils/environmentInfo.js
 import API_URL from '../config/api';
+import { CURRENT_VERSION } from '../config/versions';
 
 /**
  * Получение информации о текущем окружении приложения
@@ -24,8 +25,8 @@ export const getEnvironmentInfo = () => {
     environment: process.env.NODE_ENV || 'development',
     isProduction: process.env.NODE_ENV === 'production',
     isDevelopment: process.env.NODE_ENV === 'development',
-    version: process.env.REACT_APP_VERSION || '1.0.0',
-    buildDate: process.env.REACT_APP_BUILD_DATE || new Date().toISOString()
+    version: CURRENT_VERSION.version, // 👈 Берем из файла версий
+    buildDate: CURRENT_VERSION.date // 👈 Теперь время берется прямо из файла версий
   };
   
   const serverInfo = {
@@ -91,7 +92,7 @@ export const getDisplayEnvironmentInfo = () => {
       'Платформа': info.client.platform,
       'Язык': info.client.language
     } : {}),
-    'Сборка от': new Date(info.app.buildDate).toLocaleString('ru-RU'),
+    'Сборка от': new Date(info.app.buildDate).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     'Текущее время': new Date(info.timestamp).toLocaleString('ru-RU'),
     'React версия': info.meta.reactVersion,
     'Node окружение': info.meta.nodeEnv,
