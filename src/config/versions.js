@@ -1,6 +1,11 @@
 // src/config/versions.js
 export const APP_VERSIONS = [
   {
+    version: '1.0.4',
+    date: '2026-11-03T12:24:00+03:00',
+    description: 'Из заголовка и описания страницы убрал P-DTR, добавил страницу превью'
+  },
+  {
     version: '1.0.3',
     date: '2026-11-02T16:35:00+03:00',
     description: 'Версионирование. Умная домашняя страница.'

@@ -111,7 +111,7 @@ function Sidebar({ isOpen, onToggle }) {
           <>
             <div>
               <h4 className="sidebar-section-title" style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>
-                Сущности
+                Сущности P-DTR
               </h4>
               <ul className="sidebar-menu-list" style={{ listStyle: 'none', padding: 0 }}>
                 
