@@ -204,8 +204,28 @@ const registerLimiter = rateLimit({
             [user.id, refreshHash, userAgent, ipAddress, expiresAt]
         );
         
-        // Обновляем last_login_at
-        await client.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+        // 👈 ДОБАВЬ ЭТОТ ЛОГ
+        console.log('--- DEBUG LOGIN ---');
+        console.log('Device ID из req.body:', req.body.deviceId);
+        console.log('Device ID (переменная):', deviceId);
+        console.log('User ID:', user.id);
+
+        // Обновляем last_login_at и device_id (если он передан)
+        if (deviceId) {
+            await client.query(
+                'UPDATE users SET last_login_at = NOW(), device_id = $1 WHERE id = $2', 
+                [deviceId, user.id]
+            );
+            // 👈 Делаем отдельный SELECT, чтобы проверить, что записалось
+            const checkRes = await client.query('SELECT device_id FROM users WHERE id = $1', [user.id]);
+            console.log('✅ Обновление прошло. В БД теперь device_id:', checkRes.rows[0].device_id);
+        } else {
+            await client.query(
+                'UPDATE users SET last_login_at = NOW() WHERE id = $2', 
+                [user.id]
+            );
+            console.log('⚠️ Device ID пустой, обновлен только last_login_at');
+        }
         
         // Устанавливаем cookies
         const cookieOptions = {
@@ -332,7 +352,7 @@ const registerLimiter = rateLimit({
     }
   });
   
-  /**
+   /**
    * GET /api/auth/me — текущий пользователь
    */
   router.get('/me', requireAuth, async (req, res) => {
@@ -343,8 +363,8 @@ const registerLimiter = rateLimit({
         phone: req.user.phone,
         name: req.user.name,
         email: req.user.email,
-        avatar_url: req.user.avatar_url, // 👈 Добавили эту строку
-        roles: req.user.roles
+        avatar_url: req.user.avatar_url,
+        roles: req.user.roles,        
       }
     });
   });

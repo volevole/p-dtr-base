@@ -1,8 +1,8 @@
 // src/appointments/SchedulePage.js
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt, FaPlus, FaEdit } from 'react-icons/fa';
 import API_URL from '../config/api';
+import ButtonWithTooltip from '../components/ButtonWithTooltip';
 
 // Компонент поиска клиента
 function ClientSearch({ clients, value, onChange, onAddNew }) {
@@ -465,7 +465,14 @@ export default function SchedulePage() {
         final_price: Number(editApptData.final_price),
         status: editApptData.status,
         general_notes: editApptData.general_notes,
-        record_notes: editApptData.record_notes
+        record_notes: editApptData.record_notes,
+
+        // 👈 ДОБАВЛЯЕМ ТО, ЧЕГО НЕ ХВАТАЛО
+        base_price: selectedAppt.base_price || 0,
+        discount_amount: selectedAppt.discount_amount || 0,
+        chief_complaint: selectedAppt.chief_complaint || '',
+        subscription_info: selectedAppt.subscription_info || '',
+        specialization_data: selectedAppt.specialization_data || {}
       };
 
       const res = await fetch(`${API_URL}/api/appt/schedule/${selectedAppt.id}`, {
@@ -797,16 +804,16 @@ export default function SchedulePage() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }}>
           <div style={{ 
             backgroundColor: 'white', 
-            padding: '20px', 
+            padding: isMobile ? '15px' : '20px', // 👈 Уменьшили отступ
             borderRadius: isMobile ? 0 : '8px', 
             width: isMobile ? '100vw' : '450px', 
-            height: isMobile ? '100vh' : 'auto',
-            maxWidth: isMobile ? '100vw' : '95%',
+            height: isMobile ? '100dvh' : 'auto', // 👈 Используем 100dvh (динамическая высота, убирает прыжки)
+            maxHeight: isMobile ? '100dvh' : '90vh',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
             boxSizing: 'border-box',
-            paddingBottom: isMobile ? '10px' : '20px'
+            paddingBottom: isMobile ? 0 : '20px' // 👈 Убрали лишний отступ снизу на мобилке
           }}>
             <h3 style={{ marginTop: 0 }}>Новый приём</h3>
             
@@ -855,9 +862,9 @@ export default function SchedulePage() {
                   
                   {/* 👈 Кнопка перехода в карточку (показываем, только если клиент выбран) */}
                   {newAppt.client_id && (
-                    <Link 
+                    <ButtonWithTooltip 
                       to={`/appointments/clients?editClient=${newAppt.client_id}&returnToAppt=&date=${selectedDate}`}
-                      title="Открыть карточку клиента для редактирования"
+                      tooltip="Открыть карточку клиента для редактирования"
                       style={{ 
                         padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#007bff', 
                         border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', 
@@ -865,7 +872,7 @@ export default function SchedulePage() {
                       }}
                     >
                       <FaEdit /> 
-                    </Link>
+                    </ButtonWithTooltip>
                   )}
                 </div>
               </div>
@@ -985,21 +992,20 @@ export default function SchedulePage() {
 
       {/* МОДАЛЬНОЕ ОКНО ПРОСМОТРА/РЕДАКТИРОВАНИЯ */}
       {selectedAppt && (
-            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }}>
-            <div style={{ 
-                backgroundColor: 'white', 
-                padding: '20px', 
-                borderRadius: isMobile ? 0 : '8px', 
-                width: isMobile ? '100vw' : '500px', 
-                height: isMobile ? '100vh' : 'auto',
-                maxWidth: isMobile ? '100vw' : '95%',
-                maxHeight: isMobile ? '100vh' : '90vh',
-                display: 'flex',          // 👈 Делаем контейнер flex
-                flexDirection: 'column',  // 👈 Направление колонкой
-                overflow: 'hidden',       // 👈 Убираем скролл с самого окна
-                boxSizing: 'border-box',
-                paddingBottom: isMobile ? '10px' : '20px' // 👈 Чуть уменьшаем нижний отступ
-            }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? 0 : '20px' }}>
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: isMobile ? '15px' : '20px', // 👈 Уменьшили отступ
+            borderRadius: isMobile ? 0 : '8px', 
+            width: isMobile ? '100vw' : '500px', 
+            height: isMobile ? '100dvh' : 'auto', // 👈 Используем 100dvh
+            maxHeight: isMobile ? '100dvh' : '90vh',
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden', 
+            boxSizing: 'border-box',
+            paddingBottom: isMobile ? 0 : '20px' // 👈 Убрали лишний отступ
+          }}>
                 <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
                 Редактирование записи на приём
                 </h3>
@@ -1045,9 +1051,9 @@ export default function SchedulePage() {
                   </div>
                   
                   {editApptData.client_id && (
-                    <Link 
+                    <ButtonWithTooltip 
                       to={`/appointments/clients?editClient=${editApptData.client_id}&returnToAppt=${selectedAppt.id}&date=${selectedDate}`}
-                      title="Открыть карточку клиента для редактирования"
+                      tooltip="Открыть карточку клиента для редактирования"
                       style={{ 
                         padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#007bff', 
                         border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', 
@@ -1055,7 +1061,7 @@ export default function SchedulePage() {
                       }}
                     >
                       <FaEdit /> 
-                    </Link>
+                    </ButtonWithTooltip>
                   )}
                 </div>
               </div>
@@ -1139,17 +1145,18 @@ export default function SchedulePage() {
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Статус</label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                                    {[
-                    { value: 'pending', label: 'Ожидает', icon: '⏳', color: '#856404', bg: '#fff3cd' },
-                    { value: 'scheduled', label: 'План', icon: '📅', color: '#0056b3', bg: '#e3f2fd' },
-                    { value: 'completed', label: 'Готово', icon: '✅', color: '#28a745', bg: '#d4edda' },
-                    { value: 'canceled', label: 'Отмена', icon: '❌', color: '#dc3545', bg: '#f8d7da' },
-                    { value: 'no_show', label: 'Не пришёл', icon: '👻', color: '#6c757d', bg: '#e2e3e5' }
+                  {[
+                    { value: 'pending', label: 'Ожидает подтверждения', icon: '⏳', color: '#856404', bg: '#fff3cd' },
+                    { value: 'scheduled', label: 'Запланировано', icon: '📅', color: '#0056b3', bg: '#e3f2fd' },
+                    { value: 'completed', label: 'Готово - услуга оказана, приём завершён', icon: '✅', color: '#28a745', bg: '#d4edda' },
+                    { value: 'canceled', label: 'Запись отменена', icon: '❌', color: '#dc3545', bg: '#f8d7da' },
+                    { value: 'no_show', label: 'Клиент не пришёл', icon: '👻', color: '#6c757d', bg: '#e2e3e5' }
                   ].map(s => (
-                    <button
+                    <ButtonWithTooltip
                       key={s.value}
                       type="button"
                       onClick={() => setEditApptData({...editApptData, status: s.value})}
+                      tooltip={`Установить статус: ${s.label}`} // 👈 Динамическая подсказка
                       style={{
                         padding: '6px 8px',
                         borderRadius: '20px',
@@ -1168,7 +1175,7 @@ export default function SchedulePage() {
                     >
                       <span>{s.icon}</span>
                       {!isMobile && <span>{s.label}</span>} {/* На телефоне только иконки */}
-                    </button>
+                    </ButtonWithTooltip>
                   ))}
                 </div>
               </div>
@@ -1179,22 +1186,22 @@ export default function SchedulePage() {
                   
                   {/* 👈 Кнопки добавления адреса */}
                   <div style={{ display: 'flex', gap: '5px' }}>
-                    <button 
+                    <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendClientAddress(true)} 
-                      title="Добавить адрес клиента"
+                      tooltip="Добавить адрес клиента в примечание к записи"
                       style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       + Адрес клиента
-                    </button>
-                    <button 
+                    </ButtonWithTooltip>
+                    <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendLocationAddress(true)} 
-                      title="Добавить адрес места"
+                      tooltip="Добавить адрес места в примечание к записи"
                       style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       + Адрес места
-                    </button>
+                    </ButtonWithTooltip>
                   </div>
                 </div>
 
@@ -1218,49 +1225,53 @@ export default function SchedulePage() {
               
               {/* Кнопки управления */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px', gap: '8px' }}>
-                <button 
+                
+                <ButtonWithTooltip 
                   type="button" 
                   onClick={handleDeleteAppointment}
+                  tooltip="Удалить запись на приём"
                   title="Удалить запись на приём"
                   style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <FaTrash />
-                </button>
+                </ButtonWithTooltip>
                 
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  {/* Ссылка на полную карточку (иконка документа/папки) */}
-                  <Link 
-                    to={`/appointments/${selectedAppt.id}`} 
-                    title="Открыть полную карточку приёма"
+                  {/* Ссылка на полную карточку */}
+                  <ButtonWithTooltip 
+                    to={`/appointments/${selectedAppt.id}`} // 👈 Передаем путь вместо href
+                    tooltip="Открыть полную карточку приёма"
                     style={{ padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#0056b3', 
                         border: 'none', borderRadius: '4px', display: 'flex', 
                         alignItems: 'center', justifyContent: 'center', textDecoration: 'none', 
-                        gap: '8px',           // 👈 Вот он, отступ между иконкой и текстом
-                        fontWeight: 'bold',   // 👈 Чтобы текст смотрелся аккуратнее
-                        fontSize: '13px'      // 👈 Чуть уменьшим шрифт, чтобы всё влезло в один ряд
+                        gap: '8px',
+                        fontWeight: 'bold',
+                        fontSize: '13px'
                     }}
                   >
                     <FaFileAlt />  В карточку приёма
-                  </Link>
+                  </ButtonWithTooltip>
 
-                  <button 
+                  <ButtonWithTooltip 
                     type="button" 
                     onClick={() => setSelectedAppt(null)} 
+                    tooltip="Закрыть запись на приём без сохранения"
                     title="Закрыть запись на приём без сохранения"
                     style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <FaTimes />
-                  </button>
+                  </ButtonWithTooltip>
                   
-                  <button 
+                  <ButtonWithTooltip 
                     type="submit" 
+                    tooltip="Сохранить запись на приём"
                     title="Сохранить запись на приём"
                     style={{ padding: '8px 12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <FaSave />
-                  </button>
+                  </ButtonWithTooltip>
                 </div>
-              </div> 
+              </div>
            </form>
           </div>
         </div>

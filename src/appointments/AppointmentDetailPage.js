@@ -1,9 +1,11 @@
 // src/appointments/AppointmentDetailPage.js
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { FaArrowLeft, FaSave, FaUser, FaCalendarAlt, FaClock, FaStickyNote, FaList, FaFileAlt } from 'react-icons/fa';
+import { FaArrowLeft, FaSave, FaUser, FaCalendarAlt, FaClock, FaStickyNote, FaList, FaFileAlt, FaEllipsisV } from 'react-icons/fa';
 import API_URL from '../config/api';
 import { SPECIALIZATION_CONFIG, renderSpecializationField } from './specializationFields';
+import ButtonWithTooltip from '../components/ButtonWithTooltip';
+
 
 export default function AppointmentDetailPage() {
   const { id } = useParams();
@@ -14,6 +16,9 @@ export default function AppointmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  
+  const [clientAppts, setClientAppts] = useState([]);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Поля для редактирования
   const [chiefComplaint, setChiefComplaint] = useState('');
@@ -29,6 +34,34 @@ export default function AppointmentDetailPage() {
   const [specializationData, setSpecializationData] = useState({});
 
   const isMobile = window.innerWidth <= 768;
+
+// Загружаем все приёмы этого клиента для навигации
+  useEffect(() => {
+    if (!appt || !appt.client_id) {
+      setClientAppts([]);
+      return;
+    }
+    
+    const fetchClientHistory = async () => {
+      try {
+        // Используем наш список с поиском по ID клиента (если бэк поддерживает) 
+        // Или просто загружаем все приёмы и фильтруем
+        const res = await fetch(`${API_URL}/api/appt/schedule/list?limit=100`, { credentials: 'include' });
+        const data = await res.json();
+        if (data.success) {
+          // Оставляем только приёмы этого клиента и сортируем по дате
+          const history = data.data
+            .filter(a => a.client_id === appt.client_id)
+            .sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date));
+          setClientAppts(history);
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки истории клиента:', err);
+      }
+    };
+    
+    fetchClientHistory();
+  }, [appt]);
 
   useEffect(() => {
     fetchAppointment();
@@ -82,17 +115,36 @@ export default function AppointmentDetailPage() {
     recalcFinal(basePrice, v);
   };
 
-  const buildPayload = (overrides = {}) => ({
-    ...appt,
-    chief_complaint: chiefComplaint,
-    general_notes: generalNotes,
-    base_price: basePrice === '' ? 0 : Number(basePrice),
-    discount_amount: discountAmount === '' ? 0 : Number(discountAmount),
-    final_price: finalPrice === '' ? 0 : Number(finalPrice),
-    subscription_info: subscriptionInfo,
-    specialization_data: specializationData,
-    ...overrides
-  });
+    const buildPayload = (overrides = {}) => {
+    // Пересобираем дату, чтобы избежать скачка времени при сохранении
+    const d = new Date(appt.appointment_date);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const localDateTime = `${dateStr}T${timeStr}:00`;
+
+    return {
+      client_id: appt.client_id,
+      service_id: appt.service_id,
+      location_id: appt.location_id,
+      appointment_date: localDateTime, // 👈 Отправляем локальное время
+      duration_minutes: appt.duration_minutes,
+      buffer_before_minutes: appt.buffer_before_minutes,
+      buffer_after_minutes: appt.buffer_after_minutes,
+      
+      // Наши изменяемые поля
+      chief_complaint: chiefComplaint,
+      general_notes: generalNotes,
+      base_price: basePrice === '' ? 0 : Number(basePrice),
+      discount_amount: discountAmount === '' ? 0 : Number(discountAmount),
+      final_price: finalPrice === '' ? 0 : Number(finalPrice),
+      subscription_info: subscriptionInfo,
+      specialization_data: specializationData,
+      
+      status: appt.status, // статус по умолчанию
+      record_notes: appt.record_notes,
+      ...overrides
+    };
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -149,6 +201,12 @@ export default function AppointmentDetailPage() {
   const dateStr = apptDate.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const timeStr = apptDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
+// Находим текущий индекс в истории приёмов этого клиента
+  const currentIndex = clientAppts.findIndex(a => a.id === appt.id);
+  const prevAppt = currentIndex > 0 ? clientAppts[currentIndex - 1] : null;
+  const nextAppt = currentIndex !== -1 && currentIndex < clientAppts.length - 1 ? clientAppts[currentIndex + 1] : null;
+
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'pending': return <span style={{ color: '#856404', backgroundColor: '#fff3cd', padding: '4px 12px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' }}>Ожидает</span>;
@@ -161,7 +219,11 @@ export default function AppointmentDetailPage() {
   };
 
   return (
-    <div className="detail-container" style={{ maxWidth: '900px' }}>
+    <div className="detail-container" style={{ 
+      maxWidth: '900px', 
+      padding: isMobile ? '0px' : '32px', // 👈 Уменьшаем отступы на мобилке      
+       boxSizing: 'border-box' 
+      }}>
 
       <div style={{ textAlign: 'center', marginBottom: '20px' }}>
         <h1 className="detail-title" style={{ margin: 0, display: 'inline-block' }}>Карточка приёма</h1>
@@ -312,80 +374,121 @@ export default function AppointmentDetailPage() {
 
       </div>
 
-            {/* 👈 ЛИПКАЯ ПАНЕЛЬ КНОПОК ВНИЗУ */}
+                  {/* 👈 ЛИПКАЯ ПАНЕЛЬ КНОПОК ВНИЗУ */}
         <div style={{
             position: 'sticky',
-            bottom: 0,
+            bottom: 0, // 👈 Жестко прижимаем к низу экрана
             display: 'flex',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
             alignItems: 'center',
-            padding: '15px',
+            padding: '6px 4px', 
             backgroundColor: 'white',
             borderTop: '1px solid #dee2e6',
             boxShadow: '0 -4px 10px rgba(0,0,0,0.05)',
             zIndex: 100,
-            margin: '0 -20px -20px -20px',
-            flexWrap: 'wrap',
-            gap: '10px'
+            margin: 0, // 👈 Убрали отрицательные марджины, которые ломали sticky
+            flexWrap: 'nowrap',
+            gap: '4px'
         }}>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          
+          {/* 1. ЛЕВЫЙ БЛОК: К сетке и К записи */}
+          <div style={{ display: 'flex', gap: '3px' }}>
+              <ButtonWithTooltip
+                  onClick={() => navigate(`/appointments/schedule?date=${appt.appointment_date.split('T')[0]}`)}
+                  tooltip="К сетке"
+                  style={{ padding: '4px 6px', backgroundColor: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 'bold', fontSize: '11px', color: '#495057' }}
+              >
+                  <FaArrowLeft size={11} />
+                  {isMobile ? <FaList size={11} /> : 'К сетке'}
+              </ButtonWithTooltip>
 
-            {/* Кнопка "К сетке" — на мобилке стрелка + FaList */}
-            <button
-                onClick={() => navigate(-1)}
-                title="Вернуться к сетке расписания (к списку приёмов на день)"
-                style={{ padding: '8px 12px', backgroundColor: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', fontSize: '14px', color: '#495057' }}
-            >
-                <FaArrowLeft />
-                {!isMobile && <><FaList /> К сетке</>}
-                {isMobile && <FaList />}
-            </button>
+              <ButtonWithTooltip
+                  to={`/appointments/schedule?date=${appt.appointment_date.split('T')[0]}&openApptId=${appt.id}`}
+                  tooltip="К записи"
+                  style={{ padding: '4px 6px', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 'bold', fontSize: '11px' }}
+              >
+                  <FaArrowLeft size={11} />
+                  {isMobile ? <FaFileAlt size={11} /> : 'К записи'}
+              </ButtonWithTooltip>
+          </div>
 
-            {/* Кнопка "К записи" — на мобилке стрелка + карточка */}
-            <Link
-                to={`/appointments/schedule?date=${appt.appointment_date.split('T')[0]}&openApptId=${appt.id}`}
-                title="Открыть эту запись в модальном окне на сетке расписания (на дату приёма)"
-                style={{ padding: '8px 12px', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold', textDecoration: 'none', fontSize: '14px' }}
-            >
-                <FaArrowLeft />
-                {!isMobile ? <><FaFileAlt /> К записи</> : <FaFileAlt />}
-            </Link>
-            </div>
+          {/* 2. ЦЕНТРАЛЬНЫЙ БЛОК: Навигация и Меню */}
+          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+              <ButtonWithTooltip
+                  onClick={() => prevAppt && navigate(`/appointments/${prevAppt.id}`)}
+                  disabled={!prevAppt}
+                  tooltip={prevAppt ? "Назад" : "Нет прошлых"}
+                  style={{ padding: '4px 6px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: prevAppt ? 'pointer' : 'not-allowed', color: '#495057', opacity: prevAppt ? 1 : 0.4 }}
+              >
+                  <FaArrowLeft size={11} />
+              </ButtonWithTooltip>
+              
+              <div style={{ position: 'relative' }}>
+                  <ButtonWithTooltip
+                      onClick={() => setIsMenuOpen(!isMenuOpen)}
+                      tooltip="Меню"
+                      style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer', color: '#495057' }}
+                  >
+                      <FaEllipsisV size={11} />
+                  </ButtonWithTooltip>
+                  {/* Выпадающее меню (без изменений) */}
+                  {isMenuOpen && (
+                      <>
+                          <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', flexDirection: 'column', minWidth: '160px', overflow: 'hidden' }}>
+                              <button onClick={() => { alert('Дублировать'); setIsMenuOpen(false); }} style={{ padding: '8px 12px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: '13px' }}>📄 Дублировать</button>
+                              <button onClick={() => { alert('Удалить'); setIsMenuOpen(false); }} style={{ padding: '8px 12px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', color: '#dc3545', fontSize: '13px' }}>🗑️ Удалить</button>
+                          </div>
+                      </>
+                  )}
+              </div>
 
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {appt.status === 'pending' && (
-                <button
-                onClick={() => updateStatusQuick('scheduled')}
-                disabled={saving}
-                title="Подтвердить запись: перевести статус в «Запланирован»"
-                style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}
-                >
-                📅 {!isMobile && 'Подтвердить'}
-                </button>
-            )}
+              <ButtonWithTooltip
+                  onClick={() => nextAppt && navigate(`/appointments/${nextAppt.id}`)}
+                  disabled={!nextAppt}
+                  tooltip={nextAppt ? "Вперед" : "Нет будущих"}
+                  style={{ padding: '4px 6px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: nextAppt ? 'pointer' : 'not-allowed', color: '#495057', opacity: nextAppt ? 1 : 0.4 }}
+              >
+                  <FaArrowLeft size={11} style={{ transform: 'rotate(180deg)' }} />
+              </ButtonWithTooltip>
+          </div>
 
-            {appt.status === 'scheduled' && (
-                <button
-                onClick={() => updateStatusQuick('completed')}
-                disabled={saving}
-                title="Завершить приём: перевести статус в «Выполнен» и сохранить карточку"
-                style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}
-                >
-                ✅ {!isMobile && 'Завершить'}
-                </button>
-            )}
+          {/* 3. ПРАВЫЙ БЛОК: Статусы и Сохранить */}
+          <div style={{ display: 'flex', gap: '3px' }}>
+              {appt.status === 'pending' && (
+                  <ButtonWithTooltip
+                      onClick={() => updateStatusQuick('scheduled')}
+                      tooltip="Подтвердить"
+                      disabled={saving}
+                      style={{ padding: '4px 6px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', fontSize: '11px' }}
+                  >
+                      📅
+                  </ButtonWithTooltip>
+              )}
 
-            <button
-                onClick={handleSave}
-                disabled={saving}
-                title="Сохранить изменения карточки приёма (включая финансы, кастомные поля и заметки)"
-                style={{ padding: '10px 20px', backgroundColor: saving ? '#6c757d' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}
-            >
-                <FaSave /> {!isMobile && (saving ? 'Сохранение...' : 'Сохранить')}
-            </button>
-            </div>
-        </div>
+              {appt.status === 'scheduled' && (
+                  <ButtonWithTooltip
+                      onClick={() => updateStatusQuick('completed')}
+                      tooltip="Завершить"
+                      disabled={saving}
+                      style={{ padding: '4px 6px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', fontSize: '11px' }}
+                  >
+                      ✅
+                  </ButtonWithTooltip>
+              )}
 
+              <ButtonWithTooltip
+                  onClick={handleSave}
+                  tooltip="Сохранить"
+                  disabled={saving}
+                  style={{ padding: '4px 6px', backgroundColor: saving ? '#6c757d' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px' }}
+              >
+                  <FaSave size={11} /> {!isMobile && 'Сохранить'}
+              </ButtonWithTooltip>
+          </div>
+      </div>
+
+           
     </div>
   );
 }

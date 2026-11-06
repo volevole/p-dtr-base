@@ -7,7 +7,8 @@ const useRemoteServer = process.env.REACT_APP_USE_REMOTE_SERVER === 'true';
 
 // Базовые URL для разных режимов
 const URLS = {
-  local: 'http://localhost:3001',
+  //local: 'http://localhost:3001',
+  local: 'http://192.168.3.107:3001',    // для возможности отладки прямо с тлф на локале, безо всяких деплоев на прод
   //remote: 'https://p-dtr-base.onrender.com'
   //remote: 'http://194.226.165.244:3001'  
   remote: ''  // ← пустая строка для относительных запросов

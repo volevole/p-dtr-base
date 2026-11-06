@@ -85,7 +85,11 @@ export default function AppointmentsListPage() {
   };
 
   return (
-    <div className="detail-container" style={{ maxWidth: '1000px' }}>
+    <div className="detail-container" style={{ 
+      maxWidth: '1000px', 
+      padding: isMobile ? '1px' : '32px', // 👈 Уменьшаем отступы на мобилке      
+       boxSizing: 'border-box'
+      }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <h1 className="detail-title" style={{ margin: 0 }}>Все приёмы</h1>
         <div style={{ fontSize: '14px', color: '#666' }}>Всего записей: <strong>{total}</strong></div>

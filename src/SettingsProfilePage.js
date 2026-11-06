@@ -34,12 +34,33 @@ export default function SettingsProfilePage() {
 
   // --- Сообщения ---
   const [message, setMessage] = useState({ type: '', text: '' });
+  //   --- детальная информация профиля
+  const [profileInfo, setProfileInfo] = useState(null);
 
   useEffect(() => {
     if (activeTab === 'appointments' && hasAppointmentsAccess) {
       fetchAppointmentData();
     }
   }, [activeTab, hasAppointmentsAccess]);
+
+  useEffect(() => {
+    // Загружаем детальную инфу при открытии страницы
+    const fetchProfileInfo = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/profile/me`, { credentials: 'include' });
+        const data = await res.json();
+        if (data.success) {
+          setProfileInfo(data.data);
+        }
+      } catch (err) {
+        console.error('Ошибка загрузки профиля:', err);
+      }
+    };
+    
+    fetchProfileInfo();
+  }, []);
+
+
 
   const isMobile = window.innerWidth <= 768;
 
@@ -294,7 +315,12 @@ export default function SettingsProfilePage() {
   };
   
   return (
-    <div className="detail-container" style={{ maxWidth: '1000px' }}>
+    <div className="detail-container" style={{ 
+      maxWidth: '1000px', 
+      padding: isMobile ? '0px' : '32px', // 👈 Уменьшаем отступы на мобилке
+        boxSizing: 'border-box'
+      }}>
+
       <h1 className="detail-title">Мой профиль</h1>
       
       {message.text && (
@@ -344,16 +370,18 @@ export default function SettingsProfilePage() {
           gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))', // Адаптивная сетка
           gap: '15px',
           backgroundColor: 'white',
-          padding: '15px',
+          padding: isMobile ? '0px' : '15px',
           borderRadius: '6px',
           border: '1px solid #dee2e6'
         }}>
           <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Email:</strong><br/>{user?.email || '—'}</div>
-          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Создан:</strong><br/>{formatDate(user?.created_at)}</div>
-          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Отредактирован:</strong><br/>{formatDate(user?.updated_at)}</div>
-          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Последний логин:</strong><br/>{formatDate(user?.last_login_at)}</div>
-          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>ID устройства:</strong><br/>{user?.device_id || '—'}</div>
-          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Подписка до:</strong><br/>{formatDate(user?.subscription_valid_until)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Создан:</strong><br/>{formatDate(profileInfo ? profileInfo.created_at : null)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Отредактирован:</strong><br/>{formatDate(profileInfo ? profileInfo.updated_at: null)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Последний логин:</strong><br/>{formatDate(profileInfo ? profileInfo.last_login_at: null)}</div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>ID устройства:</strong><br/>
+            <span style={{ wordBreak: 'break-all', fontSize: '12px' }}>{profileInfo?.device_id || user?.device_id || '—'}</span>
+          </div>
+          <div><strong style={{ color: '#6c757d', fontSize: '13px' }}>Подписка до:</strong><br/>{formatDate(profileInfo?.subscription_valid_until)}</div>
           
           {/* Блок с блокировками (показываем, если есть бан) */}
           {user?.banned_until ? (
@@ -370,12 +398,12 @@ export default function SettingsProfilePage() {
       </div>
 
       {/* Вкладки */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #dee2e6', marginBottom: '30px' }}>
-        <button style={tabStyle(activeTab === 'security')} onClick={() => setActiveTab('security')}>
+            <div style={{ display: 'flex', borderBottom: '1px solid #dee2e6', marginBottom: '30px', flexWrap: 'wrap', gap: '5px' }}>
+        <button style={{ ...tabStyle(activeTab === 'security'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('security')}>
           <FaUserShield /> Безопасность
         </button>
         {hasAppointmentsAccess && (
-          <button style={tabStyle(activeTab === 'appointments')} onClick={() => setActiveTab('appointments')}>
+          <button style={{ ...tabStyle(activeTab === 'appointments'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('appointments')}>
             <FaBriefcaseMedical /> Настройки приёмов
           </button>
         )}

@@ -17,6 +17,8 @@ const { requireAuth, requireRole } = require('./middleware/auth');
 
 // 2. Инициализация
 const app = express();
+// 👈 Включаем доверие к прокси (Nginx), чтобы получать реальный IP клиента
+app.set('trust proxy', 1); 
 
 // ========== НОВЫЙ КОД ДЛЯ РАБОТЫ С POSTGRESQL НА REG.RU ==========
 const { Client } = require('pg');
@@ -51,6 +53,8 @@ app.use(express.json());
 const corsOptions = {
   origin: [
     'http://localhost:3000',
+    'http://192.168.3.107:3000', //для возможности отладки прямо с тлф на локале, безо всяких деплоев на прод
+    'https://react.c-e.ru',      // 👈 Твой продакшн-домен
     'https://p-dtr-base.onrender.com',
     'https://larchik-p-dtr.vercel.app',         // Ваш основной фронтенд
     'https://*.vercel.app',                     // Все Vercel домены
@@ -2718,6 +2722,38 @@ app.put('/api/profile/avatar', requireAuth, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// GET /api/profile/me — детальная информация о профиле текущего пользователя
+app.get('/api/profile/me', requireAuth, async (req, res) => {
+  try {
+    const client = await connectDB();
+    
+    // Запрашиваем ВСЕ поля, которые нужны для профиля
+    const result = await client.query(
+      `SELECT 
+        id, phone, name, email, avatar_url, is_active,
+        created_at, updated_at, last_login_at, device_id, 
+        subscription_valid_until, banned_until, ban_reason_public
+       FROM users 
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('[ERROR] GET /api/profile/me:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 
 /////    ниже старые эндпоинты, а выше новые через рег.ру
 

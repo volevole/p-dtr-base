@@ -202,7 +202,11 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="detail-container" style={{ maxWidth: '1000px' }}>
+    <div className="detail-container" style={{ 
+      maxWidth: '1000px', 
+      padding: isMobile ? '1px' : '32px', // 👈 Уменьшаем отступы на мобилке      
+        boxSizing: 'border-box'
+      }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1 className="detail-title" style={{ margin: 0 }}>Мои клиенты</h1>
         <button 
@@ -307,7 +311,7 @@ export default function ClientsPage() {
       ) : (
         <div style={{ display: 'grid', gap: '10px' }}>
           {clients.map(client => (
-            <div key={client.id} style={{ padding: '15px', border: '1px solid #dee2e6', borderRadius: '8px', backgroundColor: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div key={client.id} style={{ padding: isMobile ? '5px' : '15px', border: '1px solid #dee2e6', borderRadius: '8px', backgroundColor: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: '0 0 5px 0', color: '#0d47a1' }}><FaUser /> {client.name}</h3>
                 <div style={{ fontSize: '14px', color: '#666' }}>
