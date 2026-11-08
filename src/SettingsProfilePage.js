@@ -1,7 +1,7 @@
 // src/SettingsProfilePage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
-import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaSave } from 'react-icons/fa';
 import API_URL from './config/api';
 
 export default function SettingsProfilePage() {
@@ -30,12 +30,34 @@ export default function SettingsProfilePage() {
 
   // --- Состояние для Мест ---
   const [locations, setLocations] = useState([]);
-  const [newLocation, setNewLocation] = useState({ name: '', address: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
+  const [newLocation, setNewLocation] = useState({ name: '', address: '', description: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
 
   // --- Сообщения ---
   const [message, setMessage] = useState({ type: '', text: '' });
   //   --- детальная информация профиля
   const [profileInfo, setProfileInfo] = useState(null);
+
+ // Состояния для формы пароля
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passError, setPassError] = useState('');
+  const [passSuccess, setPassSuccess] = useState('');
+
+  // 👈 Состояния для показа паролей
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  
+  // 👈 Состояния для режима редактирования Услуг и скрола по форме
+  const [editingServiceId, setEditingServiceId] = useState(null);
+  const formRef = useRef(null); // 👈 Ссылка на форму для скролла
+  const listRef = useRef(null); // 👈 Ссылка на список услуг
+
+// 👈 Состояния для режима редактирования МЕСТ и скрола по форме
+  const [editingLocationId, setEditingLocationId] = useState(null);
+  const locationFormRef = useRef(null); // 👈 Ссылка на форму
+  const locationListRef = useRef(null); // 👈 Ссылка на список мест
 
   useEffect(() => {
     if (activeTab === 'appointments' && hasAppointmentsAccess) {
@@ -101,6 +123,41 @@ export default function SettingsProfilePage() {
     }
   };
 
+  // --- Смена пароля ---
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPassError('');
+    setPassSuccess('');
+
+    if (newPassword !== confirmPassword) {
+      return setPassError('Новые пароли не совпадают');
+    }
+    if (newPassword.length < 8) {
+      return setPassError('Новый пароль должен быть не менее 8 символов');
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ oldPassword, newPassword })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setPassSuccess('✅ Пароль успешно изменен!');
+        setOldPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setPassError(data.error);
+      }
+    } catch (err) {
+      setPassError('Ошибка сети: ' + err.message);
+    }
+  };
+
   // --- Аватар ---
   const handleAvatarUpload = async (e) => {
     const file = e.target.files[0];
@@ -162,61 +219,84 @@ export default function SettingsProfilePage() {
   };
 
   // --- Услуги ---
-  const handleAddService = async (e) => {
+   const handleServiceSubmit = async (e) => {
     e.preventDefault();
     if (!newService.name || !newService.specialization_code) {
       return setMessage({ type: 'error', text: 'Заполните название и выберите специализацию' });
     }
+
     try {
-      const res = await fetch(`${API_URL}/api/appt/services`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(newService)
-      });
+      let res;
+      if (editingServiceId) {
+        // 👈 РЕЖИМ РЕДАКТИРОВАНИЯ (PUT)
+        res = await fetch(`${API_URL}/api/appt/services/${editingServiceId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(newService)
+        });
+      } else {
+        // 👈 РЕЖИМ СОЗДАНИЯ (POST)
+        res = await fetch(`${API_URL}/api/appt/services`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(newService)
+        });
+      }
+
       const data = await res.json();
+      
       if (data.success) {
-        setServices([...services, data.data]);
+        if (editingServiceId) {
+          // Обновляем список
+          setServices(services.map(s => s.id === editingServiceId ? data.data : s));
+          setMessage({ type: 'success', text: '✅ Услуга обновлена' });
+        } else {
+          // Добавляем в список
+          setServices([...services, data.data]);
+          setMessage({ type: 'success', text: '✅ Услуга добавлена' });
+        }
+        
+        // Сбрасываем форму
         setNewService({ name: '', specialization_code: '', default_duration_minutes: 60, default_price: 0 });
-        setMessage({ type: 'success', text: '✅ Услуга добавлена' });
+        setEditingServiceId(null); // Выключаем режим редактирования
+
+        // 👈 ПЛАВНО СКРОЛЛИМ К СПИСКУ УСЛУГ
+        setTimeout(() => {
+          if (listRef.current) {
+            listRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100); // Небольшая задержка, чтобы React успел перерисовать список
+
       }
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     }
+  };
+
+  // Функция для отмены редактирования
+  const handleCancelEdit = () => {
+    setNewService({ name: '', specialization_code: '', default_duration_minutes: 60, default_price: 0 });
+    setEditingServiceId(null);
   };
 
    // --- Редактирование Услуги ---
-  const handleEditService = async (service) => {
-    const newName = window.prompt('Название услуги:', service.name);
-    if (!newName) return;
+  const handleEditService = (service) => {
+    setNewService({
+      name: service.name,
+      specialization_code: service.specialization_code,
+      default_duration_minutes: service.default_duration_minutes,
+      default_price: service.default_price
+    });
+    setEditingServiceId(service.id);
     
-    const newDuration = window.prompt('Длительность (мин):', service.default_duration_minutes);
-    if (!newDuration) return;
-
-    const newPrice = window.prompt('Цена (руб):', service.default_price);
-    if (!newPrice) return;
-
-    try {
-      const res = await fetch(`${API_URL}/api/appt/services/${service.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: newName,
-          specialization_code: service.specialization_code,
-          default_duration_minutes: newDuration,
-          default_price: newPrice
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setServices(services.map(s => s.id === service.id ? data.data : s));
-        setMessage({ type: 'success', text: '✅ Услуга обновлена' });
-      }
-    } catch (err) {
-      setMessage({ type: 'error', text: err.message });
+    // 👈 Скроллим к началу формы (чтобы был виден заголовок "Редактирование услуги")
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
+
   const handleDeleteService = async (id) => {
     if (!window.confirm('Удалить услугу?')) return;
     try {
@@ -228,25 +308,60 @@ export default function SettingsProfilePage() {
   };
 
   // --- Места ---
-  const handleAddLocation = async (e) => {
+    const handleLocationSubmit = async (e) => {
     e.preventDefault();
     if (!newLocation.name) return setMessage({ type: 'error', text: 'Введите название места' });
+
     try {
-      const res = await fetch(`${API_URL}/api/appt/locations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(newLocation)
-      });
+      let res;
+      if (editingLocationId) {
+        // 👈 РЕЖИМ РЕДАКТИРОВАНИЯ (PUT)
+        res = await fetch(`${API_URL}/api/appt/locations/${editingLocationId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(newLocation)
+        });
+      } else {
+        // 👈 РЕЖИМ СОЗДАНИЯ (POST)
+        res = await fetch(`${API_URL}/api/appt/locations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(newLocation)
+        });
+      }
+
       const data = await res.json();
+      
       if (data.success) {
-        setLocations([...locations, data.data]);
+        if (editingLocationId) {
+          setLocations(locations.map(l => l.id === editingLocationId ? data.data : l));
+          setMessage({ type: 'success', text: '✅ Место обновлено' });
+        } else {
+          setLocations([...locations, data.data]);
+          setMessage({ type: 'success', text: '✅ Место добавлено' });
+        }
+        
+        // Сбрасываем форму
         setNewLocation({ name: '', address: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
-        setMessage({ type: 'success', text: '✅ Место добавлено' });
+        setEditingLocationId(null);
+        
+        // 👈 Плавно скроллим к списку мест
+        setTimeout(() => {
+          if (locationListRef.current) {
+            locationListRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 100);
       }
     } catch (err) {
       setMessage({ type: 'error', text: err.message });
     }
+  };
+
+  const handleCancelLocationEdit = () => {
+    setNewLocation({ name: '', address: '', description: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
+    setEditingLocationId(null);
   };
 
   const handleDeleteLocation = async (id) => {
@@ -261,39 +376,20 @@ export default function SettingsProfilePage() {
 
 
   // --- Редактирование Места ---
-  const handleEditLocation = async (location) => {
-    const newName = window.prompt('Название места:', location.name);
-    if (!newName) return;
+  const handleEditLocation = (location) => {
+    // Заполняем форму данными выбранного места
+    setNewLocation({
+      name: location.name,
+      address: location.address || '',
+      description: location.description || '',
+      buffer_before_minutes: location.buffer_before_minutes || 0,
+      buffer_after_minutes: location.buffer_after_minutes || 0
+    });
+    setEditingLocationId(location.id); // 👈 Включаем режим редактирования
     
-    const newAddress = window.prompt('Адрес:', location.address);
-    if (newAddress === null) return; // Если нажали "Отмена"
-
-    const newBufferBefore = window.prompt('Время "до" (мин):', location.buffer_before_minutes);
-    if (newBufferBefore === null) return;
-
-    const newBufferAfter = window.prompt('Время "после" (мин):', location.buffer_after_minutes);
-    if (newBufferAfter === null) return;
-
-    try {
-      const res = await fetch(`${API_URL}/api/appt/locations/${location.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          name: newName,
-          address: newAddress,
-          description: location.description || '',
-          buffer_before_minutes: newBufferBefore,
-          buffer_after_minutes: newBufferAfter
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setLocations(locations.map(l => l.id === location.id ? data.data : l));
-        setMessage({ type: 'success', text: '✅ Место обновлено' });
-      }
-    } catch (err) {
-      setMessage({ type: 'error', text: err.message });
+    // Плавно скроллим к форме
+    if (locationFormRef.current) {
+      locationFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -411,11 +507,98 @@ export default function SettingsProfilePage() {
 
       {/* Вкладка: Безопасность */}
       {activeTab === 'security' && (
-        <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px' }}>
-          <h3 style={{ marginTop: 0 }}>Смена пароля</h3>
-          <p style={{ fontSize: '14px', color: '#666' }}>Функционал в разработке.</p>
+        <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', maxWidth: '500px' }}>
+          <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Смена пароля</h3>
+          
+          {/* Сообщения об ошибках/успехе */}
+          {passError && (
+            <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '14px' }}>
+              ⚠️ {passError}
+            </div>
+          )}
+          {passSuccess && (
+            <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '14px' }}>
+              {passSuccess}
+            </div>
+          )}
+
+          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Текущий пароль</label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showOld ? 'text' : 'password'} 
+                  value={oldPassword} 
+                  onChange={e => setOldPassword(e.target.value)}
+                  required
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px', paddingRight: '40px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowOld(!showOld)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6c757d', display: 'flex', alignItems: 'center' }}
+                >
+                  {showOld ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Новый пароль</label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showNew ? 'text' : 'password'} 
+                  value={newPassword} 
+                  onChange={e => setNewPassword(e.target.value)}
+                  required
+                  minLength="8"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px', paddingRight: '40px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowNew(!showNew)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6c757d', display: 'flex', alignItems: 'center' }}
+                >
+                  {showNew ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>Минимум 8 символов</div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Подтвердите новый пароль</label>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type={showConfirm ? 'text' : 'password'} 
+                  value={confirmPassword} 
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  required
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px', paddingRight: '40px', border: '1px solid #ddd', borderRadius: '4px' }} 
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#6c757d', display: 'flex', alignItems: 'center' }}
+                >
+                  {showConfirm ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '10px' }}>
+              <button 
+                type="submit" 
+                style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Сохранить новый пароль
+              </button>
+            </div>
+
+          </form>
         </div>
       )}
+
 
       {/* Вкладка: Настройки приёмов */}
       {activeTab === 'appointments' && hasAppointmentsAccess && (
@@ -436,16 +619,19 @@ export default function SettingsProfilePage() {
             </button>
           </div>
 
-                    {/* 2. Услуги */}
-          <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', marginBottom: '20px' }}>
-            <h3 style={{ marginTop: 0 }}>Мои услуги</h3>
+        {/* 2. Услуги */}
+          <div ref={formRef} style={{ padding: '20px', border: '1px solid #dee2e6', 
+                                      borderRadius: '8px', marginBottom: '20px',
+                                      scrollMarginTop: '80px' // 👈 Отличный CSS-трюк: оставляет отступ сверху при скролле 
+                                    }}>
+            <h3 style={{ marginTop: 0 }}>{editingServiceId ? 'Редактирование услуги' : 'Мои услуги'}</h3>
             
-            <form onSubmit={handleAddService} style={{ 
+            <form onSubmit={handleServiceSubmit} style={{ 
               display: 'flex', 
               gap: '15px', 
               marginBottom: '20px', 
               flexWrap: 'wrap',
-              alignItems: 'flex-end' // Выравниваем кнопку по нижнему краю
+              alignItems: 'flex-end'
             }}>
               
               <div style={{ flex: 1, minWidth: '200px' }}>
@@ -473,12 +659,23 @@ export default function SettingsProfilePage() {
                 <input type="number" placeholder="0" value={newService.default_price} onChange={e => setNewService({...newService, default_price: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
               </div>
 
-              <button type="submit" style={{ padding: '9px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '38px' }}>
-                <FaPlus /> Добавить
-              </button>
+              {/* 👈 БЛОК С КНОПКАМИ МЕНЯЕТСЯ В ЗАВИСИМОСТИ ОТ РЕЖИМА */}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" style={{ padding: '9px 16px', backgroundColor: editingServiceId ? '#28a745' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '38px' }}>
+                  {editingServiceId ? <><FaSave /> Сохранить</> : <><FaPlus /> Добавить</>}
+                </button>
+                
+                {editingServiceId && (
+                  <button type="button" onClick={handleCancelEdit} style={{ padding: '9px 16px', backgroundColor: 'transparent', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', cursor: 'pointer', height: '38px' }}>
+                    Отмена
+                  </button>
+                )}
+              </div>
             </form>
 
-            <ul style={{ listStyle: 'none', padding: 0 }}>
+            {/* ... (список услуг остается без изменений, только кнопка редактирования теперь использует новую функцию) ... */}
+
+            <ul ref={listRef} style={{ listStyle: 'none', padding: 0 }}>
               {services.map(s => (
                 <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
                   <span><strong>{s.name}</strong> ({allSpecs.find(sp => sp.code === s.specialization_code)?.name || s.specialization_code}) — {s.default_duration_minutes} мин. — {s.default_price} руб.</span>
@@ -504,11 +701,11 @@ export default function SettingsProfilePage() {
             </div>
           </div>
 
-                   {/* 3. Места приёма */}
-          <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px' }}>
-            <h3 style={{ marginTop: 0 }}>Места приёма</h3>
+        {/* 3. Места приёма */}
+          <div ref={locationFormRef} style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', scrollMarginTop: '80px' }}>
+            <h3 style={{ marginTop: 0 }}>{editingLocationId ? 'Редактирование места' : 'Места приёма'}</h3>
             
-            <form onSubmit={handleAddLocation} style={{ 
+            <form onSubmit={handleLocationSubmit} style={{ 
               display: 'flex', 
               gap: '15px', 
               marginBottom: '20px', 
@@ -523,7 +720,13 @@ export default function SettingsProfilePage() {
 
               <div style={{ flex: 2, minWidth: '200px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Адрес (для инструкции)</label>
-                <input type="text" placeholder="ул. Ленина, д. 10, вход в подвал справа от подъезда 2" value={newLocation.address} onChange={e => setNewLocation({...newLocation, address: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                <input type="text" placeholder="ул. Ленина, д. 10..." value={newLocation.address} onChange={e => setNewLocation({...newLocation, address: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+              </div>
+
+              {/* 👈 НОВОЕ ПОЛЕ: Описание */}
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Описание (необязательно)</label>
+                <input type="text" placeholder="Например: вход со двора" value={newLocation.description} onChange={e => setNewLocation({...newLocation, description: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
               </div>
 
               <div style={{ width: '130px' }}>
@@ -536,12 +739,21 @@ export default function SettingsProfilePage() {
                 <input type="number" placeholder="0" value={newLocation.buffer_after_minutes} onChange={e => setNewLocation({...newLocation, buffer_after_minutes: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
               </div>
 
-              <button type="submit" style={{ padding: '9px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '38px' }}>
-                <FaPlus /> Добавить
-              </button>
+              {/* 👈 БЛОК С КНОПКАМИ */}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" style={{ padding: '9px 16px', backgroundColor: editingLocationId ? '#28a745' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '38px' }}>
+                  {editingLocationId ? <><FaSave /> Сохранить</> : <><FaPlus /> Добавить</>}
+                </button>
+                
+                {editingLocationId && (
+                  <button type="button" onClick={handleCancelLocationEdit} style={{ padding: '9px 16px', backgroundColor: 'transparent', color: '#dc3545', border: '1px solid #dc3545', borderRadius: '4px', cursor: 'pointer', height: '38px' }}>
+                    Отмена
+                  </button>
+                )}
+              </div>
             </form>
 
-            <ul style={{ listStyle: 'none', padding: 0 }}>
+            <ul ref={locationListRef} style={{ listStyle: 'none', padding: 0 }}>
               {locations.map(l => (
                 <li key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
                   <span><strong>{l.name}</strong> — {l.address || 'без адреса'} (до: {l.buffer_before_minutes} мин, после: {l.buffer_after_minutes} мин)</span>
@@ -552,7 +764,8 @@ export default function SettingsProfilePage() {
                 </li>
               ))}
             </ul>
-            {/* 👈 Добавляем поясняющий текст сюда */}
+            
+            {/* Поясняющий текст (без изменений) */}
             <div style={{ 
               marginTop: '15px', 
               padding: '12px', 

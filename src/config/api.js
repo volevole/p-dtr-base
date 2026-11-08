@@ -5,10 +5,15 @@
 const apiMode = process.env.REACT_APP_API_MODE; // 'local' или 'remote'
 const useRemoteServer = process.env.REACT_APP_USE_REMOTE_SERVER === 'true';
 
+// 👈 Определяем текущий хост, на котором открыт фронтенд
+// Если открыт localhost, вернет 'localhost', если IP - вернет IP
+const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+
 // Базовые URL для разных режимов
 const URLS = {
   //local: 'http://localhost:3001',
-  local: 'http://192.168.3.107:3001',    // для возможности отладки прямо с тлф на локале, безо всяких деплоев на прод
+  //local: 'http://192.168.3.107:3001',    // для возможности отладки прямо с тлф на локале, безо всяких деплоев на прод
+  local: `http://${currentHost}:3001`, 
   //remote: 'https://p-dtr-base.onrender.com'
   //remote: 'http://194.226.165.244:3001'  
   remote: ''  // ← пустая строка для относительных запросов

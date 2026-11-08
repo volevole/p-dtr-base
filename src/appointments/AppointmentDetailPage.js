@@ -374,70 +374,72 @@ export default function AppointmentDetailPage() {
 
       </div>
 
-                  {/* 👈 ЛИПКАЯ ПАНЕЛЬ КНОПОК ВНИЗУ */}
-        <div style={{
+      {/* 👈 ЛИПКАЯ ПАНЕЛЬ КНОПОК ВНИЗУ */}
+      <div style={{
             position: 'sticky',
-            bottom: 0, // 👈 Жестко прижимаем к низу экрана
+            bottom: 0,
             display: 'flex',
-            justifyContent: 'center',
+            // 👈 На ПК разносим по краям, на телефоне центрируем
+            justifyContent: isMobile ? 'center' : 'space-between', 
             alignItems: 'center',
-            padding: '6px 4px', 
+            // 👈 На ПК возвращаем нормальные отступы
+            padding: isMobile ? '6px 4px' : '12px 20px', 
             backgroundColor: 'white',
             borderTop: '1px solid #dee2e6',
             boxShadow: '0 -4px 10px rgba(0,0,0,0.05)',
             zIndex: 100,
-            margin: 0, // 👈 Убрали отрицательные марджины, которые ломали sticky
-            flexWrap: 'nowrap',
-            gap: '4px'
+            margin: 0,
+            flexWrap: isMobile ? 'nowrap' : 'wrap', // 👈 На ПК разрешаем перенос, если не влезет
+            gap: isMobile ? '4px' : '10px'
         }}>
           
           {/* 1. ЛЕВЫЙ БЛОК: К сетке и К записи */}
-          <div style={{ display: 'flex', gap: '3px' }}>
+          <div style={{ display: 'flex', gap: isMobile ? '3px' : '10px' }}>
               <ButtonWithTooltip
                   onClick={() => navigate(`/appointments/schedule?date=${appt.appointment_date.split('T')[0]}`)}
                   tooltip="К сетке"
-                  style={{ padding: '4px 6px', backgroundColor: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 'bold', fontSize: '11px', color: '#495057' }}
+                  style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '3px' : '6px', fontWeight: 'bold', fontSize: isMobile ? '11px' : '14px', color: '#495057' }}
               >
-                  <FaArrowLeft size={11} />
+                  <FaArrowLeft size={isMobile ? 11 : 14} />
                   {isMobile ? <FaList size={11} /> : 'К сетке'}
               </ButtonWithTooltip>
 
               <ButtonWithTooltip
                   to={`/appointments/schedule?date=${appt.appointment_date.split('T')[0]}&openApptId=${appt.id}`}
                   tooltip="К записи"
-                  style={{ padding: '4px 6px', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 'bold', fontSize: '11px' }}
+                  style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: '#fff3cd', color: '#856404', border: '1px solid #ffc107', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '3px' : '6px', fontWeight: 'bold', fontSize: isMobile ? '11px' : '14px' }}
               >
-                  <FaArrowLeft size={11} />
+                  <FaArrowLeft size={isMobile ? 11 : 14} />
                   {isMobile ? <FaFileAlt size={11} /> : 'К записи'}
               </ButtonWithTooltip>
           </div>
 
           {/* 2. ЦЕНТРАЛЬНЫЙ БЛОК: Навигация и Меню */}
-          <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: isMobile ? '3px' : '10px', alignItems: 'center' }}>
               <ButtonWithTooltip
                   onClick={() => prevAppt && navigate(`/appointments/${prevAppt.id}`)}
                   disabled={!prevAppt}
                   tooltip={prevAppt ? "Назад" : "Нет прошлых"}
-                  style={{ padding: '4px 6px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: prevAppt ? 'pointer' : 'not-allowed', color: '#495057', opacity: prevAppt ? 1 : 0.4 }}
+                  style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: prevAppt ? 'pointer' : 'not-allowed', color: '#495057', opacity: prevAppt ? 1 : 0.4 }}
               >
-                  <FaArrowLeft size={11} />
+                  <FaArrowLeft size={isMobile ? 11 : 14} />
               </ButtonWithTooltip>
               
               <div style={{ position: 'relative' }}>
                   <ButtonWithTooltip
                       onClick={() => setIsMenuOpen(!isMenuOpen)}
                       tooltip="Меню"
-                      style={{ padding: '4px 8px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer', color: '#495057' }}
+                      style={{ padding: isMobile ? '4px 8px' : '8px 16px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer', color: '#495057' }}
                   >
-                      <FaEllipsisV size={11} />
+                      <FaEllipsisV size={isMobile ? 11 : 14} />
                   </ButtonWithTooltip>
-                  {/* Выпадающее меню (без изменений) */}
+                  {/* Выпадающее меню */}
                   {isMenuOpen && (
                       <>
                           <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
-                          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', flexDirection: 'column', minWidth: '160px', overflow: 'hidden' }}>
-                              <button onClick={() => { alert('Дублировать'); setIsMenuOpen(false); }} style={{ padding: '8px 12px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: '13px' }}>📄 Дублировать</button>
-                              <button onClick={() => { alert('Удалить'); setIsMenuOpen(false); }} style={{ padding: '8px 12px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', color: '#dc3545', fontSize: '13px' }}>🗑️ Удалить</button>
+                          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', flexDirection: 'column', minWidth: isMobile ? '160px' : '200px', overflow: 'hidden' }}>
+                              <button onClick={() => { alert('Дублировать'); setIsMenuOpen(false); }} style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: isMobile ? '13px' : '14px' }}>📄 Дублировать</button>
+                              <button onClick={() => { alert('Удалить'); setIsMenuOpen(false); }} style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', color: '#dc3545', fontSize: isMobile ? '13px' : '14px' }}>🗑️ Удалить</button>
                           </div>
                       </>
                   )}
@@ -447,22 +449,22 @@ export default function AppointmentDetailPage() {
                   onClick={() => nextAppt && navigate(`/appointments/${nextAppt.id}`)}
                   disabled={!nextAppt}
                   tooltip={nextAppt ? "Вперед" : "Нет будущих"}
-                  style={{ padding: '4px 6px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: nextAppt ? 'pointer' : 'not-allowed', color: '#495057', opacity: nextAppt ? 1 : 0.4 }}
+                  style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '4px', cursor: nextAppt ? 'pointer' : 'not-allowed', color: '#495057', opacity: nextAppt ? 1 : 0.4 }}
               >
-                  <FaArrowLeft size={11} style={{ transform: 'rotate(180deg)' }} />
+                  <FaArrowLeft size={isMobile ? 11 : 14} style={{ transform: 'rotate(180deg)' }} />
               </ButtonWithTooltip>
           </div>
 
           {/* 3. ПРАВЫЙ БЛОК: Статусы и Сохранить */}
-          <div style={{ display: 'flex', gap: '3px' }}>
+          <div style={{ display: 'flex', gap: isMobile ? '3px' : '10px' }}>
               {appt.status === 'pending' && (
                   <ButtonWithTooltip
                       onClick={() => updateStatusQuick('scheduled')}
                       tooltip="Подтвердить"
                       disabled={saving}
-                      style={{ padding: '4px 6px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', fontSize: '11px' }}
+                      style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', fontSize: isMobile ? '11px' : '14px' }}
                   >
-                      📅
+                      📅 {!isMobile && 'Подтвердить'}
                   </ButtonWithTooltip>
               )}
 
@@ -471,9 +473,9 @@ export default function AppointmentDetailPage() {
                       onClick={() => updateStatusQuick('completed')}
                       tooltip="Завершить"
                       disabled={saving}
-                      style={{ padding: '4px 6px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', fontSize: '11px' }}
+                      style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', fontSize: isMobile ? '11px' : '14px' }}
                   >
-                      ✅
+                      ✅ {!isMobile && 'Завершить'}
                   </ButtonWithTooltip>
               )}
 
@@ -481,9 +483,9 @@ export default function AppointmentDetailPage() {
                   onClick={handleSave}
                   tooltip="Сохранить"
                   disabled={saving}
-                  style={{ padding: '4px 6px', backgroundColor: saving ? '#6c757d' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '11px' }}
+                  style={{ padding: isMobile ? '4px 6px' : '8px 12px', backgroundColor: saving ? '#6c757d' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: isMobile ? '3px' : '6px', fontSize: isMobile ? '11px' : '14px' }}
               >
-                  <FaSave size={11} /> {!isMobile && 'Сохранить'}
+                  <FaSave size={isMobile ? 11 : 14} /> {!isMobile && 'Сохранить'}
               </ButtonWithTooltip>
           </div>
       </div>

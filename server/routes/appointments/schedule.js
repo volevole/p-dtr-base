@@ -23,7 +23,9 @@ router.get('/', async (req, res) => {
         c.name as client_name,
         c.phone as client_phone,
         s.name as service_name,
-        l.name as location_name
+        l.name as location_name,
+        l.address as location_address,       
+        l.description as location_description 
        FROM appointments a
        LEFT JOIN appt_clients c ON c.id = a.client_id
        LEFT JOIN appt_services s ON s.id = a.service_id
@@ -52,7 +54,9 @@ router.get('/list', async (req, res) => {
       SELECT a.*, 
              c.name as client_name, c.phone as client_phone,
              s.name as service_name,
-             l.name as location_name
+             l.name as location_name,
+             l.address as location_address,       
+             l.description as location_description
       FROM appointments a
       LEFT JOIN appt_clients c ON c.id = a.client_id
       LEFT JOIN appt_services s ON s.id = a.service_id
@@ -203,6 +207,8 @@ router.get('/:id', async (req, res) => {
         c.phone as client_phone,
         s.name as service_name,
         l.name as location_name,
+        l.address as location_address,       
+        l.description as location_description, 
         s.specialization_code
        FROM appointments a
        LEFT JOIN appt_clients c ON c.id = a.client_id

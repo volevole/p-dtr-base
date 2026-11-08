@@ -106,7 +106,36 @@ function Sidebar({ isOpen, onToggle }) {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px', paddingRight: '5px' }}>
-        
+
+        {/* 👈 Раздел Ведение приёмов */}
+        {hasAppointmentsAccess && (
+          <div style={{ marginTop: '20px' }}>
+            <h4 className="sidebar-section-title" style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>
+              Ведение приёмов
+            </h4>
+            <ul style={{ listStyle: 'none', padding: 0 }}>              
+              <li style={{ marginBottom: '8px' }}>
+                <Link to="/appointments/clients" className="sidebar-menu-link" style={getMenuItemStyle('appt-clients')}>
+                  <FaUserFriends style={{ marginRight: '8px' }} /> Клиенты
+                </Link>
+              </li>              
+              <li style={{ marginBottom: '8px' }}>
+                <Link to="/appointments/schedule" className="sidebar-menu-link" style={getMenuItemStyle('appt-schedule')}>
+                  <FaCalendarAlt style={{ marginRight: '8px', flexShrink: 0, width: '16px', height: '16px' }} /> 
+                  <span style={{ whiteSpace: 'nowrap' }}>Расписание (Записи)</span>
+                </Link>
+              </li>
+              <li style={{ marginBottom: '8px' }}>
+                <Link to="/appointments" className="sidebar-menu-link" style={getMenuItemStyle('appt-list')}>
+                  <FaClipboardList style={{ marginRight: '8px', flexShrink: 0 }} /> 
+                  <span style={{ whiteSpace: 'nowrap' }}>Все приёмы</span>
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
+
+
         {hasContentAccess && (
           <>
             <div>
@@ -178,33 +207,7 @@ function Sidebar({ isOpen, onToggle }) {
           </>
         )}
 
-        {/* 👈 Раздел Ведение приёмов */}
-        {hasAppointmentsAccess && (
-          <div style={{ marginTop: '20px' }}>
-            <h4 className="sidebar-section-title" style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>
-              Ведение приёмов
-            </h4>
-            <ul style={{ listStyle: 'none', padding: 0 }}>              
-              <li style={{ marginBottom: '8px' }}>
-                <Link to="/appointments/clients" className="sidebar-menu-link" style={getMenuItemStyle('appt-clients')}>
-                  <FaUserFriends style={{ marginRight: '8px' }} /> Клиенты
-                </Link>
-              </li>              
-              <li style={{ marginBottom: '8px' }}>
-                <Link to="/appointments/schedule" className="sidebar-menu-link" style={getMenuItemStyle('appt-schedule')}>
-                  <FaCalendarAlt style={{ marginRight: '8px', flexShrink: 0, width: '16px', height: '16px' }} /> 
-                  <span style={{ whiteSpace: 'nowrap' }}>Расписание (Записи)</span>
-                </Link>
-              </li>
-              <li style={{ marginBottom: '8px' }}>
-                <Link to="/appointments" className="sidebar-menu-link" style={getMenuItemStyle('appt-list')}>
-                  <FaClipboardList style={{ marginRight: '8px', flexShrink: 0 }} /> 
-                  <span style={{ whiteSpace: 'nowrap' }}>Все приёмы</span>
-                </Link>
-              </li>
-            </ul>
-          </div>
-        )}
+
 
         {/* 👈 СИСТЕМА (ДОСТУПНА ВСЕМ) */}
         <div style={{ marginTop: '20px' }}>

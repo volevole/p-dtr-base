@@ -12,6 +12,7 @@ export default function ClientsPage() {
   const [sources, setSources] = useState([]);
   const navigate = useNavigate();
   
+  const [error, setError] = useState('');
   // Состояние для формы добавления
   const [showForm, setShowForm] = useState(false);
   const [newClient, setNewClient] = useState({ 
@@ -58,18 +59,36 @@ export default function ClientsPage() {
       }
     }
   }, [clients, loading]); // 👈 Этот useEffect следит за массивами clients и loading  
-  const fetchClients = async (query = '') => {
+
+   const fetchClients = async (query = '') => {
     try {
       setLoading(true);
+      setError(''); // 👈 Сбрасываем старую ошибку при новом запросе
+      
       const url = query 
         ? `${API_URL}/api/appt/clients?search=${encodeURIComponent(query)}`
         : `${API_URL}/api/appt/clients`;
         
       const res = await fetch(url, { credentials: 'include' });
+      
+      // 👈 ПРОВЕРЯЕМ СТАТУС ОТВЕТА
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Ошибка авторизации. Вы не вошли в систему или сессия истекла. Пожалуйста, войдите заново.');
+        }
+        throw new Error(`Ошибка сервера: ${res.status} ${res.statusText}`);
+      }
+      
       const data = await res.json();
-      if (data.success) setClients(data.data);
+      if (data.success) {
+        setClients(data.data);
+      } else {
+        throw new Error(data.error || 'Ошибка при загрузке клиентов');
+      }
     } catch (error) {
       console.error('Ошибка загрузки клиентов:', error);
+      setError(error.message); // 👈 Сохраняем текст ошибки
+      setClients([]); // Очищаем список
     } finally {
       setLoading(false);
     }
@@ -301,10 +320,22 @@ export default function ClientsPage() {
         </div>
       )}
 
+
+      {/* 👈 БЛОК ОШИБКИ */}
+      {error && (
+        <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #f5c6cb', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '20px' }}>⚠️</span>
+          <div>
+            <strong>Произошла ошибка</strong>
+            <div>{error}</div>
+          </div>
+        </div>
+      )}
+
       {/* Список клиентов */}
       {loading ? (
         <div>Загрузка...</div>
-      ) : clients.length === 0 ? (
+      ) : !error && clients.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#666' }}>
           У вас пока нет клиентов.
         </div>

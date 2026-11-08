@@ -8,6 +8,7 @@ export default function AppointmentsListPage() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [error, setError] = useState('');
   
   // Фильтры
   const [search, setSearch] = useState('');
@@ -25,9 +26,11 @@ export default function AppointmentsListPage() {
     fetchAppointments();
   }, [page, search, startDate, endDate]);
 
-  const fetchAppointments = async () => {
+   const fetchAppointments = async () => {
     try {
       setLoading(true);
+      setError(''); // 👈 Сбрасываем ошибку
+      
       const params = new URLSearchParams({
         limit,
         offset: page * limit,
@@ -38,14 +41,27 @@ export default function AppointmentsListPage() {
       if (endDate) params.append('endDate', endDate);
 
       const res = await fetch(`${API_URL}/api/appt/schedule/list?${params.toString()}`, { credentials: 'include' });
+
+      // 👈 ПРОВЕРЯЕМ СТАТУС
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error('Ошибка авторизации. Вы не вошли в систему или сессия истекла. Пожалуйста, войдите заново.');
+        }
+        throw new Error(`Ошибка сервера: ${res.status}`);
+      }
+
       const data = await res.json();
       
       if (data.success) {
         setAppointments(data.data);
         setTotal(data.total);
+      } else {
+        throw new Error(data.error || 'Ошибка загрузки приёмов');
       }
     } catch (error) {
       console.error('Ошибка загрузки приёмов:', error);
+      setError(error.message); // 👈 Сохраняем ошибку
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
@@ -127,6 +143,34 @@ export default function AppointmentsListPage() {
           )}
         </div>
       </div>
+
+      {/* 👈 БЛОК ОШИБКИ (ФИКСИРОВАННЫЙ) */}
+      {error && (
+        <div style={{ 
+          position: 'fixed', 
+          top: '180px', 
+          left: '50%', 
+          transform: 'translateX(-50%)', 
+          zIndex: 2000, 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '15px 20px', 
+          borderRadius: '8px', 
+          border: '1px solid #f5c6cb', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          maxWidth: '90vw',
+          width: 'max-content'
+        }}>
+          <span style={{ fontSize: '20px' }}>⚠️</span>
+          <div>
+            <strong>Произошла ошибка</strong>
+            <div>{error}</div>
+          </div>
+        </div>
+      )}
 
       {/* Список */}
       {loading ? (

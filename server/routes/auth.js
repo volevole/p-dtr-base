@@ -370,4 +370,50 @@ const registerLimiter = rateLimit({
   });
   
 
+  /**
+   * PUT /api/auth/password — смена пароля текущего пользователя
+   */
+  router.put('/password', requireAuth, async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    const client = await connectDB();
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Введите старый и новый пароль' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, error: 'Новый пароль должен быть не менее 8 символов' });
+    }
+
+    try {
+      // 1. Получаем текущий хеш пароля
+      const userResult = await client.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+      if (userResult.rowCount === 0) {
+        return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+      }
+
+      const currentHash = userResult.rows[0].password_hash;
+
+      // 2. Проверяем старый пароль
+      const isValid = await verifyPassword(oldPassword, currentHash);
+      if (!isValid) {
+        return res.status(400).json({ success: false, error: 'Неверный текущий пароль' });
+      }
+
+      // 3. Хешируем новый
+      const newHash = await hashPassword(newPassword);
+
+      // 4. Обновляем в БД (и снимаем флаг must_change_password)
+      await client.query(
+        'UPDATE users SET password_hash = $1, must_change_password = false, updated_at = NOW() WHERE id = $2',
+        [newHash, req.user.id]
+      );
+
+      res.json({ success: true, message: 'Пароль успешно изменен' });
+    } catch (error) {
+      console.error('[ERROR] PUT /api/auth/password:', error.message);
+      res.status(500).json({ success: false, error: 'Ошибка сервера при смене пароля' });
+    }
+  });
+
 module.exports = router;

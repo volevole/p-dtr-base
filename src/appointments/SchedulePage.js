@@ -204,12 +204,22 @@ export default function SchedulePage() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(''); // 👈 Сбрасываем старую ошибку при новом запросе
+      
       const [apptRes, cliRes, servRes, locRes] = await Promise.all([
         fetch(`${API_URL}/api/appt/schedule?date=${selectedDate}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/appt/clients`, { credentials: 'include' }),
         fetch(`${API_URL}/api/appt/services`, { credentials: 'include' }),
         fetch(`${API_URL}/api/appt/locations`, { credentials: 'include' })
       ]);
+
+      // 👈 ПРОВЕРЯЕМ СТАТУС ГЛАВНОГО ЗАПРОСА
+      if (!apptRes.ok) {
+        if (apptRes.status === 401 || apptRes.status === 403) {
+          throw new Error('Ошибка авторизации. Вы не вошли в систему или сессия истекла. Пожалуйста, войдите заново.');
+        }
+        throw new Error(`Ошибка сервера: ${apptRes.status}`);
+      }
 
       const apptData = await apptRes.json();
       const cliData = await cliRes.json();
@@ -219,7 +229,7 @@ export default function SchedulePage() {
       if (apptData.success) {
         setAppointments(apptData.data);
 
-        // 👈 ЛОГИКА АВТООТКРЫТИЯ МОДАЛКИ
+        // 👈 ЛОГИКА АВТООТКРЫТИЯ МОДАЛКИ (оставляем без изменений)
         const params = new URLSearchParams(window.location.search);
         const openApptId = params.get('openApptId');
         
@@ -228,7 +238,6 @@ export default function SchedulePage() {
           if (apptToOpen) {
             setSelectedAppt(apptToOpen);
             
-            // Заполняем форму редактирования (как при клике)
             const d = new Date(apptToOpen.appointment_date);
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -248,10 +257,11 @@ export default function SchedulePage() {
               record_notes: apptToOpen.record_notes || ''
             });
 
-            // Очищаем URL, чтобы при обновлении страницы модалка не открывалась снова
             window.history.replaceState({}, document.title, window.location.pathname + `?date=${selectedDate}`);
           }
         }
+      } else {
+        throw new Error(apptData.error || 'Ошибка загрузки расписания');
       }
       
       if (cliData.success) setClients(cliData.data);
@@ -259,6 +269,7 @@ export default function SchedulePage() {
       if (locData.success) setLocations(locData.data);
     } catch (err) {
       console.error(err);
+      setError(err.message); // 👈 Сохраняем ошибку для вывода
     } finally {
       setLoading(false);
     }
@@ -328,9 +339,17 @@ export default function SchedulePage() {
     const currentLocId = isEditMode ? editApptData.location_id : newAppt.location_id;
     const location = locations.find(l => l.id === currentLocId);
     
-    if (location && location.address) {
+    if (location && (location.address || location.description)) {
+      // Формируем строку для добавления
+      let textToAdd = location.address || '';
+      
+      // Если есть описание, добавляем его в скобках
+      if (location.description) {
+        textToAdd += textToAdd ? ` (${location.description})` : location.description;
+      }
+      
       const currentNotes = isEditMode ? editApptData.record_notes : newAppt.notes;
-      const newNotes = currentNotes ? `${currentNotes}\n${location.address}` : location.address;
+      const newNotes = currentNotes ? `${currentNotes}\n${textToAdd}` : textToAdd;
       
       if (isEditMode) {
         setEditApptData({ ...editApptData, record_notes: newNotes });
@@ -338,9 +357,10 @@ export default function SchedulePage() {
         setNewAppt({ ...newAppt, notes: newNotes });
       }
     } else {
-      alert('У выбранного места не указан адрес в настройках.');
+      alert('У выбранного места не указан ни адрес, ни описание в настройках.');
     }
   };
+
   const handleServiceChange = (e) => {
     const sId = e.target.value;
     const serv = services.find(s => s.id === sId);
@@ -581,6 +601,33 @@ export default function SchedulePage() {
         </div>
       {/* 👈 КОНЕЦ ШАПКИ */}
 
+      {error && !isModalOpen && !selectedAppt && (
+        <div style={{ 
+          position: 'fixed', // 👈 Фиксируем на экране
+          top: '180px',       // 👈 Отступ сверху, чтобы не перекрывать шапку
+          left: '50%', 
+          transform: 'translateX(-50%)', // 👈 Центрируем по горизонтали
+          zIndex: 2000,      // 👈 Поверх всего контента
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '15px 20px', 
+          borderRadius: '8px', 
+          border: '1px solid #f5c6cb', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          maxWidth: '90vw',
+          width: 'max-content'
+        }}>
+          <span style={{ fontSize: '20px' }}>⚠️</span>
+          <div>
+            <strong>Произошла ошибка</strong>
+            <div>{error}</div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div>Загрузка...</div>
       ) : (
@@ -703,7 +750,7 @@ export default function SchedulePage() {
                     cursor: 'pointer'
                   }}
                 >
-                   <div style={{ 
+                  <div style={{ 
                     backgroundColor: '#e3f2fd', 
                     borderLeft: '4px solid #007bff', 
                     padding: '6px 10px', 
@@ -715,10 +762,10 @@ export default function SchedulePage() {
                     flexDirection: 'column',
                     gap: '4px'
                   }}>
-                     {/* 1. Шапка: Время слева, Услуга и Длительность справа */}
-                    <div style={{ color: '#0d47a1', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    {/* 1. Шапка: Время слева, Услуга и Длительность справа */}
+                    <div style={{ color: '#0d47a1', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap', marginRight: '6px' }}>{timeStr}</span>
-                      <span style={{ color: '#007bff', fontSize: '12px', textAlign: 'right', lineHeight: 1.2, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ color: '#007bff', fontSize: '12px', textAlign: 'right', lineHeight: 1.2, display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '4px' }}>
                         <span>{appt.service_name}</span>
                         <span style={{ fontWeight: 'bold', opacity: 0.8 }}>— {appt.duration_minutes} мин</span>
                       </span>
@@ -726,32 +773,32 @@ export default function SchedulePage() {
                     
                     {/* 2. Клиент (Жирный) или Примечание (если клиента нет) */}
                     {appt.client_name ? (
-                      <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#212529', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <FaUser style={{ fontSize: '11px', color: '#6c757d' }}/> 
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.client_name}</span>
+                      <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#212529', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <FaUser style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px', flexShrink: 0 }}/> 
+                        <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{appt.client_name}</span>
                       </div>
                     ) : (
                       appt.record_notes && (
-                        <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#495057', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <FaStickyNote style={{ fontSize: '11px', color: '#6c757d' }}/> 
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.record_notes}</span>
+                        <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#495057', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                          <FaStickyNote style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px', flexShrink: 0 }}/> 
+                          <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{appt.record_notes}</span>
                         </div>
                       )
                     )}
                     
                     {/* 3. Место (если есть) */}
                     {appt.location_name && (
-                      <div style={{ fontSize: '11px', color: '#495057', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <FaMapMarkerAlt style={{ fontSize: '11px', color: '#6c757d' }}/> 
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.location_name}</span>
+                      <div style={{ fontSize: '11px', color: '#495057', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <FaMapMarkerAlt style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px', flexShrink: 0 }}/> 
+                        <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{appt.location_name}</span>
                       </div>
                     )}
 
                     {/* 4. Примечание (показываем только если клиент ЕСТЬ, чтобы не дублировать) */}
                     {appt.client_name && appt.record_notes && (
-                      <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <FaStickyNote style={{ fontSize: '11px', color: '#adb5bd' }}/> 
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{appt.record_notes}</span>
+                      <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
+                        <FaStickyNote style={{ fontSize: '11px', color: '#adb5bd', marginTop: '2px', flexShrink: 0 }}/> 
+                        <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{appt.record_notes}</span>
                       </div>
                     )}
                   </div>
