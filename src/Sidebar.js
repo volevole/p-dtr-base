@@ -6,7 +6,7 @@ import API_URL from './config/api';
 import { 
   FaBars, FaHeart, FaProjectDiagram, FaChartBar, FaClipboardList,
   FaTools, FaChevronDown, FaChevronRight, FaUsers, FaCog,
-  FaUserFriends, FaCalendarAlt, 
+  FaUserFriends, FaCalendarAlt, FaServer,
   FaImages, FaDatabase, FaSignInAlt, FaLightbulb
 } from 'react-icons/fa';
 
@@ -56,6 +56,7 @@ function Sidebar({ isOpen, onToggle }) {
     if (path === '/appointments') return 'appt-list';  
 
     // --- Система (сначала специфичные, потом общие!) ---
+    if (path.startsWith('/admin/users')) return 'admin-users'; //
     if (path.startsWith('/all-media')) return 'all-media';
     if (path.startsWith('/export')) return 'export';
     if (path.startsWith('/environment-info')) return 'environment-info'; // 👈 Добавили проверку
@@ -242,6 +243,16 @@ function Sidebar({ isOpen, onToggle }) {
                         👤 Мой профиль 
                       </Link>
                     </li>
+                    {/* 👈 ВИДИТ ТОЛЬКО самый АДМИН  */}
+                    {isAdmin && (
+                      <li style={{ marginBottom: '5px' }}>
+                        <Link to="/admin/users" className="sidebar-submenu-link" style={getSubMenuItemStyle('admin-users')}>
+                          <div style={getSubMenuIndicatorStyle('admin-users')} />
+                          <FaUsers style={{ marginRight: '8px', fontSize: '14px' }} />
+                          Управление пользователями
+                        </Link>
+                      </li>
+                    )}
                     {/* 👈 ВИДЯТ ТОЛЬКО АДМИНЫ */}
                     {hasSystemAccess && (
                       <>
@@ -271,6 +282,7 @@ function Sidebar({ isOpen, onToggle }) {
                     <li style={{ marginBottom: '5px' }}>
                       <Link to="/environment-info" className="sidebar-submenu-link" style={getSubMenuItemStyle('environment-info')}>
                         <div style={getSubMenuIndicatorStyle('environment-info')} />
+                        <FaServer style={{ marginRight: '8px', fontSize: '14px' }} />
                         Информация об окружении {/* 👈 Убрали иконку терминала */}
                       </Link>
                     </li>

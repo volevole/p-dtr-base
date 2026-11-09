@@ -318,4 +318,26 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/appt/schedule/:id — удалить приём
+router.delete('/:id', async (req, res) => {
+  const client = await connectDB();
+  
+  try {
+    // Удаляем запись, проверяя, что она принадлежит текущему мастеру
+    const result = await client.query(
+      'DELETE FROM appointments WHERE id = $1 AND master_id = $2 RETURNING id',
+      [req.params.id, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Приём не найден или нет прав на удаление' });
+    }
+
+    res.json({ success: true, message: 'Приём успешно удален' });
+  } catch (error) {
+    console.error('[ERROR] DELETE /api/appt/schedule/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

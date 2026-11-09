@@ -6,6 +6,8 @@ import API_URL from '../config/api';
 
 export default function ClientsPage() {
   const isMobile = window.innerWidth <= 768 ;
+    // 👈 Проверяем, поддерживает ли браузер и устройство Contact Picker API
+  const isContactsApiSupported = 'contacts' in navigator && 'ContactsManager' in window;
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -97,6 +99,30 @@ export default function ClientsPage() {
   const handleSearch = (e) => {
     e.preventDefault();
     fetchClients(search);
+  };
+
+  const handleImportContact = async () => {
+    try {
+      const props = ['name', 'tel', 'email'];
+      const opts = { multiple: false };
+      
+      // Вызываем системное окно выбора контакта
+      const contacts = await navigator.contacts.select(props, opts);
+      
+      if (contacts.length > 0) {
+        const contact = contacts[0];
+        // Заполняем форму данными из контакта
+        setNewClient(prev => ({
+          ...prev,
+          name: contact.name && contact.name.length > 0 ? contact.name[0] : prev.name,
+          phone: contact.tel && contact.tel.length > 0 ? contact.tel[0] : prev.phone,
+          email: contact.email && contact.email.length > 0 ? contact.email[0] : prev.email,
+        }));
+      }
+    } catch (err) {
+      console.error('Ошибка импорта контакта:', err);
+      // Не показываем alert, если пользователь просто нажал "Отмена"
+    }
   };
 
   const handleAddClient = async (e) => {
@@ -253,7 +279,34 @@ export default function ClientsPage() {
       {/* Форма добавления */}
       {showForm && (
         <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #dee2e6' }}>
-          <h3 style={{ marginTop: 0 }}>Новый клиент</h3>
+                    {/* Заголовок и кнопка импорта */}
+          <div style={{ marginBottom: '15px' }}>
+            <h3 style={{ margin: '0 0 10px 0', textAlign: 'center' }}>Новый клиент</h3>
+            
+            {isContactsApiSupported && (
+              <button 
+                type="button" 
+                onClick={handleImportContact}
+                style={{ 
+                  width: '100%', // 👈 На всю ширину формы
+                  padding: '10px', 
+                  backgroundColor: '#e3f2fd', 
+                  color: '#007bff', 
+                  border: '1px dashed #90caf9', // 👈 Пунктирная рамка, чтобы отличать от основных кнопок
+                  borderRadius: '6px', 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                📞 Импорт из контактов
+              </button>
+            )}
+          </div>
           <form onSubmit={handleAddClient} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             
             {/* 1. Имя */}

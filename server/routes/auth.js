@@ -205,10 +205,10 @@ const registerLimiter = rateLimit({
         );
         
         // 👈 ДОБАВЬ ЭТОТ ЛОГ
-        console.log('--- DEBUG LOGIN ---');
-        console.log('Device ID из req.body:', req.body.deviceId);
-        console.log('Device ID (переменная):', deviceId);
-        console.log('User ID:', user.id);
+        // console.log('--- DEBUG LOGIN ---');
+        // console.log('Device ID из req.body:', req.body.deviceId);
+        // console.log('Device ID (переменная):', deviceId);
+        // console.log('User ID:', user.id);
 
         // Обновляем last_login_at и device_id (если он передан)
         if (deviceId) {

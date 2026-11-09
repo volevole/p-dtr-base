@@ -170,6 +170,142 @@ export default function AppointmentDetailPage() {
     }
   };
 
+  //Создать копию этого приёма на то же время, на дней вперёд
+  const handleDuplicateToDate = async (daysToAdd) => {
+    if (!window.confirm(`Создать копию этого приёма на ${daysToAdd === 1 ? 'завтра' : 'следующую неделю'}?`)) {
+      return;
+    }
+    setIsMenuOpen(false);
+    setSaving(true);
+
+    try {
+      // Вычисляем новую дату
+      const originalDate = new Date(appt.appointment_date);
+      originalDate.setDate(originalDate.getDate() + daysToAdd); // Прибавляем дни
+
+      // Форматируем в YYYY-MM-DDTHH:mm:00
+      const yyyy = originalDate.getFullYear();
+      const mm = String(originalDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(originalDate.getDate()).padStart(2, '0');
+      const hh = String(originalDate.getHours()).padStart(2, '0');
+      const min = String(originalDate.getMinutes()).padStart(2, '0');
+      const newDateTime = `${yyyy}-${mm}-${dd}T${hh}:${min}:00`;
+
+      const payload = {
+        client_id: appt.client_id,
+        service_id: appt.service_id,
+        location_id: appt.location_id,
+        appointment_date: newDateTime,
+        duration_minutes: appt.duration_minutes,
+        buffer_before_minutes: appt.buffer_before_minutes,
+        buffer_after_minutes: appt.buffer_after_minutes,
+        base_price: appt.base_price,
+        discount_amount: appt.discount_amount,
+        final_price: appt.final_price,
+        status: 'scheduled',
+        general_notes: '',
+        record_notes: appt.record_notes,
+        subscription_info: appt.subscription_info,
+        chief_complaint: '',
+        specialization_data: {}
+      };
+
+      const res = await fetch(`${API_URL}/api/appt/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        alert(`✅ Приём успешно перенесён на ${daysToAdd === 1 ? 'завтра' : 'через неделю'}!`);
+        // Переходим на новую карточку (или можно вернуться в сетку)
+        navigate(`/appointments/${data.data.id}`);
+      } else {
+        alert('Ошибка при копировании: ' + data.error);
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+    const handleShare = async () => {
+    // 1. Формируем базовую часть
+    const dateStr = new Date(appt.appointment_date).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const timeStr = new Date(appt.appointment_date).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    
+    let text = `📅 Приём: ${dateStr} в ${timeStr}\n`;
+    text += `👤 Клиент: ${appt.client_name || 'Без клиента'}\n`;
+    if (appt.client_phone) text += `📞 Телефон: ${appt.client_phone}\n`;
+    
+    text += `💆 Услуга: ${appt.service_name} (${appt.duration_minutes} мин)\n`;
+    if (appt.location_name) text += `📍 Место: ${appt.location_name}\n`;
+    
+    // 2. Добавляем медицинские данные (если есть)
+    if (appt.chief_complaint) {
+      text += `\n🩺 Жалобы:\n${appt.chief_complaint}\n`;
+    }
+    
+    // 3. Добавляем общие заметки мастера
+    if (appt.general_notes) {
+      text += `\n📋 Общие заметки:\n${appt.general_notes}\n`;
+    }
+
+    // 4. Добавляем примечание к записи
+    if (appt.record_notes) {
+      text += `\n📝 Примечание (адрес/детали):\n${appt.record_notes}\n`;
+    }
+
+    // 5. Добавляем кастомные поля специализации (очки, параметры и т.д.)
+    if (appt.specialization_data && Object.keys(appt.specialization_data).length > 0) {
+      text += `\n📊 Специфические данные:\n`;
+      for (const [key, value] of Object.entries(appt.specialization_data)) {
+        // Пропускаем пустые значения, чтобы не засорять текст
+        if (value !== null && value !== '' && value !== undefined) {
+           // Если значение — это массив (например, несколько чекбоксов), склеиваем его
+           const displayValue = Array.isArray(value) ? value.join(', ') : value;
+           text += `- ${key}: ${displayValue}\n`;
+        }
+      }
+    }
+
+    text += `\nСгенерировано в Ларчик P-DTR`;
+
+    // 6. Отправка (системное меню или копирование)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Детали приёма', text: text });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return; 
+      }
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        textArea.style.top = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      alert('✅ Полный текст с заметками скопирован в буфер обмена!');
+    } catch (err) {
+      alert('Не удалось скопировать текст: ' + err.message);
+    }
+  };
+
   const updateStatusQuick = async (newStatus) => {
     setSaving(true);
     try {
@@ -437,9 +573,56 @@ export default function AppointmentDetailPage() {
                   {isMenuOpen && (
                       <>
                           <div onClick={() => setIsMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
-                          <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', flexDirection: 'column', minWidth: isMobile ? '160px' : '200px', overflow: 'hidden' }}>
-                              <button onClick={() => { alert('Дублировать'); setIsMenuOpen(false); }} style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: isMobile ? '13px' : '14px' }}>📄 Дублировать</button>
-                              <button onClick={() => { alert('Удалить'); setIsMenuOpen(false); }} style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', color: '#dc3545', fontSize: isMobile ? '13px' : '14px' }}>🗑️ Удалить</button>
+                                                      <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', flexDirection: 'column', minWidth: isMobile ? '180px' : '220px', overflow: 'hidden' }}>
+                              
+                              <button 
+                                onClick={() => { handleShare(); setIsMenuOpen(false); }} 
+                                style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: isMobile ? '13px' : '14px' }}
+                              >
+                                🔗 Поделиться
+                              </button>
+
+                              {/* 👈 Дублировать на завтра */}
+                              <button 
+                                onClick={() => handleDuplicateToDate(1)} 
+                                style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: isMobile ? '13px' : '14px' }}
+                              >
+                                📅 Дублировать запись на завтра
+                              </button>
+
+                              {/* 👈 Дублировать через неделю */}
+                              <button 
+                                onClick={() => handleDuplicateToDate(7)} 
+                                style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: isMobile ? '13px' : '14px' }}
+                              >
+                                📅 Дублировать запись через неделю
+                              </button>
+                              
+                              {/* 👈 Удалить (с красивой обработкой ошибки) */}
+                              <button 
+                                onClick={async () => { 
+                                  if (window.confirm('Удалить этот приём безвозвратно?')) {
+                                    try {
+                                      const res = await fetch(`${API_URL}/api/appt/schedule/${appt.id}`, { method: 'DELETE', credentials: 'include' });
+                                      
+                                      // 👈 Читаем текст ошибки с сервера, если запрос не прошел
+                                      if (res.ok) {
+                                        setIsMenuOpen(false);
+                                        navigate(-1);
+                                      } else {
+                                        const errData = await res.json();
+                                        alert('Ошибка сервера: ' + (errData.error || res.status));
+                                      }
+                                    } catch (e) {
+                                      alert('Ошибка сети: ' + e.message);
+                                    }
+                                  }
+                                  setIsMenuOpen(false); 
+                                }} 
+                                style={{ padding: isMobile ? '8px 12px' : '10px 15px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', color: '#dc3545', fontSize: isMobile ? '13px' : '14px' }}
+                              >
+                                🗑️ Удалить
+                              </button>
                           </div>
                       </>
                   )}

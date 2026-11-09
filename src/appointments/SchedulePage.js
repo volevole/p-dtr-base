@@ -163,6 +163,42 @@ export default function SchedulePage() {
     fetchData();
   }, [selectedDate]);
 
+  // 👈 ОБРАБОТКА ДУБЛИРОВАНИЯ ИЗ URL
+  useEffect(() => {
+    if (loading || !appointments) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+
+    if (action === 'duplicate') {
+      // Заполняем форму создания данными из URL
+      setNewAppt({
+        time: params.get('time') || '10:00',
+        client_id: params.get('client_id') || '',
+        service_id: params.get('service_id') || '',
+        location_id: params.get('location_id') || '',
+        notes: params.get('record_notes') || '',
+        general_notes: '',
+        buffer_before_minutes: params.get('buffer_before') || '',
+        buffer_after_minutes: params.get('buffer_after') || '',
+        duration_minutes: params.get('duration') || ''
+      });
+
+      // Устанавливаем дату для сетки (если нужно, чтобы сетка переключилась на эту дату)
+      const targetDate = params.get('date');
+      if (targetDate && targetDate !== selectedDate) {
+        setSelectedDate(targetDate);
+      }
+
+      // Открываем модалку создания
+      setIsModalOpen(true);
+
+      // Очищаем URL, чтобы при обновлении страницы модалка не открывалась снова
+      window.history.replaceState({}, document.title, window.location.pathname + `?date=${targetDate}`);
+    }
+  }, [loading, appointments, selectedDate]);
+
+
   // 👈 ДОБАВЛЯЕМ useEffect ДЛЯ ОТКРЫТИЯ ПРИЁМА ИЗ URL
   useEffect(() => {
     if (loading || appointments.length === 0) return;
@@ -359,6 +395,28 @@ export default function SchedulePage() {
     } else {
       alert('У выбранного места не указан ни адрес, ни описание в настройках.');
     }
+  };
+  //Функция для формирования и открытия ссылки
+    const openNavigator = (address) => {
+    if (!address) {
+      alert('Адрес не заполнен.');
+      return;
+    }
+    
+    const encodedAddress = encodeURIComponent(address);
+    
+    // 👈 Используем схему yandexmaps для открытия именно приложения Карт
+    // Если приложение не установлено, сработает фолбэк на веб-версию
+    const appUrl = `yandexmaps://maps.yandex.ru/?text=${encodedAddress}`;
+    const webUrl = `https://yandex.ru/maps/?text=${encodedAddress}`;
+    
+    // Пытаемся открыть приложение, если не получается — открываем веб
+    window.location.href = appUrl;
+    
+    // Ставим таймер: если приложение не открылось за 1.5 секунды, открываем веб-версию
+    setTimeout(() => {
+      window.open(webUrl, '_blank');
+    }, 1500);
   };
 
   const handleServiceChange = (e) => {
@@ -1232,11 +1290,11 @@ export default function SchedulePage() {
                   <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#0056b3', margin: 0 }}>Примечание к записи (адрес, детали)</label>
                   
                   {/* 👈 Кнопки добавления адреса */}
-                  <div style={{ display: 'flex', gap: '5px' }}>
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                     <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendClientAddress(true)} 
-                      tooltip="Добавить адрес клиента в примечание к записи"
+                      tooltip="Добавить адрес клиента в текст"
                       style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       + Адрес клиента
@@ -1244,11 +1302,33 @@ export default function SchedulePage() {
                     <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendLocationAddress(true)} 
-                      tooltip="Добавить адрес места в примечание к записи"
+                      tooltip="Добавить адрес места в текст"
                       style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       + Адрес места
                     </ButtonWithTooltip>
+                    
+                    {/* 👈 НОВЫЕ КНОПКИ ДЛЯ НАВИГАТОРА */}
+                    {editApptData.client_id && clients.find(c => c.id === editApptData.client_id)?.address && (
+                       <ButtonWithTooltip 
+                         type="button" 
+                         onClick={() => openNavigator(clients.find(c => c.id === editApptData.client_id).address)} 
+                         tooltip="Поехали к клиенту с Яндекс-Навигатором"
+                         style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                       >
+                         🚗 К клиенту
+                       </ButtonWithTooltip>
+                    )}
+                    {editApptData.location_id && locations.find(l => l.id === editApptData.location_id)?.address && (
+                       <ButtonWithTooltip 
+                         type="button" 
+                         onClick={() => openNavigator(locations.find(l => l.id === editApptData.location_id).address)} 
+                         tooltip="Поехали к месту с Яндекс-Навигатором"
+                         style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                       >
+                         🚗 К месту
+                       </ButtonWithTooltip>
+                    )}
                   </div>
                 </div>
 

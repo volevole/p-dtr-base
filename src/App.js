@@ -51,6 +51,7 @@ import TestPreview from './TestPreview';
 import TestRefreshLinks from './TestRefreshLinks';
 import TestImage from './TestImage';
 import SettingsProfilePage from './SettingsProfilePage';
+import AdminUsersPage from './AdminUsersPage';
 import './App.css';
 
 const APPOINTMENT_ROLES = ['admin', 'appointments'];
@@ -122,6 +123,9 @@ function HomeRedirect() {
 }
 
 function App() {
+  // 👈 Определяем, является ли текущее окружение локальным
+  const isLocalEnv = process.env.NODE_ENV === 'development';
+
   return (   
     <div className="App">      
       <Routes>
@@ -244,7 +248,14 @@ function App() {
               <RoleRoute allowedRoles={ADMIN_PDTR_ROLES}>
                 <AllMediaPage />
               </RoleRoute>
-            } />
+          } />
+
+          <Route path="/admin/users" element={
+            <RoleRoute allowedRoles={['admin']}>
+              <AdminUsersPage />
+            </RoleRoute>
+          } />
+
           <Route path="/test-preview" element={<TestPreview />} />
           <Route path="/test-refresh" element={<TestRefreshLinks />} />
           <Route path="/test-image" element={<TestImage />} />
