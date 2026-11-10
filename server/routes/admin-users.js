@@ -104,6 +104,20 @@ const SUPPORTED_ROLES = [
         );
       }
       
+      // 👈 АВТОМАТИЧЕСКАЯ ВЫДАЧА VISITOR
+      if (roles.includes('appointments')) {
+        const specCheck = await client.query(
+          `SELECT * FROM appt_master_specializations WHERE master_id = $1 AND specialization_code = 'visitor'`,
+          [id]
+        );
+        if (specCheck.rowCount === 0) {
+          await client.query(
+            `INSERT INTO appt_master_specializations (master_id, specialization_code) VALUES ($1, 'visitor')`,
+            [id]
+          );
+        }
+      }
+
       await client.query('COMMIT');
       
       res.json({ success: true, message: 'Пользователь подтверждён' });
@@ -157,6 +171,20 @@ const SUPPORTED_ROLES = [
         );
       }
       
+      // 👈 АВТОМАТИЧЕСКАЯ ВЫДАЧА VISITOR
+      if (roles.includes('appointments')) {
+        const specCheck = await client.query(
+          `SELECT * FROM appt_master_specializations WHERE master_id = $1 AND specialization_code = 'visitor'`,
+          [id]
+        );
+        if (specCheck.rowCount === 0) {
+          await client.query(
+            `INSERT INTO appt_master_specializations (master_id, specialization_code) VALUES ($1, 'visitor')`,
+            [id]
+          );
+        }
+      }
+
       await client.query('COMMIT');
       
       res.json({ success: true, message: 'Роли обновлены' });

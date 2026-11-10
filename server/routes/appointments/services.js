@@ -14,7 +14,8 @@ router.get('/services', async (req, res) => {
   const client = await connectDB();
   try {
     const result = await client.query(
-      'SELECT * FROM appt_services WHERE master_id = $1 ORDER BY name',
+      // 👈 Выбираем услуги мастера ИЛИ глобальные (системные)
+      'SELECT * FROM appt_services WHERE master_id = $1 OR master_id IS NULL ORDER BY name',
       [req.user.id]
     );
     res.json({ success: true, data: result.rows });
@@ -46,11 +47,55 @@ router.post('/services', async (req, res) => {
   }
 });
 
+// PUT /api/appt/services/:id — обновить услугу
+router.put('/services/:id', async (req, res) => {
+  const client = await connectDB();
+  const { name, specialization_code, default_duration_minutes, default_price } = req.body;
+  try {
+    // 👈 Проверяем, кому принадлежит услуга
+    const check = await client.query('SELECT master_id FROM appt_services WHERE id = $1', [req.params.id]);
+    if (check.rows.length === 0) return res.status(404).json({ success: false, error: 'Услуга не найдена' });
+    
+    // Если услуга глобальная (master_id IS NULL), редактировать может только админ
+    if (check.rows[0].master_id === null && !req.user.roles.includes('admin')) {
+      return res.status(403).json({ success: false, error: 'Системные услуги может редактировать только администратор' });
+    }
+
+    // Если это личная услуга, проверяем, что она принадлежит текущему мастеру
+    if (check.rows[0].master_id !== null && check.rows[0].master_id !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Вы не можете редактировать чужую услугу' });
+    }
+
+    const result = await client.query(
+      `UPDATE appt_services 
+       SET name = $1, specialization_code = $2, default_duration_minutes = $3, default_price = $4 
+       WHERE id = $5 RETURNING *`,
+      [name, specialization_code, default_duration_minutes, default_price, req.params.id]
+    );
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/appt/services/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 // DELETE /api/appt/services/:id — удалить услугу
 router.delete('/services/:id', async (req, res) => {
   const client = await connectDB();
   try {
-    await client.query('DELETE FROM appt_services WHERE id = $1 AND master_id = $2', [req.params.id, req.user.id]);
+    // 👈 Проверяем, кому принадлежит услуга
+    const check = await client.query('SELECT master_id FROM appt_services WHERE id = $1', [req.params.id]);
+    if (check.rows.length === 0) return res.status(404).json({ success: false, error: 'Услуга не найдена' });
+    
+    if (check.rows[0].master_id === null) {
+      return res.status(403).json({ success: false, error: 'Системные услуги нельзя удалять' });
+    }
+    if (check.rows[0].master_id !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Вы не можете удалять чужую услугу' });
+    }
+
+    await client.query('DELETE FROM appt_services WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     console.error('[ERROR] DELETE /api/appt/services/:id:', error.message);
@@ -65,7 +110,8 @@ router.get('/locations', async (req, res) => {
   const client = await connectDB();
   try {
     const result = await client.query(
-      'SELECT * FROM appt_locations WHERE master_id = $1 ORDER BY name',
+      // 👈 Выбираем места мастера ИЛИ глобальные
+      'SELECT * FROM appt_locations WHERE master_id = $1 OR master_id IS NULL ORDER BY name',
       [req.user.id]
     );
     res.json({ success: true, data: result.rows });
@@ -97,36 +143,31 @@ router.post('/locations', async (req, res) => {
   }
 });
 
-// PUT /api/appt/services/:id — обновить услугу
-router.put('/services/:id', async (req, res) => {
-  const client = await connectDB();
-  const { name, specialization_code, default_duration_minutes, default_price } = req.body;
-  try {
-    const result = await client.query(
-      `UPDATE appt_services 
-       SET name = $1, specialization_code = $2, default_duration_minutes = $3, default_price = $4 
-       WHERE id = $5 AND master_id = $6 RETURNING *`,
-      [name, specialization_code, default_duration_minutes, default_price, req.params.id, req.user.id]
-    );
-    res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 
 // PUT /api/appt/locations/:id — обновить место
 router.put('/locations/:id', async (req, res) => {
   const client = await connectDB();
   const { name, address, description, buffer_before_minutes, buffer_after_minutes } = req.body;
   try {
+    const check = await client.query('SELECT master_id FROM appt_locations WHERE id = $1', [req.params.id]);
+    if (check.rows.length === 0) return res.status(404).json({ success: false, error: 'Место не найдено' });
+    
+    if (check.rows[0].master_id === null && !req.user.roles.includes('admin')) {
+      return res.status(403).json({ success: false, error: 'Системные места может редактировать только администратор' });
+    }
+    if (check.rows[0].master_id !== null && check.rows[0].master_id !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Вы не можете редактировать чужое место' });
+    }
+
     const result = await client.query(
       `UPDATE appt_locations 
        SET name = $1, address = $2, description = $3, buffer_before_minutes = $4, buffer_after_minutes = $5 
-       WHERE id = $6 AND master_id = $7 RETURNING *`,
-      [name, address, description, buffer_before_minutes, buffer_after_minutes, req.params.id, req.user.id]
+       WHERE id = $6 RETURNING *`,
+      [name, address, description, buffer_before_minutes, buffer_after_minutes, req.params.id]
     );
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
+    console.error('[ERROR] PUT /api/appt/locations/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -135,7 +176,17 @@ router.put('/locations/:id', async (req, res) => {
 router.delete('/locations/:id', async (req, res) => {
   const client = await connectDB();
   try {
-    await client.query('DELETE FROM appt_locations WHERE id = $1 AND master_id = $2', [req.params.id, req.user.id]);
+    const check = await client.query('SELECT master_id FROM appt_locations WHERE id = $1', [req.params.id]);
+    if (check.rows.length === 0) return res.status(404).json({ success: false, error: 'Место не найдено' });
+    
+    if (check.rows[0].master_id === null) {
+      return res.status(403).json({ success: false, error: 'Системные места нельзя удалять' });
+    }
+    if (check.rows[0].master_id !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Вы не можете удалять чужое место' });
+    }
+
+    await client.query('DELETE FROM appt_locations WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (error) {
     console.error('[ERROR] DELETE /api/appt/locations/:id:', error.message);

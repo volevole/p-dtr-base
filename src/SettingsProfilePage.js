@@ -677,11 +677,17 @@ export default function SettingsProfilePage() {
 
             <ul ref={listRef} style={{ listStyle: 'none', padding: 0 }}>
               {services.map(s => (
-                <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+                                <li key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
                   <span><strong>{s.name}</strong> ({allSpecs.find(sp => sp.code === s.specialization_code)?.name || s.specialization_code}) — {s.default_duration_minutes} мин. — {s.default_price} руб.</span>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => handleEditService(s)} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }} title="Редактировать"><FaEdit /></button>
-                    <button onClick={() => handleDeleteService(s.id)} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer' }} title="Удалить"><FaTrash /></button>
+                    {s.master_id !== null ? (
+                      <>
+                        <button onClick={() => handleEditService(s)} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }} title="Редактировать"><FaEdit /></button>
+                        <button onClick={() => handleDeleteService(s.id)} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer' }} title="Удалить"><FaTrash /></button>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', alignSelf: 'center' }}>Системная</span>
+                    )}
                   </div>
                 </li>
               ))}
@@ -755,11 +761,17 @@ export default function SettingsProfilePage() {
 
             <ul ref={locationListRef} style={{ listStyle: 'none', padding: 0 }}>
               {locations.map(l => (
-                <li key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+                                <li key={l.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
                   <span><strong>{l.name}</strong> — {l.address || 'без адреса'} (до: {l.buffer_before_minutes} мин, после: {l.buffer_after_minutes} мин)</span>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => handleEditLocation(l)} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }} title="Редактировать"><FaEdit /></button>
-                    <button onClick={() => handleDeleteLocation(l.id)} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer' }} title="Удалить"><FaTrash /></button>
+                    {l.master_id !== null ? (
+                      <>
+                        <button onClick={() => handleEditLocation(l)} style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer' }} title="Редактировать"><FaEdit /></button>
+                        <button onClick={() => handleDeleteLocation(l.id)} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer' }} title="Удалить"><FaTrash /></button>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', alignSelf: 'center' }}>Системное</span>
+                    )}
                   </div>
                 </li>
               ))}
