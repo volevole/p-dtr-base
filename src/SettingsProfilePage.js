@@ -607,12 +607,33 @@ export default function SettingsProfilePage() {
           <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', marginBottom: '20px' }}>
             <h3 style={{ marginTop: 0 }}>Мои специализации</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-              {allSpecs.map(spec => (
-                <label key={spec.code} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={selectedSpecs.includes(spec.code)} onChange={() => handleSpecChange(spec.code)} style={{ marginRight: '8px' }} />
-                  {spec.name}
-                </label>
-              ))}
+                            {allSpecs.map(spec => {
+                const isVisitor = spec.code === 'visitor'; // 👈 Проверяем, системная ли это специализация
+                const isChecked = isVisitor ? true : selectedSpecs.includes(spec.code); // 👈 Для visitor всегда true
+
+                return (
+                  <label 
+                    key={spec.code} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      cursor: isVisitor ? 'not-allowed' : 'pointer', // 👈 Запрещаем клик для visitor
+                      opacity: isVisitor ? 0.7 : 1 
+                    }}
+                  >
+                    <input 
+                      type="checkbox" 
+                      checked={isChecked} 
+                      onChange={() => {
+                        if (!isVisitor) handleSpecChange(spec.code); // 👈 Блокируем изменение
+                      }} 
+                      disabled={isVisitor} // 👈 Отключаем сам инпут
+                      style={{ marginRight: '8px' }} 
+                    />
+                    {spec.name} {isVisitor && <span style={{ fontSize: '11px', color: '#999', marginLeft: '5px' }}>(Системная)</span>}
+                  </label>
+                );
+              })}
             </div>
             <button onClick={handleSaveSpecs} disabled={specsSaving} style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px' }}>
               {specsSaving ? 'Сохранение...' : 'Сохранить специализации'}
