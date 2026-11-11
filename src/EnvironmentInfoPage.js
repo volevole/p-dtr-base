@@ -54,7 +54,8 @@ function EnvironmentInfoPage() {
     {
       title: 'Клиентская часть',
       icon: <FaDesktop />,
-      keys: ['Разрешение экрана', 'Размер окна', 'Платформа', 'Язык', 'React версия', 'Node окружение', 'Доступен localStorage']
+      keys: ['Разрешение экрана', 'Размер окна', 'Платформа', 'Язык', 'React версия', 
+        'Node окружение', 'Доступен localStorage', 'API контактов (Android)']
     }
   ];
 

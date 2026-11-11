@@ -79,6 +79,9 @@ export const getDatabaseInfo = async () => {
 export const getDisplayEnvironmentInfo = () => {
   const info = getEnvironmentInfo();
   
+  // 👈 Проверяем наличие Contact Picker API
+  const hasContactPicker = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
+
   return {
     'Текущий URL': info.currentUrl || 'Серверная сторона',
     'Окружение': info.app.environment,
@@ -90,7 +93,8 @@ export const getDisplayEnvironmentInfo = () => {
       'Разрешение экрана': info.client.screenResolution,
       'Размер окна': info.client.viewport,
       'Платформа': info.client.platform,
-      'Язык': info.client.language
+      'Язык': info.client.language,
+      'API контактов (Android)': hasContactPicker ? '✅ Доступен' : '❌ Недоступен' // 👈 Добавили проверку
     } : {}),
     'Сборка от': new Date(info.app.buildDate).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
     'Текущее время': new Date(info.timestamp).toLocaleString('ru-RU'),
