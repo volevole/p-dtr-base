@@ -11,6 +11,8 @@ import { FaCopy, FaTerminal, FaServer, FaDesktop, FaInfoCircle, FaDatabase, FaCh
 // 👈 Импортируем версии
 import { APP_VERSIONS, CURRENT_VERSION } from './config/versions';
 
+const isMobile = window.innerWidth <= 768;
+
 function EnvironmentInfoPage() {
   const [info, setInfo] = useState({});
   const [copied, setCopied] = useState(false);
@@ -141,54 +143,52 @@ function EnvironmentInfoPage() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1200px', margin: 'auto' }}>
-      <div style={{ marginBottom: '20px' }}>
+    <div style={{ padding: isMobile ? '5px' : '2rem', maxWidth: '1200px', margin: 'auto' }}>
+      <div style={{ marginBottom: isMobile ? '10px' : '20px' }}>
         <Link to="/">← На главную</Link>
       </div>
 
-      <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '20px' : '32px' }}>
         <FaTerminal />
         Информация об окружении
       </h1>
 
-      <p style={{ color: '#666', marginBottom: '30px' }}>
+      <p style={{ color: '#666', marginBottom: isMobile ? '15px' : '30px', fontSize: isMobile ? '13px' : '16px' }}>
         Детальная информация о текущем окружении приложения, сервере и клиенте.
         Полезно для отладки и технической поддержки.
       </p>
 
-      {/* 👈 НОВЫЙ БЛОК: ТЕКУЩАЯ ВЕРСИЯ */}
+      {/* 👈 БЛОК ТЕКУЩЕЙ ВЕРСИИ */}
       <div style={{ 
-        backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', 
-        border: '1px solid #dee2e6', marginBottom: '30px', 
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' 
+        backgroundColor: '#f8f9fa', padding: isMobile ? '10px' : '20px', borderRadius: '8px', 
+        border: '1px solid #dee2e6', marginBottom: isMobile ? '15px' : '30px', 
+        display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexWrap: 'wrap', gap: '10px' 
       }}>
         <div>
-          <h3 style={{ margin: '0 0 8px 0', color: '#0056b3', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            Текущая версия приложения: 
-            <span style={{ backgroundColor: '#007bff', color: 'white', padding: '4px 12px', borderRadius: '16px', fontSize: '15px' }}>
+          <h3 style={{ margin: '0 0 8px 0', color: '#0056b3', display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '16px' : '18px', flexWrap: 'wrap' }}>
+            Текущая версия: 
+            <span style={{ backgroundColor: '#007bff', color: 'white', padding: '4px 12px', borderRadius: '16px', fontSize: isMobile ? '13px' : '15px' }}>
               v{CURRENT_VERSION.version}
             </span>
           </h3>
-          <div style={{ fontSize: '14px', color: '#333', lineHeight: 1.4 }}>
+          <div style={{ fontSize: isMobile ? '12px' : '14px', color: '#333', lineHeight: 1.4 }}>
             <strong>Что нового:</strong> {CURRENT_VERSION.description} 
             <em style={{ color: '#888', marginLeft: '5px' }}>({new Date(CURRENT_VERSION.date).toLocaleDateString('ru-RU')})</em>
           </div>
         </div>
         <button 
           onClick={() => setIsVersionModalOpen(true)}
-          style={{ padding: '10px 20px', backgroundColor: 'white', color: '#007bff', border: '2px solid #007bff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+          style={{ padding: '10px 20px', backgroundColor: 'white', color: '#007bff', border: '2px solid #007bff', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: isMobile ? '10px' : 0 }}
         >
           История версий
         </button>
       </div>
 
       {/* Кнопки действий */}
-      <div style={{ display: 'flex', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
-        {/* ... (твои кнопки копирования и вывода в консоль остаются без изменений) ... */}
+      <div style={{ display: 'flex', gap: isMobile ? '5px' : '15px', marginBottom: isMobile ? '15px' : '30px', flexWrap: 'wrap' }}>
         <button
           onClick={handleCopy}
-          title="Скопировать всю информацию..."
-          style={{ padding: '10px 20px', backgroundColor: copied ? '#28a745' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{ flex: isMobile ? '1 1 100%' : 'none', padding: '10px', backgroundColor: copied ? '#28a745' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '13px' : '16px' }}
         >
           <FaCopy />
           {copied ? 'Скопировано!' : 'Копировать в буфер'}
@@ -196,8 +196,7 @@ function EnvironmentInfoPage() {
 
         <button
           onClick={logEnvironmentInfo}
-          title="Вывести всю информацию..."
-          style={{ padding: '10px 20px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{ flex: isMobile ? '1 1 100%' : 'none', padding: '10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '13px' : '16px' }}
         >
           <FaTerminal /> Вывести в консоль
         </button>
@@ -205,36 +204,36 @@ function EnvironmentInfoPage() {
         <button
           onClick={loadDbInfo}
           disabled={dbLoading}
-          style={{ padding: '10px 20px', backgroundColor: dbLoading ? '#ccc' : '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: dbLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          style={{ flex: isMobile ? '1 1 100%' : 'none', padding: '10px', backgroundColor: dbLoading ? '#ccc' : '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: dbLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: isMobile ? '13px' : '16px' }}
         >
           <FaDatabase /> {dbLoading ? 'Загрузка...' : 'Обновить данные БД'}
         </button>
       </div>
 
       {/* Блок БД */}
-      <div style={{ marginBottom: '30px', border: '1px solid #b8daff', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f0f9ff' }}>
-        <div style={{ backgroundColor: '#cce5ff', padding: '15px 20px', borderBottom: '1px solid #b8daff', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#004085' }}>
+      <div style={{ marginBottom: isMobile ? '15px' : '30px', border: '1px solid #b8daff', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f0f9ff' }}>
+        <div style={{ backgroundColor: '#cce5ff', padding: isMobile ? '10px' : '15px 20px', borderBottom: '1px solid #b8daff', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#004085', fontSize: isMobile ? '14px' : '16px' }}>
           <FaDatabase /> База данных
         </div>
-        <div style={{ padding: '20px', backgroundColor: 'white' }}>
+        <div style={{ padding: isMobile ? '5px' : '20px', backgroundColor: 'white', overflowX: 'auto' }}>
           {renderDbSection()}
         </div>
       </div>
 
       {/* Отображение информации по секциям */}
       {sections.map((section, sectionIndex) => (
-        <div key={sectionIndex} style={{ marginBottom: '30px', border: '1px solid #b8daff', borderRadius: '8px', overflow: 'hidden' }}>
-          <div style={{ backgroundColor: '#cce5ff', padding: '15px 20px', borderBottom: '1px solid #b8daff', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#004085' }}>
+        <div key={sectionIndex} style={{ marginBottom: isMobile ? '15px' : '30px', border: '1px solid #b8daff', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: '#cce5ff', padding: isMobile ? '10px' : '15px 20px', borderBottom: '1px solid #b8daff', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold', color: '#004085', fontSize: isMobile ? '14px' : '16px' }}>
             {section.icon}
             {section.title}
           </div>
-          <div style={{ padding: '20px', backgroundColor: 'white' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ padding: isMobile ? '5px' : '20px', backgroundColor: 'white', overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: isMobile ? '12px' : '14px' }}>
               <tbody>
                 {section.keys.map((key, index) => (
                   <tr key={index} style={{ borderBottom: index < section.keys.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
-                    <td style={labelTdStyle}>{key}:</td>
-                    <td style={{ padding: '12px', color: info[key] ? '#212529' : '#6c757d', fontFamily: info[key]?.includes('http') ? 'monospace' : 'inherit', wordBreak: 'break-all' }}>
+                    <td style={{ ...labelTdStyle, padding: isMobile ? '6px' : '12px', width: isMobile ? '40%' : '40%' }}>{key}:</td>
+                    <td style={{ padding: isMobile ? '6px' : '12px', color: info[key] ? '#212529' : '#6c757d', fontFamily: info[key]?.includes('http') ? 'monospace' : 'inherit', wordBreak: 'break-all' }}>
                       {info[key] || 'Не доступно'}
                     </td>
                   </tr>
@@ -246,9 +245,9 @@ function EnvironmentInfoPage() {
       ))}
 
       {/* Дополнительная информация */}
-      <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginTop: '30px' }}>
-        <h3 style={{ marginTop: 0 }}>Как использовать эту информацию?</h3>
-        <ul style={{ color: '#666', lineHeight: '1.6' }}>
+      <div style={{ backgroundColor: '#f8f9fa', padding: isMobile ? '10px' : '20px', borderRadius: '8px', marginTop: isMobile ? '15px' : '30px' }}>
+        <h3 style={{ marginTop: 0, fontSize: isMobile ? '16px' : '18px' }}>Как использовать эту информацию?</h3>
+        <ul style={{ color: '#666', lineHeight: '1.6', paddingLeft: '20px', fontSize: isMobile ? '12px' : '14px' }}>
           <li><strong>Отладка:</strong> При проблемах с подключением к серверу проверьте API URL</li>
           <li><strong>Поддержка:</strong> При обращении в техподдержку скопируйте эту информацию</li>
           <li><strong>Разработка:</strong> Убедитесь, что окружение (development/production) выбрано правильно</li>
@@ -256,12 +255,12 @@ function EnvironmentInfoPage() {
         </ul>
       </div>
 
-      {/* 👈 МОДАЛЬНОЕ ОКНО ИСТОРИИ ВЕРСИЙ */}
+      {/* МОДАЛЬНОЕ ОКНО ИСТОРИИ ВЕРСИЙ */}
       {isVersionModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '100%', maxWidth: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: isMobile ? '0' : '20px' }}>
+          <div style={{ backgroundColor: 'white', padding: isMobile ? '15px' : '20px', borderRadius: isMobile ? '0' : '8px', width: isMobile ? '100vw' : '100%', maxWidth: isMobile ? '100vw' : '600px', height: isMobile ? '100vh' : 'auto', maxHeight: isMobile ? '100vh' : '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '15px', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, color: '#0d47a1' }}>История версий</h3>
+              <h3 style={{ margin: 0, color: '#0d47a1', fontSize: isMobile ? '18px' : '20px' }}>История версий</h3>
               <button onClick={() => setIsVersionModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666', lineHeight: 1 }} title="Закрыть">
                 <FaTimes />
               </button>
@@ -271,10 +270,10 @@ function EnvironmentInfoPage() {
               {APP_VERSIONS.map((v, index) => (
                 <div key={v.version} style={{ marginBottom: '15px', paddingBottom: '15px', borderBottom: index !== APP_VERSIONS.length - 1 ? '1px dashed #dee2e6' : 'none' }}>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '5px' }}>
-                    <span style={{ fontWeight: 'bold', fontSize: '16px', color: '#0056b3', backgroundColor: '#e3f2fd', padding: '2px 8px', borderRadius: '4px' }}>v{v.version}</span>
-                    <span style={{ fontSize: '13px', color: '#6c757d', fontWeight: '500' }}>{new Date(v.date).toLocaleDateString('ru-RU')}</span>
+                    <span style={{ fontWeight: 'bold', fontSize: isMobile ? '14px' : '16px', color: '#0056b3', backgroundColor: '#e3f2fd', padding: '2px 8px', borderRadius: '4px' }}>v{v.version}</span>
+                    <span style={{ fontSize: isMobile ? '12px' : '13px', color: '#6c757d', fontWeight: '500' }}>{new Date(v.date).toLocaleDateString('ru-RU')}</span>
                   </div>
-                  <div style={{ fontSize: '14px', color: '#333', lineHeight: 1.5 }}>{v.description}</div>
+                  <div style={{ fontSize: isMobile ? '13px' : '14px', color: '#333', lineHeight: 1.5 }}>{v.description}</div>
                 </div>
               ))}
             </div>
@@ -297,7 +296,7 @@ const labelTdStyle = {
 const valueTdStyle = {
   padding: '12px',
   color: '#212529',
-  fontFamily: 'monospace', // 👈 чтобы данные БД выглядели аккуратнее
+  fontFamily: 'monospace', 
   wordBreak: 'break-all'
 };
 
