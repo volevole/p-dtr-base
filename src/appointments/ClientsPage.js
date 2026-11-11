@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser } from 'react-icons/fa';
+import ButtonWithTooltip from '../components/ButtonWithTooltip';
 import API_URL from '../config/api';
 
 export default function ClientsPage() {
@@ -283,29 +284,31 @@ export default function ClientsPage() {
           <div style={{ marginBottom: '15px' }}>
             <h3 style={{ margin: '0 0 10px 0', textAlign: 'center' }}>Новый клиент</h3>
             
-            {isContactsApiSupported && (
-              <button 
-                type="button" 
-                onClick={handleImportContact}
-                style={{ 
-                  width: '100%', // 👈 На всю ширину формы
-                  padding: '10px', 
-                  backgroundColor: '#e3f2fd', 
-                  color: '#007bff', 
-                  border: '1px dashed #90caf9', // 👈 Пунктирная рамка, чтобы отличать от основных кнопок
-                  borderRadius: '6px', 
-                  cursor: 'pointer', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '8px', 
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                📞 Импорт из контактов
-              </button>
-            )}
+            
+              <ButtonWithTooltip 
+              type="button" 
+              onClick={handleImportContact}
+              disabled={!isContactsApiSupported} // 👈 Блокируем, если API не поддерживается
+              tooltip={isContactsApiSupported ? "Импорт из контактов телефона" : "Импорт из контактов не поддерживается на этом устройстве (должно быть https и запуск в Chrome)"}
+              style={{ 
+                width: '100%', 
+                padding: '10px', 
+                backgroundColor: isContactsApiSupported ? '#e3f2fd' : '#f8f9fa', // 👈 Серый фон, если недоступно
+                color: isContactsApiSupported ? '#007bff' : '#adb5bd',         // 👈 Серый текст, если недоступно
+                border: isContactsApiSupported ? '1px dashed #90caf9' : '1px dashed #dee2e6', 
+                borderRadius: '6px', 
+                cursor: isContactsApiSupported ? 'pointer' : 'not-allowed',    // 👈 Курсор-запрет
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                fontSize: '14px',
+                fontWeight: 'bold'
+              }}
+            >
+              📞 Импорт из контактов
+            </ButtonWithTooltip>
+            
           </div>
           <form onSubmit={handleAddClient} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             

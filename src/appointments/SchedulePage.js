@@ -474,6 +474,31 @@ export default function SchedulePage() {
     }
   };
 
+  // 👈 Проверяем поддержку API (добавь в начало компонента, если еще нет)
+  const isContactsApiSupported = typeof navigator !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window;
+
+  // 👈 Функция импорта для быстрого добавления
+  const handleQuickImportContact = async () => {
+    try {
+      const props = ['name', 'tel', 'email'];
+      const opts = { multiple: false };
+      
+      const contacts = await navigator.contacts.select(props, opts);
+      
+      if (contacts.length > 0) {
+        const contact = contacts[0];
+        setQuickClientData(prev => ({
+          ...prev,
+          name: contact.name && contact.name.length > 0 ? contact.name[0] : prev.name,
+          phone: contact.tel && contact.tel.length > 0 ? contact.tel[0] : prev.phone,
+          email: contact.email && contact.email.length > 0 ? contact.email[0] : prev.email,
+        }));
+      }
+    } catch (err) {
+      console.error('Ошибка импорта контакта:', err);
+    }
+  };
+
   const handleCreateAppointment = async (e) => {
     e.preventDefault();
     setError('');
@@ -1411,6 +1436,34 @@ export default function SchedulePage() {
             <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Быстрое добавление клиента</h3>
             
             <form onSubmit={handleQuickAddClient}>
+              {/* 👈 НОВАЯ КНОПКА ИМПОРТА из Контактов*/}
+              <div style={{ marginBottom: '15px' }}>
+                <ButtonWithTooltip 
+                  type="button" 
+                  onClick={handleQuickImportContact}
+                  disabled={!isContactsApiSupported}
+                  tooltip={isContactsApiSupported ? "Импорт из контактов телефона" : "Импорт из контактов не поддерживается на этом устройстве (должно быть https и запуск в Chrome)"}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    backgroundColor: isContactsApiSupported ? '#e3f2fd' : '#f8f9fa',
+                    color: isContactsApiSupported ? '#007bff' : '#adb5bd',
+                    border: isContactsApiSupported ? '1px dashed #90caf9' : '1px dashed #dee2e6', 
+                    borderRadius: '6px', 
+                    cursor: isContactsApiSupported ? 'pointer' : 'not-allowed',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  📞 Импорт из контактов
+                </ButtonWithTooltip>
+              </div>
+
+
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Имя *</label>
                 <input required type="text" value={quickClientData.name} onChange={e => setQuickClientData({...quickClientData, name: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
