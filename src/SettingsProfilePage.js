@@ -18,6 +18,10 @@ export default function SettingsProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  //  --- состояние для режима редактирования имени
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState(user?.name || '');
+  
   // --- Состояние для Специализаций ---
   const [allSpecs, setAllSpecs] = useState([]);
   const [selectedSpecs, setSelectedSpecs] = useState([]);
@@ -155,6 +159,30 @@ export default function SettingsProfilePage() {
       }
     } catch (err) {
       setPassError('Ошибка сети: ' + err.message);
+    }
+  };
+
+ // --- Имя ---
+  const handleSaveName = async () => {
+    if (!newName.trim()) return;
+    try {
+      const res = await fetch(`${API_URL}/api/profile/name`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: newName })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsEditingName(false);
+        setMessage({ type: 'success', text: '✅ Имя успешно изменено' });
+        // 👈 Перезагружаем страницу (или обновляем контекст), чтобы имя обновилось везде
+        window.location.reload(); 
+      } else {
+        alert('Ошибка: ' + data.error);
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
     }
   };
 
@@ -429,32 +457,62 @@ export default function SettingsProfilePage() {
       <div style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #dee2e6' }}>
         
         {/* Верхняя часть: Аватар и Имя */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '25px', flexWrap: 'wrap' }}>
-          <div style={{ width: '100px', height: '100px', borderRadius: '50%', backgroundColor: '#e9ecef', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #dee2e6', flexShrink: 0 }}>
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: isMobile ? 'row' : 'row', // 👈 Оставляем в строку даже на мобилке
+          alignItems: 'center', 
+          gap: isMobile ? '10px' : '20px',         // 👈 Уменьшаем отступ на мобилке
+          marginBottom: '25px', 
+          flexWrap: 'nowrap'                       // 👈 Запрещаем перенос на новую строку
+        }}>
+          <div style={{ 
+            width: isMobile ? '70px' : '100px',    // 👈 Уменьшаем аватар на мобилке
+            height: isMobile ? '70px' : '100px', 
+            borderRadius: '50%', backgroundColor: '#e9ecef', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #dee2e6', flexShrink: 0 
+          }}>
             {avatarUrl ? (
-              <img 
-                  src={`${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(avatarUrl)}&size=M`} 
-                  alt="Аватар" 
-                  crossOrigin="anonymous"
-                  referrerPolicy="no-referrer"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<svg ...>'; 
-                  }}
-              />
+              <img src={`${API_URL}/api/curl-proxy-image?url=${encodeURIComponent(avatarUrl)}&size=M`} alt="Аватар" crossOrigin="anonymous" referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<svg ...>'; }} />
             ) : (
-              <FaCamera size={40} color="#adb5bd" />
+              <FaCamera size={isMobile ? 24 : 40} color="#adb5bd" />
             )}
           </div>
-          <div>
-            <h2 style={{ margin: '0 0 5px 0', color: '#0d47a1' }}>{user?.name || 'Имя не указано'}</h2>
-            <div style={{ color: '#495057', fontSize: '15px', marginBottom: '10px' }}>
+          
+          <div style={{ 
+            flex: 1, 
+            minWidth: 0, 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'flex-start' // 👈 Прижимаем всё содержимое влево
+          }}> 
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px', flexWrap: 'wrap' }}>
+              {isEditingName ? (
+                <>
+                  <input 
+                    type="text" 
+                    value={newName} 
+                    onChange={(e) => setNewName(e.target.value)} 
+                    autoFocus
+                    style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold', padding: '4px 8px', border: '1px solid #007bff', borderRadius: '4px', width: '100%', maxWidth: '200px' }}
+                  />
+                  <button onClick={handleSaveName} style={{ padding: '4px 8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✓</button>
+                  <button onClick={() => { setIsEditingName(false); setNewName(user?.name || ''); }} style={{ padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <h2 style={{ margin: 0, color: '#0d47a1', fontSize: isMobile ? '18px' : '24px', wordBreak: 'break-word' }}>{user?.name || 'Имя не указано'}</h2>
+                  <button onClick={() => setIsEditingName(true)} title="Изменить имя" style={{ background: 'none', border: 'none', color: '#007bff', cursor: 'pointer', fontSize: '16px', padding: '0 5px' }}>
+                    <FaEdit />
+                  </button>
+                </>
+              )}
+            </div>
+            
+            <div style={{ color: '#495057', fontSize: isMobile ? '13px' : '15px', marginBottom: '8px' }}>
               {user?.phone ? `📞 ${user.phone}` : 'Телефон не указан'}
             </div>
             
             <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} disabled={uploadingAvatar} />
-            <label htmlFor="avatar-upload" style={{ display: 'inline-block', padding: '8px 16px', backgroundColor: uploadingAvatar ? '#6c757d' : '#007bff', color: 'white', borderRadius: '4px', cursor: uploadingAvatar ? 'not-allowed' : 'pointer', fontSize: '14px' }}>
+            <label htmlFor="avatar-upload" style={{ display: 'inline-block', padding: isMobile ? '6px 10px' : '8px 16px', backgroundColor: uploadingAvatar ? '#6c757d' : '#007bff', color: 'white', borderRadius: '4px', cursor: uploadingAvatar ? 'not-allowed' : 'pointer', fontSize: isMobile ? '12px' : '14px' }}>
               {uploadingAvatar ? 'Загрузка...' : 'Изменить фото'}
             </label>
           </div>

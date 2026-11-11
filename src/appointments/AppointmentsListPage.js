@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FaSearch, FaCalendarAlt, FaUser, FaClock, FaChevronLeft, FaChevronRight, FaStickyNote, FaMapMarkerAlt } from 'react-icons/fa';
+import { formatPhone } from '../utils/formatPhone';
 import API_URL from '../config/api';
 
 export default function AppointmentsListPage() {
@@ -100,6 +101,18 @@ export default function AppointmentsListPage() {
     }
   };
 
+  // 👈 Функция для получения цветов фона и рамки в зависимости от статуса
+  const getStatusColors = (status) => {
+    switch (status) {
+      case 'pending': return { bg: '#ffecb3', border: '#ffe082' }; // Насыщенный желтый
+      case 'completed': return { bg: '#c8e6c9', border: '#a5d6a7' }; // Насыщенный зеленый
+      case 'canceled': return { bg: '#ffcdd2', border: '#ef9a9a' }; // Насыщенный красный
+      case 'no_show': return { bg: '#e0e0e0', border: '#bdbdbd' }; // Насыщенный серый
+      case 'scheduled': return { bg: 'white', border: '#dee2e6' }; // Стандартный белый для "Запланирован"
+      default: return { bg: 'white', border: '#dee2e6' };
+    }
+  };
+
   return (
     <div className="detail-container" style={{ 
       maxWidth: '1000px', 
@@ -183,6 +196,7 @@ export default function AppointmentsListPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {appointments.map(appt => {
             const dt = formatDateTime(appt.appointment_date);
+            const colors = getStatusColors(appt.status); // 👈 Получаем цвета для статуса
             return (
               <Link 
                 key={appt.id} 
@@ -191,9 +205,9 @@ export default function AppointmentsListPage() {
                   textDecoration: 'none', 
                   color: 'inherit', 
                   padding: '15px', 
-                  border: '1px solid #dee2e6', 
+                  border: `1px solid ${colors.border}`, // 👈 Цвет рамки
                   borderRadius: '8px', 
-                  backgroundColor: 'white',
+                  backgroundColor: colors.bg,           // 👈 Цвет фона
                   display: 'flex',
                   flexDirection: 'column', // 👈 Теперь вся карточка — колонка
                   gap: '10px',
@@ -225,7 +239,7 @@ export default function AppointmentsListPage() {
                       <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#212529', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <FaUser style={{ fontSize: '13px', color: '#6c757d' }}/> 
                         <span>{appt.client_name}</span> 
-                        {appt.client_phone && <span style={{ fontWeight: 'normal', color: '#666', fontSize: '13px' }}>({appt.client_phone})</span>}
+                        {appt.client_phone && <span style={{ fontWeight: 'normal', color: '#666', fontSize: '13px' }}>({formatPhone(appt.client_phone)})</span>}
                       </div>
                     ) : (
                       appt.record_notes && (

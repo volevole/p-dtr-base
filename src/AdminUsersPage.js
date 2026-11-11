@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { FaUserCheck, FaUserTimes, FaKey, FaTrash, FaUserShield } from 'react-icons/fa';
 import API_URL from './config/api';
 import { useAuth } from './context/AuthContext';
+import { formatPhone } from './utils/formatPhone';
 import ButtonWithTooltip from './components/ButtonWithTooltip';
 
 const ALL_ROLES = [
@@ -171,7 +172,7 @@ export default function AdminUsersPage() {
             <div key={u.id} style={{ border: '1px solid #dee2e6', borderRadius: '8px', padding: '15px', backgroundColor: 'white', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', gap: '10px' }}>
               <div>
                 <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{u.name || 'Без имени'} {u.is_active ? '🟢' : '🔴'}</div>
-                <div style={{ color: '#666', fontSize: '14px' }}>{u.phone} {u.email && `| ${u.email}`}</div>
+                <div style={{ color: '#666', fontSize: '14px' }}>{formatPhone(u.phone)} {u.email && `| ${u.email}`}</div>
                 <div style={{ marginTop: '5px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
                   {u.roles.map(r => (
                     <span key={r} style={{ backgroundColor: '#e3f2fd', color: '#0056b3', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{r}</span>
@@ -213,7 +214,7 @@ export default function AdminUsersPage() {
             <div key={u.id} style={{ border: '1px solid #dee2e6', borderRadius: '8px', padding: '15px', backgroundColor: '#f8f9fa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{u.name}</div>
-                <div style={{ color: '#666', fontSize: '14px' }}>{u.phone} {u.email && `| ${u.email}`}</div>
+                <div style={{ color: '#666', fontSize: '14px' }}>{formatPhone(u.phone)} {u.email && `| ${u.email}`}</div>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <ButtonWithTooltip 

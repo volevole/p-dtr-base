@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser } from 'react-icons/fa';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
+import { formatPhone, formatPhoneInput } from '../utils/formatPhone';
 import API_URL from '../config/api';
 
 export default function ClientsPage() {
@@ -19,14 +20,14 @@ export default function ClientsPage() {
   // Состояние для формы добавления
   const [showForm, setShowForm] = useState(false);
   const [newClient, setNewClient] = useState({ 
-    name: '', phone: '', email: '', birthday: '', gender: '', 
+    name: '', phone: '+79', email: '', birthday: '', gender: '', 
     height: '', weight: '', age: '' // 👈 Доп. поля
   });
 
     // Состояния для модального окна редактирования
     const [selectedClient, setSelectedClient] = useState(null);
     const [editClientData, setEditClientData] = useState({
-        name: '', phone: '', email: '', birthday: '', gender: '',
+        name: '', phone: '+79', email: '', birthday: '', gender: '',
         address: '', notes: '', children_info: '', is_active: true,
         age: '', height: '', weight: ''
     });
@@ -152,7 +153,7 @@ export default function ClientsPage() {
       
       if (data.success) {
         setClients([...clients, data.data]);
-        setNewClient({ name: '', phone: '', email: '', birthday: '', gender: '', height: '', weight: '' });
+        setNewClient({ name: '', phone: '+79', email: '', birthday: '', gender: '', height: '', weight: '' });
         setShowForm(false);
       } else {
         alert('Ошибка: ' + data.error);
@@ -321,7 +322,16 @@ export default function ClientsPage() {
             {/* 2. Телефон */}
             <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
               <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px', fontWeight: 'bold', color: '#0056b3' }}>Телефон</label>
-              <input type="tel" value={newClient.phone} onChange={e => setNewClient({...newClient, phone: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} />
+              <input 
+                type="tel" 
+                value={newClient.phone} 
+                onChange={e => {
+                  const formatted = formatPhoneInput(e.target.value);
+                  setNewClient({...newClient, phone: formatted});
+                }} 
+                placeholder="+7 (___) ___-__-__"
+                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }} 
+              />
             </div>
 
             {/* 3. Дата рождения */}
@@ -402,7 +412,7 @@ export default function ClientsPage() {
               <div>
                 <h3 style={{ margin: '0 0 5px 0', color: '#0d47a1' }}><FaUser /> {client.name}</h3>
                 <div style={{ fontSize: '14px', color: '#666' }}>
-                  {client.phone && <span style={{ marginRight: '15px' }}>📞 {client.phone}</span>}
+                  {client.phone && <span style={{ marginRight: '15px' }}>📞 {formatPhone(client.phone)}</span>}
                   {client.extra_data?.height && <span style={{ marginRight: '15px' }}>📏 {client.extra_data.height} см</span>}
                   {client.extra_data?.weight && <span>⚖️ {client.extra_data.weight} кг</span>}
                 </div>
@@ -503,7 +513,7 @@ export default function ClientsPage() {
                   </div>  
 
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Дети (информация)</label>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Дети, родители, семья</label>
                     <textarea value={editClientData.children_info} onChange={e => setEditClientData({...editClientData, children_info: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', height: '60px' }} />
                   </div>
 

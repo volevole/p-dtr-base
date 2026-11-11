@@ -2756,7 +2756,26 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
   }
 });
 
+// PUT /api/profile/name — обновить имя пользователя
+app.put('/api/profile/name', requireAuth, async (req, res) => {
+  const { name } = req.body;
+  const client = await connectDB();
 
+  if (!name || name.trim().length === 0) {
+    return res.status(400).json({ success: false, error: 'Имя не может быть пустым' });
+  }
+
+  try {
+    await client.query(
+      'UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2',
+      [name.trim(), req.user.id]
+    );
+    res.json({ success: true, message: 'Имя обновлено' });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/profile/name:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 /////    ниже старые эндпоинты, а выше новые через рег.ру
 

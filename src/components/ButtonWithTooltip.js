@@ -1,5 +1,6 @@
+// src/components/ButtonWithTooltip.js
 import React, { useState, useRef } from 'react';
-import { Link } from 'react-router-dom'; // 👈 Добавляем импорт
+import { Link } from 'react-router-dom';
 
 export default function ButtonWithTooltip({ children, onClick, tooltip, style, disabled, to, ...props }) {
   const [showToast, setShowToast] = useState(false);
@@ -29,14 +30,13 @@ export default function ButtonWithTooltip({ children, onClick, tooltip, style, d
     if (onClick) onClick(e);
   };
 
-    // 👈 Общие пропсы для кнопки и ссылки
+  // 👈 Общие пропсы для кнопки и ссылки
   const commonProps = {
     onClick: handleClick,
     onPointerDown: startPress,
     onPointerUp: endPress,
     onPointerLeave: endPress,
     onPointerCancel: endPress,
-    // 👈 БЛОКИРУЕМ СИСТЕМНОЕ МЕНЮ (работает для Chrome на Android и ПК)
     onContextMenu: (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -46,7 +46,17 @@ export default function ButtonWithTooltip({ children, onClick, tooltip, style, d
       ...style, 
       userSelect: 'none', 
       WebkitTouchCallout: 'none',
-      WebkitUserSelect: 'none'
+      WebkitUserSelect: 'none',
+      
+      // 👈 ЖЕСТКИЙ СБРОС БРАУЗЕРНЫХ СТИЛЕЙ
+      margin: 0,
+      padding: style?.padding || 0, // Если паддинг не задан, ставим 0
+      lineHeight: 1,               // Убираем лишнюю высоту строки
+      boxSizing: 'border-box',     // Чтобы padding не увеличивал общий размер
+      textDecoration: 'none',      // Убираем подчеркивание у ссылок
+      display: style?.display || 'flex', // По умолчанию флекс, чтобы центрировать контент
+      alignItems: 'center',
+      justifyContent: 'center'
     },
     ...props
   };
@@ -62,7 +72,6 @@ export default function ButtonWithTooltip({ children, onClick, tooltip, style, d
     </div>
   );
 
-  // Если передан "to", рендерим ссылку, иначе — кнопку
   if (to) {
     return (
       <>

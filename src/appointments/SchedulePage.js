@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt, FaPlus, FaEdit } from 'react-icons/fa';
 import API_URL from '../config/api';
+import { formatPhoneInput, formatPhone } from '../utils/formatPhone';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
 
 // Компонент поиска клиента
@@ -55,7 +56,7 @@ function ClientSearch({ clients, value, onChange, onAddNew }) {
                 onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
                 onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
               >
-                {c.name} <span style={{color: '#999', fontSize: '11px'}}>{c.phone}</span>
+                {c.name} <span style={{color: '#999', fontSize: '11px'}}>{formatPhone(c.phone)}</span>
               </div>
             ))
           )}
@@ -107,7 +108,7 @@ export default function SchedulePage() {
 
 // Состояние для быстрого добавления клиента из расписания
   const [quickClientModal, setQuickClientModal] = useState({ isOpen: false, initialName: '' });
-  const [quickClientData, setQuickClientData] = useState({ name: '', phone: '', address: '' });
+  const [quickClientData, setQuickClientData] = useState({ name: '', phone: '+79', address: '' });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState(null);
@@ -465,7 +466,7 @@ export default function SchedulePage() {
 
         // 3. Закрываем окно быстрого добавления
         setQuickClientModal({ isOpen: false, initialName: '' });
-        setQuickClientData({ name: '', phone: '', address: '' });
+        setQuickClientData({ name: '', phone: '+79', address: '' });
       } else {
         alert('Ошибка: ' + data.error);
       }
@@ -984,26 +985,45 @@ export default function SchedulePage() {
                       value={newAppt.client_id} 
                       onChange={(id) => setNewAppt({...newAppt, client_id: id})} 
                       onAddNew={(initialName) => {
-                        setQuickClientData({ name: initialName, phone: '', address: '' });
+                        setQuickClientData({ name: initialName, phone: '+79', address: '' });
                         setQuickClientModal({ isOpen: true, initialName });
                       }}
                     />
                   </div>
-                  
-                  {/* 👈 Кнопка перехода в карточку (показываем, только если клиент выбран) */}
-                  {newAppt.client_id && (
+                                    
+                    {/* 👈 Кнопка перехода в карточку (показываем, только если клиент выбран) */}
+                    {newAppt.client_id && (
                     <ButtonWithTooltip 
-                      to={`/appointments/clients?editClient=${newAppt.client_id}&returnToAppt=&date=${selectedDate}`}
-                      tooltip="Открыть карточку клиента для редактирования"
+                      type="button"
+                      onClick={() => alert('Сначала сохраните запись на приём. После этого вы сможете отредактировать карточку клиента.')}
+                      tooltip="Сначала сохраните запись"
                       style={{ 
-                        padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#007bff', 
-                        border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', 
-                        alignItems: 'center', justifyContent: 'center', textDecoration: 'none' 
+                        padding: 0, 
+                        backgroundColor: '#e3f2fd', 
+                        color: '#007bff', 
+                        border: '1px solid #90caf9', 
+                        borderRadius: '4px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        cursor: 'not-allowed',
+                        minWidth: '34px',       // 👈 ДОБАВЛЯЕМ, чтобы запретить расширение
+                        maxWidth: '34px',       // 👈 ДОБАВЛЯЕМ, чтобы запретить расширение
+                        minHeight: '34px',      
+                        maxHeight: '34px',
+                        margin: 0,              
+                        boxSizing: 'border-box',
+                        flexShrink: 0,
+                        overflow: 'hidden'
                       }}
                     >
-                      <FaEdit /> 
+                      {/* 👈 Запрещаем этому div'у растягиваться */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0, flexShrink: 0 }}>
+                        <FaEdit size={14} style={{ display: 'block' }} /> {/* 👈 Уменьшили иконку до 14, чтобы точно влезла */}
+                      </div>
                     </ButtonWithTooltip>
                   )}
+
                 </div>
               </div>
 
@@ -1073,23 +1093,23 @@ export default function SchedulePage() {
                   <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#0056b3', margin: 0 }}>Примечание к записи (адрес, детали)</label>
                   
                   {/* 👈 Кнопки добавления адреса */}
-                  <div style={{ display: 'flex', gap: '5px' }}>
-                    <button 
+                  <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                    <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendClientAddress(false)} 
-                      title="Добавить адрес клиента"
-                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                      tooltip="Добавить адрес клиента"
+                      style={{ padding: '4px 8px', fontSize: '11px', lineHeight: '1.2', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer', height: 'auto', minHeight: 'auto' }}
                     >
                       + Адрес клиента
-                    </button>
-                    <button 
+                    </ButtonWithTooltip>
+                    <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendLocationAddress(false)} 
-                      title="Добавить адрес места"
-                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                      tooltip="Добавить адрес места"
+                      style={{ padding: '4px 8px', fontSize: '11px', lineHeight: '1.2', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer', height: 'auto', minHeight: 'auto' }}
                     >
                       + Адрес места
-                    </button>
+                    </ButtonWithTooltip>
                   </div>
                 </div>
 
@@ -1174,7 +1194,7 @@ export default function SchedulePage() {
                       value={editApptData.client_id} 
                       onChange={(id) => setEditApptData({...editApptData, client_id: id})} 
                       onAddNew={(initialName) => {
-                        setQuickClientData({ name: initialName, phone: '', address: '' });
+                        setQuickClientData({ name: initialName, phone: '+79', address: '' });
                         setQuickClientModal({ isOpen: true, initialName });
                       }}
                     />
@@ -1185,12 +1205,30 @@ export default function SchedulePage() {
                       to={`/appointments/clients?editClient=${editApptData.client_id}&returnToAppt=${selectedAppt.id}&date=${selectedDate}`}
                       tooltip="Открыть карточку клиента для редактирования"
                       style={{ 
-                        padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#007bff', 
-                        border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', 
-                        alignItems: 'center', justifyContent: 'center', textDecoration: 'none' 
+                        padding: 0, 
+                        backgroundColor: '#e3f2fd', 
+                        color: '#007bff', 
+                        border: '1px solid #90caf9', 
+                        borderRadius: '4px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        textDecoration: 'none',
+                        width: '34px',         
+                        height: '34px',         
+                        minWidth: '34px',       
+                        maxWidth: '34px',       
+                        minHeight: '34px',      
+                        maxHeight: '34px',
+                        margin: 0,              
+                        boxSizing: 'border-box',
+                        flexShrink: 0,
+                        overflow: 'hidden'
                       }}
                     >
-                      <FaEdit /> 
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0 }}>
+                        <FaEdit size={14} style={{ display: 'block' }} />
+                      </div>
                     </ButtonWithTooltip>
                   )}
                 </div>
@@ -1320,7 +1358,7 @@ export default function SchedulePage() {
                       type="button" 
                       onClick={() => appendClientAddress(true)} 
                       tooltip="Добавить адрес клиента в текст"
-                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ padding: '2px 6px', fontSize: '11px', lineHeight: '1.2', height: 'auto', minHeight: 'auto', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       + Адрес клиента
                     </ButtonWithTooltip>
@@ -1328,7 +1366,7 @@ export default function SchedulePage() {
                       type="button" 
                       onClick={() => appendLocationAddress(true)} 
                       tooltip="Добавить адрес места в текст"
-                      style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
+                      style={{ padding: '2px 6px', fontSize: '11px', lineHeight: '1.2', height: 'auto', minHeight: 'auto', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
                       + Адрес места
                     </ButtonWithTooltip>
@@ -1339,7 +1377,7 @@ export default function SchedulePage() {
                          type="button" 
                          onClick={() => openNavigator(clients.find(c => c.id === editApptData.client_id).address)} 
                          tooltip="Поехали к клиенту с Яндекс-Навигатором"
-                         style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                         style={{ padding: '2px 6px', fontSize: '11px', lineHeight: '1.2', height: 'auto', minHeight: 'auto', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                        >
                          🚗 К клиенту
                        </ButtonWithTooltip>
@@ -1349,7 +1387,7 @@ export default function SchedulePage() {
                          type="button" 
                          onClick={() => openNavigator(locations.find(l => l.id === editApptData.location_id).address)} 
                          tooltip="Поехали к месту с Яндекс-Навигатором"
-                         style={{ padding: '2px 6px', fontSize: '11px', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                         style={{ padding: '2px 6px', fontSize: '11px', lineHeight: '1.2', height: 'auto', minHeight: 'auto', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                        >
                          🚗 К месту
                        </ButtonWithTooltip>
@@ -1471,7 +1509,7 @@ export default function SchedulePage() {
               
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Телефон</label>
-                <input type="tel" value={quickClientData.phone} onChange={e => setQuickClientData({...quickClientData, phone: e.target.value})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                <input type="tel" value={quickClientData.phone} onChange={e => setQuickClientData({...quickClientData, phone: formatPhoneInput(e.target.value)})} style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
               </div>
 
               <div style={{ marginBottom: '15px' }}>

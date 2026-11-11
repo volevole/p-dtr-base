@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { FaArrowLeft, FaSave, FaUser, FaCalendarAlt, FaClock, FaStickyNote, FaList, FaFileAlt, FaEllipsisV } from 'react-icons/fa';
 import API_URL from '../config/api';
 import { SPECIALIZATION_CONFIG, renderSpecializationField } from './specializationFields';
+import { formatPhone } from '../utils/formatPhone';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
 
 
@@ -382,7 +383,7 @@ export default function AppointmentDetailPage() {
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0d47a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FaUser /> {appt.client_name || 'Без клиента'}
               </div>
-              {appt.client_phone && <div style={{ fontSize: '13px', color: '#495057' }}>{appt.client_phone}</div>}
+              {appt.client_phone && <div style={{ fontSize: '13px', color: '#495057' }}>{formatPhone(appt.client_phone)}</div>}
             </div>
 
             <div>

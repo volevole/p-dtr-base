@@ -204,12 +204,20 @@ router.get('/clients', async (req, res) => {
   const { search } = req.query;
 
   try {
-    let query = 'SELECT * FROM appt_clients WHERE master_id = $1';
+        let query = 'SELECT * FROM appt_clients WHERE master_id = $1';
     const params = [req.user.id];
 
     if (search) {
-      query += ' AND (name ILIKE $2 OR phone ILIKE $2)';
-      params.push(`%${search}%`);
+      // 👈 Очищаем поисковый запрос от всех нецифровых символов (кроме плюса)
+      const cleanSearch = search.replace(/[^\d+]/g, '');
+      
+      // Ищем либо по имени, либо по номеру телефона (предварительно очистив сам телефон в базе от пробелов)
+      query += ` AND (
+        name ILIKE $2 
+        OR regexp_replace(phone, '[^\\d+]', '', 'g') ILIKE $3
+      )`;
+      params.push(`%${search}%`); // Для имени (оставляем как ввели)
+      params.push(`%${cleanSearch}%`); // Для телефона (только цифры)
     }
 
     query += ' ORDER BY name ASC';
