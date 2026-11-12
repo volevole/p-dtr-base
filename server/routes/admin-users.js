@@ -21,7 +21,7 @@ const SUPPORTED_ROLES = [
   // Все роуты — только для admin
   router.use(requireAuth, requireRole('admin'));
   
-  /**
+    /**
    * GET /api/admin/users — список всех пользователей
    */
   router.get('/', async (req, res) => {
@@ -31,7 +31,10 @@ const SUPPORTED_ROLES = [
         SELECT 
           u.id, u.phone, u.name, u.email, u.is_active, 
           u.created_at, u.last_login_at,
-          COALESCE(ARRAY_AGG(ur.role) FILTER (WHERE ur.role IS NOT NULL), '{}') AS roles
+          COALESCE(ARRAY_AGG(ur.role) FILTER (WHERE ur.role IS NOT NULL), '{}') AS roles,
+          -- 👈 Подсчет клиентов и приёмов
+          (SELECT COUNT(*) FROM appt_clients c WHERE c.master_id = u.id) AS clients_count,
+          (SELECT COUNT(*) FROM appointments a WHERE a.master_id = u.id) AS appointments_count
         FROM users u
         LEFT JOIN user_roles ur ON ur.user_id = u.id
         GROUP BY u.id
@@ -247,5 +250,116 @@ const SUPPORTED_ROLES = [
     }
   });
   
-  
+    /**
+   * GET /api/admin/users/:id/activity — детальный отчет об активности
+   */
+  router.get('/:id/activity', async (req, res) => {
+    const { id } = req.params;
+    const client = await connectDB();
+
+    try {
+      // 1. Основная инфа о юзере и последний логин
+      const userRes = await client.query('SELECT name, phone, last_login_at, created_at FROM users WHERE id = $1', [id]);
+      if (userRes.rowCount === 0) return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+      
+      // 2. Специализации
+      const specsRes = await client.query(
+        `SELECT s.name FROM appt_master_specializations ms
+         JOIN appt_specializations s ON s.code = ms.specialization_code
+         WHERE ms.master_id = $1`, [id]
+      );
+
+      // 3. Услуги (сгруппированные по специализациям)
+      const servRes = await client.query(
+        `SELECT specialization_code, COUNT(*) as count 
+         FROM appt_services WHERE master_id = $1 
+         GROUP BY specialization_code`, [id]
+      );
+
+      // 4. Клиенты: общее кол-во, первый/последний, и источники
+      const clientsRes = await client.query(
+        `SELECT 
+           COUNT(*) as total,
+           MIN(created_at) as first_client,
+           MAX(created_at) as last_client
+         FROM appt_clients WHERE master_id = $1`, [id]
+      );
+      
+      const sourcesRes = await client.query(
+        `SELECT COALESCE(src.name, 'Не указан') as source_name, COUNT(c.id) as count
+         FROM appt_clients c
+         LEFT JOIN appt_sources src ON src.id = c.source_id
+         WHERE c.master_id = $1
+         GROUP BY src.name`, [id]
+      );
+
+      // 5. Приёмы по статусам
+      const apptsRes = await client.query(
+        `SELECT status, COUNT(*) as count 
+         FROM appointments WHERE master_id = $1 
+         GROUP BY status`, [id]
+      );
+
+      // 6. Логи авторизации (последние 10)
+      const authLogsRes = await client.query(
+        `SELECT action, status, created_at, ip_address, details 
+         FROM auth_logs WHERE phone = $1 
+         ORDER BY created_at DESC LIMIT 10`, [userRes.rows[0].phone]
+      );
+
+      // 7. Сессии (последние 5)
+      const sessionsRes = await client.query(
+        `SELECT user_agent, ip_address, created_at, expires_at 
+         FROM user_sessions WHERE user_id = $1 
+         ORDER BY created_at DESC LIMIT 5`, [id]
+      );
+
+      // 8. demo_requests (если есть такая таблица)
+      // 👈 Если таблицы demo_requests нет, этот блок можно удалить
+      let demoRequests = [];
+      try {
+        const demoRes = await client.query(
+          `SELECT * FROM demo_requests WHERE user_id = $1 OR phone = $2 ORDER BY created_at DESC LIMIT 5`, 
+          [id, userRes.rows[0].phone]
+        );
+        demoRequests = demoRes.rows;
+      } catch (e) {
+        console.log('Таблица demo_requests не найдена или другая структура');
+      }
+
+      // 9. user_settings
+      let settings = null;
+      try {
+        const settingsRes = await client.query(
+          `SELECT * FROM user_settings WHERE user_id = $1`, [id]
+        );
+        if (settingsRes.rowCount > 0) settings = settingsRes.rows[0];
+      } catch (e) {
+        console.log('Таблица user_settings не найдена');
+      }
+
+      res.json({
+        success: true,
+        data: {
+          user: userRes.rows[0],
+          specs: specsRes.rows.map(r => r.name),
+          services: servRes.rows,
+          clients: {
+            ...clientsRes.rows[0],
+            sources: sourcesRes.rows
+          },
+          appointments: apptsRes.rows,
+          authLogs: authLogsRes.rows,
+          sessions: sessionsRes.rows,
+          demoRequests,
+          settings
+        }
+      });
+    } catch (error) {
+      console.error('[ERROR] GET /api/admin/users/:id/activity:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+
 module.exports = router;

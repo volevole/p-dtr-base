@@ -466,8 +466,8 @@ export default function SettingsProfilePage() {
           flexWrap: 'nowrap'                       // 👈 Запрещаем перенос на новую строку
         }}>
           <div style={{ 
-            width: isMobile ? '70px' : '100px',    // 👈 Уменьшаем аватар на мобилке
-            height: isMobile ? '70px' : '100px', 
+            width: isMobile ? '110px' : '120px',    // 👈 Уменьшаем аватар на мобилке
+            height: isMobile ? '110px' : '120px', 
             borderRadius: '50%', backgroundColor: '#e9ecef', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #dee2e6', flexShrink: 0 
           }}>
             {avatarUrl ? (
