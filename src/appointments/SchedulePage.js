@@ -586,9 +586,17 @@ export default function SchedulePage() {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (data.success) {
-        setSelectedAppt(null);
-        fetchData();
+       if (data.success) {
+        setSelectedAppt(null); // Закрываем модалку
+        
+        // 👈 Проверяем, изменилась ли дата
+        if (editApptData.date !== selectedDate) {
+          // Если да, переключаем сетку на новую дату
+          setSelectedDate(editApptData.date);
+        } else {
+          // Если дата та же, просто обновляем данные (чтобы обновились время, услуга и т.д.)
+          fetchData();
+        }
       } else {
         alert('Ошибка: ' + data.error);
       }
@@ -1160,7 +1168,7 @@ export default function SchedulePage() {
                 Редактирование записи на приём
                 </h3>
                 
-                <form onSubmit={handleUpdateAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+          <form onSubmit={handleUpdateAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
               
             <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>              
                <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>

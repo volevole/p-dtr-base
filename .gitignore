@@ -10,6 +10,7 @@ node_modules/
 
 # production
 /build
+/larchik
 
 # misc
 .DS_Store

@@ -1,4 +1,5 @@
 // src/index.js
+import 'core-js/actual/iterator';  // чтобы не глючили старые браузеры
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
 import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaSave } from 'react-icons/fa';
+import { formatPhone } from './utils/formatPhone';
 import API_URL from './config/api';
 
 export default function SettingsProfilePage() {
@@ -372,7 +373,8 @@ export default function SettingsProfilePage() {
         }
         
         // Сбрасываем форму
-        setNewLocation({ name: '', address: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
+        setNewLocation({ name: '', address: '', description: '', 
+                        buffer_before_minutes: 0, buffer_after_minutes: 0 });
         setEditingLocationId(null);
         
         // 👈 Плавно скроллим к списку мест
@@ -388,7 +390,7 @@ export default function SettingsProfilePage() {
   };
 
   const handleCancelLocationEdit = () => {
-    setNewLocation({ name: '', address: '', description: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
+    setNewLocation({ name: '', address: '', description: '', description: '', buffer_before_minutes: 0, buffer_after_minutes: 0 });
     setEditingLocationId(null);
   };
 
@@ -508,7 +510,7 @@ export default function SettingsProfilePage() {
             </div>
             
             <div style={{ color: '#495057', fontSize: isMobile ? '13px' : '15px', marginBottom: '8px' }}>
-              {user?.phone ? `📞 ${user.phone}` : 'Телефон не указан'}
+              {user?.phone ? `📞 ${formatPhone(user.phone)}` : 'Телефон не указан'}
             </div>
             
             <input type="file" id="avatar-upload" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} disabled={uploadingAvatar} />
@@ -809,9 +811,21 @@ export default function SettingsProfilePage() {
               </div>
 
               {/* 👈 НОВОЕ ПОЛЕ: Описание */}
-              <div style={{ flex: 1, minWidth: '200px' }}>
+                            <div style={{ flex: 1, minWidth: '200px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Описание (необязательно)</label>
-                <input type="text" placeholder="Например: вход со двора" value={newLocation.description} onChange={e => setNewLocation({...newLocation, description: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+                <textarea 
+                  placeholder="Например: вход со двора" 
+                  value={newLocation.description} 
+                  onChange={e => setNewLocation({...newLocation, description: e.target.value})} 
+                  style={{ 
+                    width: '100%', 
+                    padding: '8px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '4px', 
+                    minHeight: '38px', // Высота как у инпута
+                    resize: 'vertical' // 👈 Разрешаем тянуть вниз
+                  }} 
+                />
               </div>
 
               <div style={{ width: '130px' }}>

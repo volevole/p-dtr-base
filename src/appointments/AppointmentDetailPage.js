@@ -468,11 +468,11 @@ export default function AppointmentDetailPage() {
 
         {/* Медицинские данные */}
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6' }}>
-          <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px', color: '#0d47a1' }}>Медицинская карта</h3>
+          <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px', color: '#0d47a1' }}>Карта приёма</h3>
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#0056b3' }}>
-              Жалобы (Chief Complaint)
+              Жалобы, запросы клиента
             </label>
             <textarea
               value={chiefComplaint}

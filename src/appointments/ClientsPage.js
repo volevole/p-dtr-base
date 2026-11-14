@@ -1,7 +1,7 @@
 // src/appointments/ClientsPage.js
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaUser } from 'react-icons/fa';
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaEllipsisV, FaUser } from 'react-icons/fa';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
 import { formatPhone, formatPhoneInput } from '../utils/formatPhone';
 import API_URL from '../config/api';
@@ -14,7 +14,10 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sources, setSources] = useState([]);
-  const navigate = useNavigate();
+  
+  const navigate = useNavigate(); // 👈 Для перехода
+  const [clientAppts, setClientAppts] = useState([]);
+  const [isClientMenuOpen, setIsClientMenuOpen] = useState(false);
   
   const [error, setError] = useState('');
   // Состояние для формы добавления
@@ -163,7 +166,7 @@ export default function ClientsPage() {
     }
   };
 
-  const handleEditClient = (client) => {
+  const handleEditClient = async (client) => {
     setSelectedClient(client);
     
     // Извлекаем доп. данные из JSON, если они есть
@@ -184,6 +187,21 @@ export default function ClientsPage() {
       weight: extra.weight || '',
       source_id: client.source_id || null
     });
+
+    // 👈 Загружаем приёмы клиента (как в карточке приёма)
+    try {
+      const res = await fetch(`${API_URL}/api/appt/schedule/list?limit=500`, { credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        const history = data.data
+          .filter(a => a.client_id === client.id)
+          .sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date)); // Сортируем от старых к новым
+        setClientAppts(history);
+      }
+    } catch (err) {
+      console.error('Ошибка загрузки приёмов клиента:', err);
+    }
+  
   };
 
     const handleSaveClient = async (e) => {
@@ -532,32 +550,88 @@ export default function ClientsPage() {
 
               {/* Кнопки управления */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px', gap: '8px' }}>
-                <button 
-                  type="button" 
-                  onClick={() => { if(window.confirm('Удалить клиента?')) handleDelete(selectedClient.id); }}
-                  title="Удалить клиента"
-                  style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                >
-                  <FaTrash />
-                </button>
                 
+                {/* 1. Левая часть: Удалить */}
+                <div>
+                  <ButtonWithTooltip 
+                    type="button" 
+                    onClick={() => { if(window.confirm('Удалить клиента?')) handleDelete(selectedClient.id); }}
+                    tooltip="Удалить клиента"
+                    style={{ padding: '8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                  >
+                    <FaTrash />
+                  </ButtonWithTooltip>
+                </div>
+
+                {/* 2. Центральная часть: Три точки с меню */}
+                <div style={{ position: 'relative' }}>
+                  <ButtonWithTooltip 
+                    type="button"
+                    onClick={() => setIsClientMenuOpen(!isClientMenuOpen)}
+                    tooltip="Дополнительные действия"
+                    style={{ padding: '8px 12px', backgroundColor: '#f8f9fa', color: '#495057', border: '1px solid #dee2e6', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    <FaEllipsisV />
+                  </ButtonWithTooltip>
+
+                  {isClientMenuOpen && (
+                    <>
+                      <div onClick={() => setIsClientMenuOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }} />
+                      <div style={{
+                        position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: '8px',
+                        backgroundColor: 'white', border: '1px solid #dee2e6', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000, minWidth: '200px', overflow: 'hidden'
+                      }}>
+                        <button 
+                          onClick={() => {
+                            if (clientAppts.length > 0) {
+                              navigate(`/appointments/${clientAppts[0].id}`);
+                            } else {
+                              alert('У этого клиента ещё нет приёмов');
+                            }
+                            setIsClientMenuOpen(false);
+                          }}
+                          style={{ padding: '10px 15px', border: 'none', background: 'transparent', width: '100%', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: '14px' }}
+                        >
+                          ⏮️ Открыть первый приём
+                        </button>
+
+                        <button 
+                          onClick={() => {
+                            if (clientAppts.length > 0) {
+                              navigate(`/appointments/${clientAppts[clientAppts.length - 1].id}`);
+                            } else {
+                              alert('У этого клиента ещё нет приёмов');
+                            }
+                            setIsClientMenuOpen(false);
+                          }}
+                          style={{ padding: '10px 15px', border: 'none', background: 'transparent', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '14px' }}
+                        >
+                          ⏭️ Открыть последний приём
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* 3. Правая часть: Отмена / Сохранить */}
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
+                  <ButtonWithTooltip 
                     type="button" 
                     onClick={() => setSelectedClient(null)} 
+                    tooltip="Закрыть без сохранения"
                     style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer' }}
                   >
                     Отмена
-                  </button>
-                  <button 
+                  </ButtonWithTooltip>
+                  <ButtonWithTooltip 
                     type="submit" 
+                    tooltip="Сохранить изменения"
                     style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                   >
                     Сохранить
-                  </button>
+                  </ButtonWithTooltip>
                 </div>
               </div>
-
             </form>
           </div>
         </div>
