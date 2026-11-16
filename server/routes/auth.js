@@ -416,4 +416,46 @@ const registerLimiter = rateLimit({
     }
   });
 
+// POST /api/push/subscribe — сохранить подписку на пуши
+app.post('/api/push/subscribe', requireAuth, async (req, res) => {
+  const { subscription } = req.body;
+  const client = await connectDB();
+
+  if (!subscription) return res.status(400).json({ success: false, error: 'Нет данных подписки' });
+
+  try {
+    // Используем ON CONFLICT, чтобы не дублировать подписки одного и того же устройства
+    await client.query(
+      `INSERT INTO push_subscriptions (user_id, subscription) 
+       VALUES ($1, $2) 
+       ON CONFLICT (user_id, subscription) DO NOTHING`,
+      [req.user.id, subscription]
+    );
+    res.json({ success: true, message: 'Подписка сохранена' });
+  } catch (error) {
+    console.error('[ERROR] POST /api/push/subscribe:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+  
+  /**
+   * post тестовый эндпоинт, который вручную отправит пуш на твой ID.
+   */ 
+app.post('/api/test-push', async (req, res) => {
+  const { userId } = req.body;
+  const { sendPushToUser } = require('./services/notifications');
+  
+  try {
+    await sendPushToUser(userId, {
+      title: 'Тестовое уведомление',
+      body: 'Если ты это видишь, значит пуши работают!',
+      url: '/larchik/appointments'
+    });
+    res.json({ success: true, message: 'Пуш отправлен' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

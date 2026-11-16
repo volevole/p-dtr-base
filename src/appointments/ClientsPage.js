@@ -269,11 +269,23 @@ export default function ClientsPage() {
   return (
     <div className="detail-container" style={{ 
       maxWidth: '1000px', 
-      padding: isMobile ? '1px' : '32px', // 👈 Уменьшаем отступы на мобилке      
-        boxSizing: 'border-box'
-      }}>
+      padding: isMobile ? '5px' : '32px', 
+      paddingTop: isMobile ? '0' : '32px', // 👈 Убираем отступ сверху на мобилке
+      boxSizing: 'border-box',
+      marginTop: isMobile ? '-10px' : '0' // 👈 Чуть-чуть подтягиваем вверх
+    }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 className="detail-title" style={{ margin: 0 }}>Мои клиенты</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+          <h1 className="detail-title" style={{ margin: 0 }}>Мои клиенты</h1>
+          <span style={{ 
+            backgroundColor: '#e3f2fd', color: '#0056b3', 
+            padding: '4px 12px', borderRadius: '16px', 
+            fontSize: isMobile ? '14px' : '16px', fontWeight: 'bold',
+            border: '1px solid #90caf9'
+          }}>
+             {clients.length}
+          </span>
+        </div>
         <button 
           onClick={() => setShowForm(!showForm)}
           style={{ padding: '10px 20px', backgroundColor: showForm ? '#6c757d' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -284,15 +296,56 @@ export default function ClientsPage() {
 
       {/* Поиск */}
       <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <input 
-          type="text" 
-          placeholder="Поиск по имени или телефону..." 
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}
-        />
-        <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          <FaSearch /> Найти
+        
+        {/* 👈 Оборачиваем инпут в контейнер для позиционирования крестика */}
+        <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+          <input 
+            type="text" 
+            placeholder="Поиск по имени или телефону..." 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ 
+              width: '100%', 
+              padding: '10px', 
+              paddingRight: search ? '35px' : '10px', // Оставляем место под крестик, если есть текст
+              borderRadius: '4px', 
+              border: '1px solid #ddd',
+              boxSizing: 'border-box'
+            }}
+          />
+          
+          {/* Кнопка очистки */}
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch(''); // Очищаем стейт
+                fetchClients(''); // Сразу загружаем всех клиентов без фильтра
+              }}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#999',
+                fontSize: '16px',
+                padding: '0 5px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Очистить поиск"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <FaSearch /> {!isMobile && 'Найти'}
         </button>
       </form>
 

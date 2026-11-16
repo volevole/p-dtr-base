@@ -4500,6 +4500,10 @@ app.get('/api/media-file/:id', async (req, res) => {
   });
 
 // ДОБАВЬТЕ в самый конец файла, перед app.listen:
+const { startNotificationCron } = require('./services/notifications');
+// ...
+// Запускаем cron-задачу
+startNotificationCron();
 
 console.log('Test end points:');
 console.log('Test GET  /api/check-token               :  http://localhost:3001/api/check-token');

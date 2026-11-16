@@ -204,20 +204,32 @@ router.get('/clients', async (req, res) => {
   const { search } = req.query;
 
   try {
-        let query = 'SELECT * FROM appt_clients WHERE master_id = $1';
+    let query = 'SELECT * FROM appt_clients WHERE master_id = $1';
     const params = [req.user.id];
 
     if (search) {
-      // 👈 Очищаем поисковый запрос от всех нецифровых символов (кроме плюса)
-      const cleanSearch = search.replace(/[^\d+]/g, '');
-      
-      // Ищем либо по имени, либо по номеру телефона (предварительно очистив сам телефон в базе от пробелов)
-      query += ` AND (
-        name ILIKE $2 
-        OR regexp_replace(phone, '[^\\d+]', '', 'g') ILIKE $3
-      )`;
-      params.push(`%${search}%`); // Для имени (оставляем как ввели)
-      params.push(`%${cleanSearch}%`); // Для телефона (только цифры)
+      // Очищаем поиск: только цифры для телефона, текст для имени
+      const cleanPhone = search.replace(/\D/g, '');
+      const cleanName = search.replace(/[\d+]/g, '').trim(); // Убираем цифры и плюсы для поиска по имени
+
+      const conditions = [];
+
+      // Если в поиске есть буквы — ищем по имени
+      if (cleanName.length > 0) {
+        params.push(`%${cleanName}%`);
+        conditions.push(`name ILIKE $${params.length}`);
+      }
+
+      // Если в поиске есть цифры — ищем по телефону
+      if (cleanPhone.length > 0) {
+        params.push(`%${cleanPhone}%`);
+        conditions.push(`regexp_replace(phone, '[^\\d]', '', 'g') ILIKE $${params.length}`);
+      }
+
+      // Если ввели что-то странное (только пробелы), не добавляем фильтр
+      if (conditions.length > 0) {
+        query += ` AND (${conditions.join(' OR ')})`;
+      }
     }
 
     query += ' ORDER BY name ASC';
