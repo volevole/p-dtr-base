@@ -873,7 +873,7 @@ export default function SchedulePage() {
                       appt.record_notes && (
                         <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#495057', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
                           <FaStickyNote style={{ fontSize: '11px', color: '#6c757d', marginTop: '2px', flexShrink: 0 }}/> 
-                          <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{appt.record_notes}</span>
+                          <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left' }}>{appt.record_notes}</span>
                         </div>
                       )
                     )}
@@ -890,7 +890,7 @@ export default function SchedulePage() {
                     {appt.client_name && appt.record_notes && (
                       <div style={{ fontSize: '11px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
                         <FaStickyNote style={{ fontSize: '11px', color: '#adb5bd', marginTop: '2px', flexShrink: 0 }}/> 
-                        <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{appt.record_notes}</span>
+                        <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left' }}>{appt.record_notes}</span>
                       </div>
                     )}
                   </div>

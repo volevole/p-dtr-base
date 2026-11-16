@@ -810,20 +810,20 @@ export default function SettingsProfilePage() {
                 <input type="text" placeholder="ул. Ленина, д. 10..." value={newLocation.address} onChange={e => setNewLocation({...newLocation, address: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
               </div>
 
-              {/* 👈 НОВОЕ ПОЛЕ: Описание */}
-                            <div style={{ flex: 1, minWidth: '200px' }}>
+                            {/* 👈 Описание (на ПК всегда на новой строке) */}
+              <div style={{ flex: isMobile ? 1 : '1 1 100%', minWidth: '200px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Описание (необязательно)</label>
                 <textarea 
                   placeholder="Например: вход со двора" 
-                  value={newLocation.description} 
+                  value={newLocation.description || ''} 
                   onChange={e => setNewLocation({...newLocation, description: e.target.value})} 
                   style={{ 
                     width: '100%', 
                     padding: '8px', 
                     border: '1px solid #ddd', 
                     borderRadius: '4px', 
-                    minHeight: '38px', // Высота как у инпута
-                    resize: 'vertical' // 👈 Разрешаем тянуть вниз
+                    minHeight: '60px', // 👈 Сделаем чуть выше, чтобы было видно, что это textarea
+                    resize: 'vertical' 
                   }} 
                 />
               </div>

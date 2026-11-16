@@ -245,16 +245,18 @@ export default function AppointmentsListPage() {
                       appt.record_notes && (
                         <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#495057', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <FaStickyNote style={{ fontSize: '13px', color: '#6c757d' }}/> 
-                          <span>{appt.record_notes}</span>
+                          <span style={{ whiteSpace: 'pre-wrap', textAlign: 'left' }}>{appt.record_notes}</span>
                         </div>
                       )
                     )}
                     
                     {/* Примечание (если есть клиент) */}
                     {appt.client_name && appt.record_notes && (
-                      <div style={{ fontSize: '12px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                        <FaStickyNote style={{ fontSize: '12px', color: '#adb5bd', marginTop: '3px' }}/> 
-                        <span>{appt.record_notes}</span>
+                      <div style={{ fontSize: '12px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'flex-start', gap: '6px', marginTop: '2px' }}>
+                        <FaStickyNote style={{ fontSize: '12px', color: '#adb5bd', marginTop: '3px', flexShrink: 0 }}/> 
+                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left' }}>
+                          {appt.record_notes}
+                        </div>
                       </div>
                     )}
 

@@ -39,7 +39,7 @@ function Sidebar({ isOpen, onToggle }) {
     const path = location.pathname;
     
     // --- Сущности ---
-    if (path === '/' || path.startsWith('/muscle')) return 'muscle';
+    if (path.startsWith('/muscle')) return 'muscle';   //path === '/' || 
     if (path.startsWith('/organ')) return 'organ';
     if (path.startsWith('/meridian')) return 'meridian';
     if (path.startsWith('/dysfunction')) return 'dysfunction';
@@ -160,7 +160,7 @@ function Sidebar({ isOpen, onToggle }) {
                           <Link to="/groups" className="sidebar-submenu-link" style={getSubMenuItemStyle('group')}><div style={getSubMenuIndicatorStyle('group')} />Группы мышц</Link>
                         </li>
                         <li style={{ marginBottom: '5px' }}>
-                          <Link to="/" className="sidebar-submenu-link" style={getSubMenuItemStyle('muscle')}><div style={getSubMenuIndicatorStyle('muscle')} />Мышцы</Link>
+                          <Link to="/muscles" className="sidebar-submenu-link" style={getSubMenuItemStyle('muscle')}><div style={getSubMenuIndicatorStyle('muscle')} />Мышцы</Link>
                         </li>
                       </ul>
                     </div>

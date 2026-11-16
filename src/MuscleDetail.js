@@ -322,7 +322,7 @@ function MuscleDetail() {
   return (
     <div className={`detail-container ${isMobile ? 'mobile-view' : ''}`}>
       <div className="detail-navigation">
-        <Link className="link-text" to="/">← Назад</Link>
+        <Link className="link-text" to="/muscles">← Назад</Link>
         
         {/* 👈 СКРЫВАЕМ КНОПКУ, ЕСЛИ НЕТ ПРАВ */}
         {canEdit && (

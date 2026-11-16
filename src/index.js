@@ -41,7 +41,15 @@ if (isLocalRoot) {
 }
 
 if (process.env.NODE_ENV === 'production') {
-  serviceWorkerRegistration.register();
+  serviceWorkerRegistration.register({
+    onUpdate: (registration) => {
+      const waitingWorker = registration.waiting;
+      if (waitingWorker) {
+        waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+      }
+      window.location.reload();
+    },
+  });
 } else {
   serviceWorkerRegistration.unregister();
 }

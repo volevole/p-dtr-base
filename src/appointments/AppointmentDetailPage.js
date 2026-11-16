@@ -410,9 +410,13 @@ export default function AppointmentDetailPage() {
           </div>
 
           {appt.record_notes && (
-            <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #dee2e6', display: 'flex', alignItems: 'center', gap: '8px', color: '#856404' }}>
-              <FaStickyNote />
-              <span style={{ fontSize: '14px' }}><strong>Примечание:</strong> {appt.record_notes}</span>
+            <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #dee2e6', display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#856404' }}>
+              <FaStickyNote style={{ marginTop: '3px', flexShrink: 0 }} /> {/* 👈 Иконка чуть выше для выравнивания с первой строкой */}
+              
+              {/* 👈 textAlign: 'left' и whiteSpace: 'pre-wrap' */}
+              <div style={{ fontSize: '14px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', textAlign: 'left', flex: 1 }}>
+                <strong>Примечание:</strong> {appt.record_notes}
+              </div>
             </div>
           )}
         </div>
@@ -496,16 +500,12 @@ export default function AppointmentDetailPage() {
         </div>
 
         {/* Блок специализации (Динамический) */}
-        {appt.specialization_code && SPECIALIZATION_CONFIG[appt.specialization_code] ? (
+        {appt.specialization_code && SPECIALIZATION_CONFIG[appt.specialization_code] && (
           <div style={{ backgroundColor: '#f0f7ff', padding: '20px', borderRadius: '8px', border: '1px solid #cce5ff' }}>
             <h3 style={{ marginTop: 0, borderBottom: '1px solid #cce5ff', paddingBottom: '10px', color: '#004085', display: 'flex', alignItems: 'center', gap: '8px' }}>
               {SPECIALIZATION_CONFIG[appt.specialization_code].icon} {SPECIALIZATION_CONFIG[appt.specialization_code].title}
             </h3>
             {renderSpecializationField(appt.specialization_code, specializationData, setSpecializationData)}
-          </div>
-        ) : (
-          <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6', textAlign: 'center', color: '#6c757d', fontSize: '14px' }}>
-            Для этой услуги не предусмотрены специфические поля.
           </div>
         )}
 
