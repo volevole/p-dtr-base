@@ -417,7 +417,7 @@ const registerLimiter = rateLimit({
   });
 
 // POST /api/push/subscribe — сохранить подписку на пуши
-app.post('/api/push/subscribe', requireAuth, async (req, res) => {
+router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убрали /api, так как оно уже есть в префиксе
   const { subscription } = req.body;
   const client = await connectDB();
 
@@ -442,7 +442,7 @@ app.post('/api/push/subscribe', requireAuth, async (req, res) => {
   /**
    * post тестовый эндпоинт, который вручную отправит пуш на твой ID.
    */ 
-app.post('/api/test-push', async (req, res) => {
+router.post('/test-push', async (req, res) => {
   const { userId } = req.body;
   const { sendPushToUser } = require('./services/notifications');
   

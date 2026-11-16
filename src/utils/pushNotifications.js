@@ -41,7 +41,7 @@ export const subscribeUserToPush = async () => {
     });
 
     // 5. Отправляем подписку на сервер
-    await fetch(`${API_URL}/api/push/subscribe`, {
+    await fetch(`${API_URL}/api/auth/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
