@@ -50,7 +50,7 @@ const startNotificationCron = () => {
         WHERE a.status != 'canceled'
           AND (
             -- Вычисляем время начала подготовки: дата приёма минус буфер "до"
-            (a.appointment_date - (a.buffer_before_minutes || 0) * interval '1 minute')
+            (a.appointment_date - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute')
             -- Проверяем, что это время ровно через 60 минут от текущего момента (с точностью до минуты)
             BETWEEN NOW() + interval '59 minutes' AND NOW() + interval '61 minutes'
           )
