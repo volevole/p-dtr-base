@@ -17,16 +17,15 @@ export const getIpGeoInfo = async (ip) => {
   if (!ip || ip === 'Не удалось определить') return null;
   
   try {
-    // Запрашиваем страну и флаг proxy (VPN/прокси)
-    // Бесплатный лимит: 45 запросов в минуту
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,proxy,hosting`);
+    // ipwho.is поддерживает HTTPS и не требует ключа
+    const res = await fetch(`https://ipwho.is/${ip}`);
     const data = await res.json();
     
-    if (data.status === 'success') {
+    if (data.success) {
       return {
         country: data.country,
-        countryCode: data.countryCode,
-        isProxy: data.proxy || data.hosting, // proxy = VPN/прокси, hosting = дата-центр
+        countryCode: data.country_code,
+        isProxy: data.security?.proxy || data.security?.vpn || false,
       };
     }
     return null;
