@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import API_URL from '../config/api';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
+import { subscribeUserToPush } from '../utils/pushNotifications';
 
 const AuthContext = createContext(null);
 
@@ -38,6 +39,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // 👈 Подписываемся на пуши при успешном логине
+  useEffect(() => {
+    console.log('🔵 AuthContext: useEffect для пушей. User:', user);
+    if (user && process.env.NODE_ENV === 'production') {
+      console.log('🔵 AuthContext: Вызываю subscribeUserToPush...');
+      subscribeUserToPush();
+    }
+  }, [user]);
 
   const checkAuth = async () => {
     try {
