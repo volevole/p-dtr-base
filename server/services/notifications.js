@@ -1,3 +1,4 @@
+// server/services/notifications.js
 const webpush = require('web-push');
 const cron = require('node-cron');
 const { connectDB } = require('../db');
@@ -10,29 +11,44 @@ webpush.setVapidDetails(
 );
 
 // Функция отправки пуша
+// Функция отправки пуша с жестким таймаутом
 const sendPushToUser = async (userId, payload) => {
+  console.log(`🔵 [PUSH] Начинаем отправку пуша для пользователя ${userId}`);
   const client = await connectDB();
+  
   try {
     const result = await client.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [userId]);
+    console.log(`🔵 [PUSH] Найдено подписок: ${result.rowCount}`);
+
+    if (result.rowCount === 0) {
+      console.log('⚠️ [PUSH] Нет подписок для этого пользователя');
+      return;
+    }
     
     for (const row of result.rows) {
       try {
-        // 👈 Добавляем options с timeout: 5000 (5 секунд)
-        await webpush.sendNotification(row.subscription, JSON.stringify(payload), {
-          timeout: 5000 
-        });
-        console.log('✅ Пуш успешно отправлен для', userId);
+        console.log('🔵 [PUSH] Попытка вызова webpush.sendNotification...');
+        
+        // 👈 Оборачиваем отправку в Promise.race с таймаутом 5 секунд
+        await Promise.race([
+          webpush.sendNotification(row.subscription, JSON.stringify(payload)),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Таймаут 5 секунд: сервер не может достучаться до FCM/APNs')), 5000))
+        ]);
+        
+        console.log('✅ [PUSH] Пуш успешно отправлен для', userId);
       } catch (error) {
-        console.error('❌ Ошибка отправки пуша:', error.message);
-        // Если сервер Google вернул 410 (подписка недействительна) — удаляем её
+        console.error('❌ [PUSH] Ошибка отправки пуша:', error.message);
+        // Удаляем недействительные подписки
         if (error.statusCode === 410 || error.statusCode === 404) {
           await client.query('DELETE FROM push_subscriptions WHERE user_id = $1 AND subscription = $2', [userId, row.subscription]);
-          console.log('🗑️ Удалена устаревшая подписка');
+          console.log('🗑️ [PUSH] Удалена устаревшая подписка');
         }
       }
     }
   } catch (err) {
-    console.error('❌ Ошибка в sendPushToUser:', err);
+    console.error('❌ [PUSH] Ошибка в sendPushToUser:', err);
+  } finally {
+    console.log('🔵 [PUSH] Завершение функции sendPushToUser');
   }
 };
 
