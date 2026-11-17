@@ -458,4 +458,36 @@ router.post('/test-push', async (req, res) => {
   }
 });
 
+// GET /api/auth/server-ip — получить IP сервера
+router.get('/server-ip', async (req, res) => {
+  try {
+    const response = await fetch('https://ifconfig.me/all.json');
+    const data = await response.json();
+    res.json({ success: true, ip: data.ip_addr });
+  } catch (error) {
+    console.error('Ошибка получения IP сервера:', error.message);
+    // Если fetch не работает, пробуем через встроенный модуль https
+    try {
+      const https = require('https');
+      https.get('https://ipinfo.io/json', (resp) => {
+        let data = '';
+        resp.on('data', (chunk) => { data += chunk; });
+        resp.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            res.json({ success: true, ip: parsed.ip });
+          } catch (e) {
+            res.json({ success: false, ip: 'Не удалось определить' });
+          }
+        });
+      }).on('error', (err) => {
+        res.json({ success: false, ip: 'Не удалось определить' });
+      });
+    } catch (e) {
+      res.json({ success: false, ip: 'Не удалось определить' });
+    }
+  }
+});
+
+
 module.exports = router;

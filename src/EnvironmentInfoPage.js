@@ -10,6 +10,8 @@ import {
 import { FaCopy, FaTerminal, FaServer, FaDesktop, FaInfoCircle, FaDatabase, FaCheckCircle, FaTimesCircle, FaTimes } from 'react-icons/fa';
 // 👈 Импортируем версии
 import { APP_VERSIONS, CURRENT_VERSION } from './config/versions';
+import API_URL from './config/api';
+import { getClientIp, getIpGeoInfo } from './utils/ipInfo';
 
 const isMobile = window.innerWidth <= 768;
 
@@ -19,6 +21,49 @@ function EnvironmentInfoPage() {
   const [dbInfo, setDbInfo] = useState(null);
   const [dbLoading, setDbLoading] = useState(true);
   const [isVersionModalOpen, setIsVersionModalOpen] = useState(false); // 👈 Стейт для модалки версий
+  const [clientIp, setClientIp] = useState('Загрузка...');
+  const [clientGeo, setClientGeo] = useState(null);
+  const [serverIp, setServerIp] = useState('Загрузка...');
+  const [serverGeo, setServerGeo] = useState(null);
+
+  useEffect(() => {
+    // Получаем IP клиента и его гео
+    const fetchIpData = async () => {
+      const ip = await getClientIp();
+      setClientIp(ip);
+      
+      if (ip !== 'Не удалось определить') {
+        const geo = await getIpGeoInfo(ip);
+        setClientGeo(geo);
+      }
+    };
+    fetchIpData();
+
+        // Получаем IP сервера и его гео
+    const fetchServerIp = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/auth/server-ip`);
+        const data = await res.json();
+        
+        if (data.success && data.ip) {
+          setServerIp(data.ip);
+          
+          // 👈 Запрашиваем гео для IP сервера
+          const geo = await getIpGeoInfo(data.ip);
+          if (geo) {
+            setServerGeo(geo);
+          }
+        } else {
+          setServerIp('Не удалось определить');
+        }
+      } catch (e) {
+        setServerIp('Ошибка');
+      }
+    };
+    fetchServerIp();
+
+  }, []);
+
 
   useEffect(() => {
     const envInfo = getDisplayEnvironmentInfo();
@@ -56,8 +101,15 @@ function EnvironmentInfoPage() {
     {
       title: 'Клиентская часть',
       icon: <FaDesktop />,
-      keys: ['Разрешение экрана', 'Размер окна', 'Платформа', 'Язык', 'React версия', 
-        'Node окружение', 'Доступен localStorage', 'API контактов (Android)']
+      keys: [
+        'Разрешение экрана', 'Размер окна', 'Платформа', 'Язык', 
+        'React версия', 'Node окружение', 'Доступен localStorage',
+        'API контактов (Android)',
+        'Ваш IP',           // 👈
+        'Страна (по IP)',   // 👈
+        'IP сервера',       // 👈
+        'Страна сервера (по IP)'
+      ]
     }
   ];
 
@@ -140,6 +192,17 @@ function EnvironmentInfoPage() {
         </tbody>
       </table>
     );
+  };
+
+// Добавляем IP-данные в объект info для рендера
+  const infoWithIp = {
+    ...info,
+    'Ваш IP': clientIp,
+    'Страна (по IP)': clientGeo 
+      ? `${clientGeo.country} ${clientGeo.isProxy ? '(VPN/Прокси)' : ''}` 
+      : '—',
+    'IP сервера': serverIp,
+    'Страна сервера (по IP)': serverGeo ? serverGeo.country : '—',
   };
 
   return (
@@ -233,8 +296,8 @@ function EnvironmentInfoPage() {
                 {section.keys.map((key, index) => (
                   <tr key={index} style={{ borderBottom: index < section.keys.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
                     <td style={{ ...labelTdStyle, padding: isMobile ? '6px' : '12px', width: isMobile ? '40%' : '40%' }}>{key}:</td>
-                    <td style={{ padding: isMobile ? '6px' : '12px', color: info[key] ? '#212529' : '#6c757d', fontFamily: info[key]?.includes('http') ? 'monospace' : 'inherit', wordBreak: 'break-all' }}>
-                      {info[key] || 'Не доступно'}
+                    <td style={{ padding: isMobile ? '6px' : '12px', color: infoWithIp[key] ? '#212529' : '#6c757d', fontFamily: infoWithIp[key]?.includes('http') ? 'monospace' : 'inherit', wordBreak: 'break-all' }}>
+                      {infoWithIp[key] || 'Не доступно'}
                     </td>
                   </tr>
                 ))}
