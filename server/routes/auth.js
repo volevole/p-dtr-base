@@ -9,6 +9,7 @@ const {
   verifyToken, hashRefreshToken, verifyRefreshToken 
 } = require('../auth');
 const { requireAuth } = require('../middleware/auth');
+const { sendPushToUser } = require('../services/notifications');
 
 // Rate limit для входа: 5 попыток за 15 минут
 const loginLimiter = rateLimit({
@@ -444,7 +445,6 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
    */ 
 router.post('/test-push', async (req, res) => {
   const { userId } = req.body;
-  const { sendPushToUser } = require('./services/notifications');
   
   try {
     await sendPushToUser(userId, {
