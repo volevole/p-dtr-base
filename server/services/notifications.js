@@ -13,23 +13,26 @@ webpush.setVapidDetails(
 const sendPushToUser = async (userId, payload) => {
   const client = await connectDB();
   try {
-    // Получаем все подписки этого пользователя
     const result = await client.query('SELECT subscription FROM push_subscriptions WHERE user_id = $1', [userId]);
     
     for (const row of result.rows) {
       try {
-        await webpush.sendNotification(row.subscription, JSON.stringify(payload));
+        // 👈 Добавляем options с timeout: 5000 (5 секунд)
+        await webpush.sendNotification(row.subscription, JSON.stringify(payload), {
+          timeout: 5000 
+        });
+        console.log('✅ Пуш успешно отправлен для', userId);
       } catch (error) {
+        console.error('❌ Ошибка отправки пуша:', error.message);
+        // Если сервер Google вернул 410 (подписка недействительна) — удаляем её
         if (error.statusCode === 410 || error.statusCode === 404) {
-          // Подписка устарела, удаляем её
           await client.query('DELETE FROM push_subscriptions WHERE user_id = $1 AND subscription = $2', [userId, row.subscription]);
-        } else {
-          console.error('Ошибка отправки пуша:', error);
+          console.log('🗑️ Удалена устаревшая подписка');
         }
       }
     }
-  } finally {
-    // client.release() если используешь пул
+  } catch (err) {
+    console.error('❌ Ошибка в sendPushToUser:', err);
   }
 };
 
