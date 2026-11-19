@@ -35,13 +35,14 @@ const handleMaxWebhook = async (req, res) => {
   // MAX присылает объект с типом события и данными
   const { update_type, message } = req.body;
 
-  console.log(`Message from MAX`);
+  console.log(`[${now}] Message from MAX, update_type: ${update_type} body.text: ${message.body.text}`);
   // Нам нужно только событие нового сообщения
   if (update_type === 'message_created' && message) {
     const text = message.body.text;
     const chatId = message.chat_id;
     const senderId = message.sender.user_id;
 
+    console.log(`[${now}] in Message from MAX, is it /start: ${text.startsWith('/start')} `);
     // Проверяем, что пришла команда /start
     if (text && text.startsWith('/start')) {
       // Извлекаем ID пользователя Ларчика после /start
