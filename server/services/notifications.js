@@ -2,6 +2,7 @@
 const webpush = require('web-push');
 const cron = require('node-cron');
 const { connectDB } = require('../db');
+//const { sendTelegramNotification } = require('./telegramBot');
 
 // Настраиваем web-push
 webpush.setVapidDetails(
@@ -89,6 +90,15 @@ const startNotificationCron = () => {
         const url = `/larchik/appointments/${appt.id}`;
 
         await sendPushToUser(appt.master_id, { title, body, url });
+
+        /* // Получаем telegram_chat_id мастера
+        const userRes = await client.query('SELECT telegram_chat_id FROM users WHERE id = $1', [appt.master_id]);
+        const telegramChatId = userRes.rows[0]?.telegram_chat_id;
+
+        if (telegramChatId) {
+          const tgText = `<b>${title}</b>\n\n${body}\n\n<a href="https://react.c-e.ru${url}">Открыть в Ларчике</a>`;
+          await sendTelegramNotification(telegramChatId, tgText);
+        } */
       }
     } catch (error) {
       console.error('[CRON ERROR]', error.message);

@@ -1,3 +1,22 @@
+19-11-26 Создан бот в ТЛГ Larchik_Notifier
+Для пользователя larchik_notify_bot
+Done! Congratulations on your new bot. You will find it at t.me/larchik_notify_bot. You can now add a description, about section and profile 
+picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support 
+if you want a better username for it. Just make sure the bot is fully operational before you do this.
+
+Use this token to access the HTTP API:
+9232410918:AAGyAgEYp7NCouJ-TbIM_xGVsCL4wCt-MeU
+Keep your token secure and store it safely, it can be used by anyone to control your bot.
+
+For a description of the Bot API, see this page: https://core.telegram.org/bots/api
+============================
+И аналогично в Максе:
+Чат-бот «Larchik_Notifier» прошёл модерацию и готов к разработке.
+@id7716865664_bot
+Токен f9LHodD0cOJmWXVUg2HAA_-f3XYOeZrL6PdmgmPkaDRkISisaIUaJ7i63RdeRYn0eqR8hCG8Jkbto_cqycPy
+
+
+=======================================
 1-11-26  При начале нового чата.
 
 Перешёл в этот чат из-за оверлимита в предыдущем.

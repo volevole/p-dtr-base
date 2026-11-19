@@ -489,5 +489,8 @@ router.get('/server-ip', async (req, res) => {
   }
 });
 
+// 👈 Эндпоинт для приема сообщений от MAX
+const { handleMaxWebhook } = require('../services/maxBot');
+router.post('/max/webhook', handleMaxWebhook);
 
 module.exports = router;

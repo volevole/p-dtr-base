@@ -14,6 +14,7 @@ const appointmentsSpecializationsRouter = require('./routes/appointments/special
 const appointmentsServicesRouter = require('./routes/appointments/services');
 const appointmentsScheduleRouter = require('./routes/appointments/schedule');
 const { requireAuth, requireRole } = require('./middleware/auth');
+// require('./services/telegramBot'); пока это не нужно, чтобы не тянуть лишние зависимости. Вернёмся к тлг позже
 
 // 2. Инициализация
 const app = express();
