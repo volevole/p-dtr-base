@@ -50,7 +50,7 @@ const handleMaxWebhook = async (req, res) => {
       // Извлекаем ID пользователя Ларчика после /start
       const larсhikUserId = text.split(' ')[1]?.trim();
 
-      console.log(`[${now}] in Message from MAX, arсhikUserId: ${arсhikUserId} `);
+      console.log(`[${now}] in Message from MAX, arсhikUserId: ${larсhikUserId} `);
 
       if (!larсhikUserId) {
         await sendMaxMessage(senderId, 'Привет! Чтобы привязать уведомления, перейдите по специальной ссылке из вашего профиля в Ларчике.');
