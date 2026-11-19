@@ -7,7 +7,8 @@ const TOKEN = process.env.MAX_BOT_TOKEN;
 // Функция для отправки сообщения в MAX
 const sendMaxMessage = async (userId, text) => {
   if (!userId || !TOKEN) return;
-
+  const now = new Date().toLocaleTimeString('ru-RU');
+   console.log(`[${now}] Message to MAX, userId: ${userId} text: ${text}`); 
   try {
     const res = await fetch(`${MAX_API_URL}/messages?access_token=${TOKEN}`, {
       method: 'POST',
@@ -48,6 +49,8 @@ const handleMaxWebhook = async (req, res) => {
     if (text && text.startsWith('/start')) {
       // Извлекаем ID пользователя Ларчика после /start
       const larсhikUserId = text.split(' ')[1]?.trim();
+
+      console.log(`[${now}] in Message from MAX, arсhikUserId: ${arсhikUserId} `);
 
       if (!larсhikUserId) {
         await sendMaxMessage(senderId, 'Привет! Чтобы привязать уведомления, перейдите по специальной ссылке из вашего профиля в Ларчике.');
