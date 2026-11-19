@@ -8,18 +8,21 @@ const TOKEN = process.env.MAX_BOT_TOKEN;
 const sendMaxMessage = async (userId, text) => {
   if (!userId || !TOKEN) return;
   const now = new Date().toLocaleTimeString('ru-RU');
-   console.log(`[${now}] Message to MAX, userId: ${userId} text: ${text}`); 
+  console.log(`[${now}] Message to MAX, userId: ${userId} text: ${text}`);
+  
   try {
-    const res = await fetch(`${MAX_API_URL}/messages?access_token=${TOKEN}`, {
+    const res = await fetch(`${MAX_API_URL}/messages?user_id=${userId}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Authorization': TOKEN,           // токен без Bearer — как в офиц. примерах
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
-        chat_id: userId,
         text: text,
-        format: 'markdown' // или 'html'
+        format: 'markdown'
       })
     });
-    
+
     if (!res.ok) {
       const err = await res.text();
       console.error('❌ Ошибка отправки в MAX:', err);
@@ -30,6 +33,7 @@ const sendMaxMessage = async (userId, text) => {
     console.error('❌ Ошибка сети при отправке в MAX:', error);
   }
 };
+
 
 // Обработчик Webhook (принимает сообщения от MAX)
 const handleMaxWebhook = async (req, res) => {
