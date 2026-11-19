@@ -35,6 +35,7 @@ const handleMaxWebhook = async (req, res) => {
   // MAX присылает объект с типом события и данными
   const { update_type, message } = req.body;
 
+  console.log(`Message from MAX`);
   // Нам нужно только событие нового сообщения
   if (update_type === 'message_created' && message) {
     const text = message.body.text;
