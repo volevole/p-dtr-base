@@ -34,6 +34,7 @@ const sendMaxMessage = async (userId, text) => {
 const handleMaxWebhook = async (req, res) => {
   // MAX присылает объект с типом события и данными
   const { update_type, message } = req.body;
+  const now = new Date().toLocaleTimeString('ru-RU');
 
   console.log(`[${now}] Message from MAX, update_type: ${update_type} body.text: ${message.body.text}`);
   // Нам нужно только событие нового сообщения
