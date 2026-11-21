@@ -430,7 +430,7 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
     // Дедупликация по endpoint: у одного устройства endpoint один и тот же,
     // даже если ключи шифрования перегенерированы. Обновляем user_agent и JSON.
     await client.query(
-      `INSERT INTO push_subscriptions (user_id, subscription, user_agent)
+      `INSERT INTO appt_push_subscriptions (user_id, subscription, user_agent)
        VALUES ($1, $2, $3)
        ON CONFLICT ((subscription->>'endpoint')) DO UPDATE
          SET user_agent   = EXCLUDED.user_agent,
@@ -451,7 +451,7 @@ router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
   try {
     // Отзываем все предыдущие неиспользованные коды этого пользователя
     await client.query(
-      `UPDATE max_link_codes SET used_at = NOW()
+      `UPDATE appt_max_link_codes SET used_at = NOW()
        WHERE user_id = $1 AND used_at IS NULL`,
       [req.user.id]
     );
@@ -461,7 +461,7 @@ router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
 
     // Сохраняем с TTL 10 минут
     await client.query(
-      `INSERT INTO max_link_codes (code, user_id, expires_at)
+      `INSERT INTO appt_max_link_codes (code, user_id, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
       [code, req.user.id]
     );
@@ -503,7 +503,7 @@ router.delete('/profile/push/:id', requireAuth, async (req, res) => {
   try {
     // user_id в WHERE гарантирует, что пользователь удаляет только СВОЮ подписку
     const result = await client.query(
-      `DELETE FROM push_subscriptions
+      `DELETE FROM appt_push_subscriptions
        WHERE id = $1 AND user_id = $2`,
       [req.params.id, req.user.id]
     );

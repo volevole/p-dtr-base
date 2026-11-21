@@ -493,7 +493,7 @@ export default function SettingsProfilePage() {
       if (data.success) {
         setProfileInfo({
           ...profileInfo,
-          push_subscriptions: profileInfo.push_subscriptions.filter(s => s.id !== subId)
+          appt_push_subscriptions: profileInfo.appt_push_subscriptions.filter(s => s.id !== subId)
         });
       } else {
         alert('Ошибка: ' + data.error);
@@ -993,9 +993,9 @@ export default function SettingsProfilePage() {
 
           {/* 1. WebPush (FCM) */}
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>🔔 Браузерные пуш-уведомления</h3>
-          {profileInfo?.push_subscriptions?.length > 0 ? (
+          {profileInfo?.appt_push_subscriptions?.length > 0 ? (
             <>
-              {profileInfo.push_subscriptions.map(sub => (
+              {profileInfo.appt_push_subscriptions.map(sub => (
                 <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: '13px' }}>
                   <span style={{ flex: 1 }}>
                     <b>{browserLabel(sub.user_agent)}</b>

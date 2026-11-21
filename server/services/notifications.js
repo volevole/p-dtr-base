@@ -23,7 +23,7 @@ const sendPushToUser = async (userId, payload, masterName = null) => {
   let anySuccess = false;
 
   try {
-    const result = await client.query('SELECT subscription FROM push_subscriptions WHERE user_id = \$1', [userId]);
+    const result = await client.query('SELECT subscription FROM appt_push_subscriptions WHERE user_id = \$1', [userId]);
     console.log(`🔵 [PUSH] Найдено подписок: ${result.rowCount}`);
 
     if (result.rowCount === 0) {
@@ -42,7 +42,7 @@ const sendPushToUser = async (userId, payload, masterName = null) => {
       } catch (error) {
         console.error('❌ [PUSH] Ошибка отправки пуша:', error.message);
         if (error.statusCode === 410 || error.statusCode === 404) {
-          await client.query('DELETE FROM push_subscriptions WHERE user_id = $1 AND subscription = $2', [userId, row.subscription]);
+          await client.query('DELETE FROM appt_push_subscriptions WHERE user_id = $1 AND subscription = $2', [userId, row.subscription]);
           console.log('🗑️ [PUSH] Удалена устаревшая подписка');
         }
       }
