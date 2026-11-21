@@ -2732,12 +2732,13 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
   try {
     const client = await connectDB();
     
-    // Запрашиваем ВСЕ поля, которые нужны для профиля
+    // Запрашиваем ВСЕ поля, которые нужны для профиля (+ max_user_id для уведомлений)
     const result = await client.query(
       `SELECT 
         id, phone, name, email, avatar_url, is_active,
         created_at, updated_at, last_login_at, device_id, 
-        subscription_valid_until, banned_until, ban_reason_public
+        subscription_valid_until, banned_until, ban_reason_public,
+        max_user_id
        FROM users 
        WHERE id = $1`,
       [req.user.id]
@@ -2747,15 +2748,29 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Пользователь не найден' });
     }
 
+        // Подписки на пуш-уведомления — отдельным запросом из своей таблицы
+    const subs = await client.query(
+      `SELECT id, user_agent, created_at
+       FROM push_subscriptions
+       WHERE user_id = $1
+       ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+
+
     res.json({
       success: true,
-      data: result.rows[0]
+      data: {
+        ...result.rows[0],
+        push_subscriptions: subs.rows
+      }
     });
   } catch (error) {
     console.error('[ERROR] GET /api/profile/me:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // PUT /api/profile/name — обновить имя пользователя
 app.put('/api/profile/name', requireAuth, async (req, res) => {

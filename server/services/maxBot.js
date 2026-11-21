@@ -34,13 +34,13 @@ const logNotification = async (client, { internalUserId, channel, kind, appointm
 //   internalUserId: uuid получателя (если известен заранее),
 //   appointmentId: uuid приёма (если уведомление о приёме)
 // }
-const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserId = null, appointmentId = null, leadMinutes = null } = {}) => {
+const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserId = null, appointmentId = null, leadMinutes = null, masterName = null } = {}) => {
   if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_NOTIFICATIONS === 'true') {
     console.log(`🔕 [MAX DEV] Сообщение не отправлено, т.к. это локал или  DISABLE_NOTIFICATIONS (dev): ${text}`);
     return;
   }
   if (!maxUserId || !TOKEN) return;
-  console.log(`[${now()}] Message to MAX, userId: ${maxUserId} text: ${text}`);
+  console.log(`[${now()}] MAX - Message to userId: ${maxUserId} (${masterName || '—'}) text: ${text}`);
 
   let ok = false;
   let errText = null;

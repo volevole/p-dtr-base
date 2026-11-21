@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { connectDB } = require('../db');
 const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const { 
   hashPassword, verifyPassword, 
   generateAccessToken, generateRefreshToken, 
@@ -420,17 +421,21 @@ const registerLimiter = rateLimit({
 // POST /api/push/subscribe — сохранить подписку на пуши
 router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убрали /api, так как оно уже есть в префиксе
   const { subscription } = req.body;
+  const userAgent = req.headers['user-agent'] || null;
   const client = await connectDB();
 
   if (!subscription) return res.status(400).json({ success: false, error: 'Нет данных подписки' });
 
   try {
-    // Используем ON CONFLICT, чтобы не дублировать подписки одного и того же устройства
+    // Дедупликация по endpoint: у одного устройства endpoint один и тот же,
+    // даже если ключи шифрования перегенерированы. Обновляем user_agent и JSON.
     await client.query(
-      `INSERT INTO push_subscriptions (user_id, subscription) 
-       VALUES ($1, $2) 
-       ON CONFLICT (user_id, subscription) DO NOTHING`,
-      [req.user.id, subscription]
+      `INSERT INTO push_subscriptions (user_id, subscription, user_agent)
+       VALUES ($1, $2, $3)
+       ON CONFLICT ((subscription->>'endpoint')) DO UPDATE
+         SET user_agent   = EXCLUDED.user_agent,
+             subscription = EXCLUDED.subscription`,
+      [req.user.id, subscription, userAgent]
     );
     res.json({ success: true, message: 'Подписка сохранена' });
   } catch (error) {
@@ -438,6 +443,83 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// POST /api/profile/max/generate-code — создать одноразовый код для привязки MAX-бота
+router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
+  const client = await connectDB();
+
+  try {
+    // Отзываем все предыдущие неиспользованные коды этого пользователя
+    await client.query(
+      `UPDATE max_link_codes SET used_at = NOW()
+       WHERE user_id = $1 AND used_at IS NULL`,
+      [req.user.id]
+    );
+
+    // Генерируем новый 8-символьный код
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase(); // например, 'A3F19B2C'
+
+    // Сохраняем с TTL 10 минут
+    await client.query(
+      `INSERT INTO max_link_codes (code, user_id, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+      [code, req.user.id]
+    );
+
+    res.json({ success: true, data: { code } });
+  } catch (error) {
+    console.error('[ERROR] POST /api/profile/max/generate-code:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/profile/max/unlink — отвязать MAX-бота от аккаунта
+router.put('/profile/max/unlink', requireAuth, async (req, res) => {
+  const client = await connectDB();
+
+  try {
+    const result = await client.query(
+      `UPDATE users
+       SET max_user_id = NULL, updated_at = NOW()
+       WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+    }
+
+    res.json({ success: true, message: 'MAX отвязан' });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/profile/max/unlink:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/profile/push/:id — удалить подписку на пуши (конкретное устройство)
+router.delete('/profile/push/:id', requireAuth, async (req, res) => {
+  const client = await connectDB();
+
+  try {
+    // user_id в WHERE гарантирует, что пользователь удаляет только СВОЮ подписку
+    const result = await client.query(
+      `DELETE FROM push_subscriptions
+       WHERE id = $1 AND user_id = $2`,
+      [req.params.id, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: 'Подписка не найдена' });
+    }
+
+    res.json({ success: true, message: 'Подписка удалена' });
+  } catch (error) {
+    console.error('[ERROR] DELETE /api/profile/push/:id:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 
   
   /**

@@ -1,7 +1,8 @@
 // src/SettingsProfilePage.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
-import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaSave } from 'react-icons/fa';
+import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus, FaEye, FaEyeSlash, FaSave, FaBell } from 'react-icons/fa';
+
 import { formatPhone } from './utils/formatPhone';
 import API_URL from './config/api';
 
@@ -63,6 +64,12 @@ export default function SettingsProfilePage() {
   const [editingLocationId, setEditingLocationId] = useState(null);
   const locationFormRef = useRef(null); // 👈 Ссылка на форму
   const locationListRef = useRef(null); // 👈 Ссылка на список мест
+
+// --- Уведомления: MAX ---
+  const [maxCode, setMaxCode] = useState(null);          // { code, expires_at } или null
+  const [maxCodeLoading, setMaxCodeLoading] = useState(false);
+  const [maxCopied, setMaxCopied] = useState(false);
+
 
   useEffect(() => {
     if (activeTab === 'appointments' && hasAppointmentsAccess) {
@@ -423,6 +430,93 @@ export default function SettingsProfilePage() {
     }
   };
 
+  // --- Уведомления: генерация кода привязки MAX ---
+  const handleGenerateMaxCode = async () => {
+    setMaxCodeLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/profile/max/generate-code`, { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setMaxCode(data.data);   // { code: 'K7F29QMD' }
+        setMaxCopied(false);
+      } else {
+        alert('Ошибка: ' + data.error);
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    } finally {
+      setMaxCodeLoading(false);
+    }
+  };
+
+  // --- Уведомления: отвязать MAX ---
+  const handleUnlinkMax = async () => {
+    if (!window.confirm('Отвязать аккаунт MAX? Напоминания перестанут приходить.')) return;
+    try {
+      const res = await fetch(`${API_URL}/api/profile/max/unlink`, { method: 'PUT', credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setProfileInfo({ ...profileInfo, max_user_id: null });
+        setMaxCode(null);
+      } else {
+        alert('Ошибка: ' + data.error);
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    }
+  };
+
+  // --- Уведомления: копировать команду для MAX ---
+  const handleCopyMaxCommand = async () => {
+    const cmd = `/start ${maxCode.code}`;
+    try {
+      await navigator.clipboard.writeText(cmd);
+      setMaxCopied(true);
+    } catch {
+      // Фолбэк для старых браузеров
+      const ta = document.createElement('textarea');
+      ta.value = cmd;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setMaxCopied(true);
+    }
+  };
+
+  // --- Уведомления: удалить push-подписку браузера ---
+  const handleDeletePush = async (subId) => {
+    if (!window.confirm('Удалить эту подписку на пуш-уведомления?')) return;
+    try {
+      const res = await fetch(`${API_URL}/api/profile/push/${subId}`, { method: 'DELETE', credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        setProfileInfo({
+          ...profileInfo,
+          push_subscriptions: profileInfo.push_subscriptions.filter(s => s.id !== subId)
+        });
+      } else {
+        alert('Ошибка: ' + data.error);
+      }
+    } catch (err) {
+      alert('Ошибка сети: ' + err.message);
+    }
+  };
+
+  // --- Уведомления: человекочитаемое имя браузера из user_agent ---
+  const browserLabel = (ua) => {
+    if (!ua) return 'Браузер';
+    if (/YaBrowser/.test(ua)) return 'Яндекс Браузер';
+    if (/Edg\//.test(ua)) return 'Edge';
+    if (/OPR\//.test(ua)) return 'Opera';
+    if (/Firefox/.test(ua)) return 'Firefox';
+    if (/Chrome/.test(ua)) return 'Chrome';
+    if (/Safari/.test(ua)) return 'Safari';
+    return ua.substring(0, 30);
+  };
+
+
+
   const tabStyle = (isActive) => ({
     padding: '10px 20px', backgroundColor: isActive ? '#007bff' : '#f8f9fa',
     color: isActive ? 'white' : '#495057', border: '1px solid #dee2e6',
@@ -554,15 +648,21 @@ export default function SettingsProfilePage() {
       </div>
 
       {/* Вкладки */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #dee2e6', marginBottom: '30px', flexWrap: 'wrap', gap: '5px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #dee2e6', marginBottom: '30px', flexWrap: 'wrap', gap: '5px' }}>
         <button style={{ ...tabStyle(activeTab === 'security'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('security')}>
           <FaUserShield /> Безопасность
         </button>
         {hasAppointmentsAccess && (
+          <>
           <button style={{ ...tabStyle(activeTab === 'appointments'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('appointments')}>
             <FaBriefcaseMedical /> Настройки приёмов
           </button>
+          <button style={{ ...tabStyle(activeTab === 'notifications'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('notifications')}>
+            <FaBell /> Уведомления
+          </button>
+          </>          
         )}
+
       </div>
 
       {/* Вкладка: Безопасность */}
@@ -886,6 +986,100 @@ export default function SettingsProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Вкладка: Уведомления */}
+      {activeTab === 'notifications' && (
+        <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', maxWidth: '500px' }}>
+
+          {/* 1. WebPush (FCM) */}
+          <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>🔔 Браузерные пуш-уведомления</h3>
+          {profileInfo?.push_subscriptions?.length > 0 ? (
+            <>
+              {profileInfo.push_subscriptions.map(sub => (
+                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: '13px' }}>
+                  <span style={{ flex: 1 }}>
+                    <b>{browserLabel(sub.user_agent)}</b>
+                    <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                      с {new Date(sub.created_at).toLocaleDateString('ru-RU')}
+                      {sub.is_pwa && ' (приложение)'}
+                    </div>
+                  </span>
+                  <button onClick={() => handleDeletePush(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545' }} title="Удалить подписку">
+                    <FaTrash />
+                  </button>
+                </div>
+              ))}
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
+                Показаны все устройства, когда-либо включавшие пуши. Недействительные (отписавшиеся) — можно удалить, либо они отсеются автоматически при первой неудачной отправке.
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: '13px', color: '#666' }}>
+              Пуш-уведомления ещё не включены. Включить их можно в календаре приёмов (при первом открытии сайт предложит разрешить уведомления и нужно дать на это согласие).
+            </div>
+          )}
+
+          {/* 2. Telegram */}
+          <h3 style={{ marginTop: '25px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>✈️ Telegram</h3>
+          <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic' }}>
+            В разработке. Скоро напоминания можно будет получать и в Telegram.
+          </div>
+
+          {/* 3. MAX */}
+          <h3 style={{ marginTop: '25px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>💬 MAX</h3>
+          {profileInfo?.max_user_id ? (
+            <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '12px', borderRadius: '4px', fontSize: '13px' }}>
+              ✅ Аккаунт привязан — напоминания о приёмах приходят в ваш MAX.
+              <div style={{ marginTop: '10px' }}>
+                <button onClick={handleUnlinkMax} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
+                  Отвязать
+                </button>
+              </div>
+            </div>
+          ) : maxCode ? (
+            <div>
+              <div style={{ fontSize: '13px', color: '#212529', marginBottom: '10px' }}>
+                Откройте чат с ботом в MAX и отправьте ему эту команду:
+              </div>
+              <div style={{ backgroundColor: '#eef2f5', padding: '12px', borderRadius: '6px', border: '1px dashed #adb5bd', textAlign: 'center' }}>
+                <code style={{ fontSize: '16px', fontWeight: 'bold', color: '#d63384' }}>/start {maxCode.code}</code>
+              </div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '6px' }}>
+                Код действует 10 минут. После отправки команды обновите страницу.
+              </div>
+              <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                <button onClick={handleCopyMaxCommand} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                  {maxCopied ? '✅ Скопировано' : 'Копировать команду'}
+                </button>
+                <button onClick={() => setMaxCode(null)} style={{ padding: '8px 16px', background: 'none', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                  Отмена
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>
+                Привяжите бота — и напоминания о приёмах будут приходить в MAX за час до подготовки.
+              </div>
+              <button onClick={handleGenerateMaxCode} disabled={maxCodeLoading} style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                {maxCodeLoading ? 'Генерируем…' : 'Привязать MAX'}
+              </button>
+            </div>
+          )}
+
+          {/* 4. InApp */}
+          <h3 style={{ marginTop: '25px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>📱 В приложении (InApp)</h3>
+          <div style={{ fontSize: '13px', color: '#495057' }}>
+            Всплывающие напоминания внутри самого Ларчика, пока он открыт. Не зависят от внешних сервисов.
+          </div>
+          <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', marginTop: '6px' }}>
+            В разработке.
+          </div>
+
+        </div>
+      )}
+
+
     </div>
   );
 }

@@ -15,16 +15,16 @@ webpush.setVapidDetails(
 const TZ = 'Europe/Moscow';
 const timeStr = (d) => d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: TZ });
 
-// Функция отправки пуша с жестким таймаутом.
+// Функция отправки пуша с жестким таймаутом.  // --- FCM (web-push) ---
 // Возвращает true, если хотя бы одна подписка приняла пуш.
-const sendPushToUser = async (userId, payload) => {
-  console.log(`🔵 [PUSH] Начинаем отправку пуша для пользователя \${userId}`);
+const sendPushToUser = async (userId, payload, masterName = null) => {
+  console.log(`🔵 [PUSH] Начинаем отправку пуша для пользователя ${userId} (${masterName || '—'})`);
   const client = await connectDB();
   let anySuccess = false;
 
   try {
     const result = await client.query('SELECT subscription FROM push_subscriptions WHERE user_id = \$1', [userId]);
-    console.log(`🔵 [PUSH] Найдено подписок: \${result.rowCount}`);
+    console.log(`🔵 [PUSH] Найдено подписок: ${result.rowCount}`);
 
     if (result.rowCount === 0) {
       console.log('⚠️ [PUSH] Нет подписок для этого пользователя');
@@ -37,7 +37,7 @@ const sendPushToUser = async (userId, payload) => {
           webpush.sendNotification(row.subscription, JSON.stringify(payload)),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Таймаут 5 секунд: сервер не может достучаться до FCM/APNs')), 5000))
         ]);
-        console.log('✅ [PUSH] Пуш успешно отправлен для', userId);
+        console.log(`✅ [PUSH] Пуш успешно отправлен для ${userId} (${masterName || '—'})`);
         anySuccess = true;
       } catch (error) {
         console.error('❌ [PUSH] Ошибка отправки пуша:', error.message);
@@ -86,7 +86,7 @@ const startNotificationCron = () => {
         SELECT
           a.id, a.appointment_date, a.buffer_before_minutes,
           a.duration_minutes, a.record_notes, a.master_id,
-          u.max_user_id, u.telegram_chat_id,
+          u.max_user_id, u.telegram_chat_id, u.name AS master_name,
           n.lead_minutes,
           c.name AS client_name,
           s.name AS service_name,
@@ -164,7 +164,8 @@ const startNotificationCron = () => {
             kind: 'appointment',
             internalUserId: appt.master_id,
             appointmentId: appt.id,
-            leadMinutes: appt.lead_minutes
+            leadMinutes: appt.lead_minutes,
+            masterName: appt.master_name
           });
         }
 
@@ -178,7 +179,7 @@ const startNotificationCron = () => {
           title: pushTitle,
           body: pushBody,
           url: `/larchik/appointments/${appt.id}`
-        });
+        } , appt.master_name);
 
         await logNotification(client, {
           internalUserId: appt.master_id,
