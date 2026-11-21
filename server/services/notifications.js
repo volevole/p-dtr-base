@@ -56,9 +56,16 @@ const sendPushToUser = async (userId, payload) => {
 };
 
 // 👈 ЗАПУСК CRON-ЗАДАЧИ (каждую минуту)
+// Настройка напоминаний: за сколько минут до начала подготовки оповещать.
+// Пока — константа «за час». Позже переедет в user_settings каждого мастера.
+const LEAD_MINUTES = [60];
+
+// Человекочитаемая метка лида
+const leadLabel = (m) =>
+  m === 60 ? 'Через час' : (m % 10 === 1 && m !== 11 ? `Через ${m} минуту` : `Через ${m} минут`);
+
 const startNotificationCron = () => {
-  // Уведомления — только на проде. Локально (NODE_ENV != production)
-  // и при явном DISABLE_NOTIFICATIONS=true крон не стартует вовсе.
+  // Уведомления — только на проде
   if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_NOTIFICATIONS === 'true') {
     console.log('🔕 [NOTIFY] Планировщик уведомлений отключён (не production или DISABLE_NOTIFICATIONS=true)');
     return;
@@ -67,54 +74,63 @@ const startNotificationCron = () => {
   cron.schedule('* * * * *', async () => {
     const client = await connectDB();
     try {
-      // Ищем только запланированные приёмы (status = 'scheduled')
-      // Окно [60; 61) — ровно одна минута, чтобы избежать дублей
+      // Для каждого «лида» (за 60, 15, 5 мин) считаем свой момент напоминания:
+      // appointment_date - buffer_before - lead. Отправляем, если этот момент
+      // наступил в текущую минуту.
       const query = `
         SELECT
-          a.id, a.appointment_date, a.buffer_before_minutes, a.duration_minutes, a.record_notes,a.master_id,
+          a.id, a.appointment_date, a.buffer_before_minutes,
+          a.duration_minutes, a.record_notes, a.master_id,
           u.max_user_id, u.telegram_chat_id,
+          n.lead_minutes,
           c.name AS client_name,
           s.name AS service_name,
           l.name AS location_name
         FROM appointments a
         JOIN users u ON u.id = a.master_id
+        JOIN unnest($1::int[]) AS n(lead_minutes) ON true
         LEFT JOIN appt_clients   c ON c.id = a.client_id
         LEFT JOIN appt_services  s ON s.id = a.service_id
         LEFT JOIN appt_locations l ON l.id = a.location_id
         WHERE a.status = 'scheduled'
-          AND (a.appointment_date - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute')
-              >= NOW() + interval '60 minutes'
-          AND (a.appointment_date - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute')
-              <  NOW() + interval '61 minutes'
+          AND (a.appointment_date
+               - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute'
+               - n.lead_minutes * interval '1 minute') >= NOW()
+          AND (a.appointment_date
+               - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute'
+               - n.lead_minutes * interval '1 minute') <  NOW() + interval '1 minute'
       `;
 
-      const result = await client.query(query);
-      console.log(`[NOTIFY] ${new Date().toLocaleTimeString('ru-RU')}: в окне "за час" найдено приёмов: ${result.rowCount}`);
-
+      const result = await client.query(query, [LEAD_MINUTES]);
+      console.log(`[NOTIFY] ${new Date().toLocaleTimeString('ru-RU')}: к отправке найдено приёмов: ${result.rowCount}`);
 
       for (const appt of result.rows) {
-        // Защита от повторной отправки (перезапуск сервера, рестарт pm2 и т.п.)
-        const already = await client.query(
+        // Правило повтора: шлём, только если по этому приёму и этому лиду
+        // за последние 5 минут ещё не отправляли. Перенос приёма на новое время
+        // даст новый момент напоминания — и если с прошлой отправки прошло
+        // больше 5 минут, уведомление уйдёт заново.
+        const recent = await client.query(
           `SELECT 1 FROM appt_notifications
-            WHERE appointment_id = \$1 AND kind = 'appointment'
+            WHERE appointment_id = $1
+              AND kind = 'appointment'
+              AND lead_minutes = $2
+              AND created_at > NOW() - interval '5 minutes'
             LIMIT 1`,
-          [appt.id]
+          [appt.id, appt.lead_minutes]
         );
-        if (already.rowCount > 0) continue;
+        if (recent.rowCount > 0) {
+          console.log(`[NOTIFY] Приём ${appt.id} (lead ${appt.lead_minutes} мин): отправка была в последние 5 минут — пропуск`);
+          continue;
+        }
 
         const apptDate = new Date(appt.appointment_date);
         const prepDate = new Date(apptDate.getTime() - (appt.buffer_before_minutes || 0) * 60000);
-
-        const apptLine = `Приём в \${timeStr(apptDate)} (МСК)`;
-        const who = appt.client_name ? `Клиент: \${appt.client_name}` : 'Без клиента';
-        const what = appt.service_name ? `Услуга: \${appt.service_name}` : null;
-        const where = appt.location_name ? `Место: \${appt.location_name}` : null;
-        const url = `https://react.c-e.ru/larchik/appointments/\${appt.id}`;
+        const when = leadLabel(appt.lead_minutes);
 
         // --- MAX ---
         if (appt.max_user_id) {
           const lines = [
-            `👤 **${appt.client_name}** ⏰ Через час — подготовка к приёму (в ${timeStr(prepDate)}).`,
+            `⏰ ${when} — подготовка к приёму (в ${timeStr(prepDate)}).`,
             ``,
             `${timeStr(apptDate)} — ${appt.service_name || 'Приём'} — ${appt.duration_minutes} мин`
           ];
@@ -127,20 +143,18 @@ const startNotificationCron = () => {
           if (appt.client_name && appt.record_notes) {
             lines.push(`📝 _${appt.record_notes}_`);
           }
-          lines.push('', url);
+          lines.push('', `https://react.c-e.ru/larchik/appointments/${appt.id}`);
 
-          const maxText = lines.join('\n');
-
-          await sendMaxMessage(String(appt.max_user_id), maxText, {
+          await sendMaxMessage(String(appt.max_user_id), lines.join('\n'), {
             kind: 'appointment',
             internalUserId: appt.master_id,
-            appointmentId: appt.id
+            appointmentId: appt.id,
+            leadMinutes: appt.lead_minutes
           });
         }
 
-
         // --- FCM (web-push) ---
-        const pushTitle = 'Скоро начало подготовки';
+        const pushTitle = `${when} — подготовка к приёму`;
         const pushBody = appt.client_name
           ? `${appt.client_name}${appt.service_name ? ' — ' + appt.service_name : ''}, в ${timeStr(apptDate)}`
           : (appt.record_notes || `Приём в ${timeStr(apptDate)}`);
@@ -156,25 +170,22 @@ const startNotificationCron = () => {
           channel: 'fcm',
           kind: 'appointment',
           appointmentId: appt.id,
-          text: `${apptLine}: ${who}\${appt.service_name ? ', ' + appt.service_name : ''}`,
+          leadMinutes: appt.lead_minutes,
+          text: `${pushTitle}: ${pushBody}`,
           status: pushOk ? 'sent' : 'failed',
           error: pushOk ? null : 'нет активных подписок или все не доставлены'
         });
 
-        /* --- Telegram (пока не активируем) ---
-        if (appt.telegram_chat_id) {
-          const tgText = `<b>⏰ Через час — подготовка к приёму</b>\n\n${apptLine}, подготовка в ${timeStr(prepDate)}\n${who}${appt.service_name ? '\nУслуга: ' + appt.service_name : ''}\n\n<a href="\${url}">Открыть в Ларчике</a>`;
-          await sendTelegramNotification(appt.telegram_chat_id, tgText);
-        }
-        */
+        /* --- Telegram (пока не активируем) --- */
+        // if (appt.telegram_chat_id) { ... }
 
         // --- inApp (будущее) ---
-        // if (апп запущен) -> отправка через WebSocket/SSE
       }
     } catch (error) {
       console.error('[CRON ERROR]', error.message);
     }
   });
 };
+
 
 module.exports = { startNotificationCron, sendPushToUser };

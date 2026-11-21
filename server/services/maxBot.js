@@ -16,13 +16,13 @@ const findUserByMaxId = async (client, maxUserId) => {
 };
 
 // Запись уведомления в журнал (не роняет основной поток при ошибке)
-const logNotification = async (client, { internalUserId, channel, kind, appointmentId = null, text, status, error = null }) => {
+const logNotification = async (client, { internalUserId, channel, kind, appointmentId = null, leadMinutes = null, text, status, error = null }) => {
   try {
     await client.query(
-      `INSERT INTO appt_notifications (user_id, channel, kind, appointment_id, text, status, error)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [internalUserId, channel, kind, appointmentId, text, status, error]
-    );
+    `INSERT INTO appt_notifications (user_id, channel, kind, appointment_id, lead_minutes, text, status, error)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [internalUserId, channel, kind, appointmentId, leadMinutes, text, status, error]
+  );
   } catch (e) {
     console.error(`[${now()}] Не удалось записать уведомление в журнал:`, e.message);
   }
@@ -34,7 +34,7 @@ const logNotification = async (client, { internalUserId, channel, kind, appointm
 //   internalUserId: uuid получателя (если известен заранее),
 //   appointmentId: uuid приёма (если уведомление о приёме)
 // }
-const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserId = null, appointmentId = null } = {}) => {
+const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserId = null, appointmentId = null, leadMinutes = null } = {}) => {
   if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_NOTIFICATIONS === 'true') {
     console.log(`🔕 [MAX DEV] Сообщение не отправлено, т.к. это локал или  DISABLE_NOTIFICATIONS (dev): ${text}`);
     return;
@@ -75,14 +75,9 @@ const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserI
     }
     if (uid) {
       await logNotification(client, {
-        internalUserId: uid,
-        channel: 'max',
-        kind,
-        appointmentId,
-        text,
-        status: ok ? 'sent' : 'failed',
-        error: errText
-      });
+    internalUserId: uid, channel: 'max', kind, appointmentId,
+    leadMinutes, text, status: ok ? 'sent' : 'failed', error: errText
+    });
     }
   } catch (e) {
     console.error(`[${now()}] Ошибка журналирования:`, e.message);
