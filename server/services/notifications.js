@@ -63,7 +63,7 @@ const startNotificationCron = () => {
     console.log('🔕 [NOTIFY] Планировщик уведомлений отключён (не production или DISABLE_NOTIFICATIONS=true)');
     return;
   }
-  
+
   cron.schedule('* * * * *', async () => {
     const client = await connectDB();
     try {
@@ -71,7 +71,7 @@ const startNotificationCron = () => {
       // Окно [60; 61) — ровно одна минута, чтобы избежать дублей
       const query = `
         SELECT
-          a.id, a.appointment_date, a.buffer_before_minutes, a.master_id,
+          a.id, a.appointment_date, a.buffer_before_minutes, a.duration_minutes, a.record_notes,a.master_id,
           u.max_user_id, u.telegram_chat_id,
           c.name AS client_name,
           s.name AS service_name,
@@ -89,6 +89,8 @@ const startNotificationCron = () => {
       `;
 
       const result = await client.query(query);
+      console.log(`[NOTIFY] ${new Date().toLocaleTimeString('ru-RU')}: в окне "за час" найдено приёмов: ${result.rowCount}`);
+
 
       for (const appt of result.rows) {
         // Защита от повторной отправки (перезапуск сервера, рестарт pm2 и т.п.)
@@ -111,17 +113,24 @@ const startNotificationCron = () => {
 
         // --- MAX ---
         if (appt.max_user_id) {
-          const maxText = [
-            `⏰ Через час — подготовка к приёму.`,
-            `${apptLine}, начало подготовки в ${timeStr(prepDate)}`,
-            who,
-            what,
-            where,
-            '',
-            url
-          ].filter((s) => s !== null).join('\n');
+          const lines = [
+            `👤 **${appt.client_name}** ⏰ Через час — подготовка к приёму (в ${timeStr(prepDate)}).`,
+            ``,
+            `${timeStr(apptDate)} — ${appt.service_name || 'Приём'} — ${appt.duration_minutes} мин`
+          ];
+          if (appt.client_name) {
+            lines.push(`👤 **${appt.client_name}**`);
+          } else if (appt.record_notes) {
+            lines.push(`📝 ${appt.record_notes}`);
+          }
+          if (appt.location_name) lines.push(`📍 ${appt.location_name}`);
+          if (appt.client_name && appt.record_notes) {
+            lines.push(`📝 _${appt.record_notes}_`);
+          }
+          lines.push('', url);
 
-          // sendMaxMessage сам запишет результат в appt_notifications (channel: max)
+          const maxText = lines.join('\n');
+
           await sendMaxMessage(String(appt.max_user_id), maxText, {
             kind: 'appointment',
             internalUserId: appt.master_id,
@@ -129,11 +138,17 @@ const startNotificationCron = () => {
           });
         }
 
+
         // --- FCM (web-push) ---
+        const pushTitle = 'Скоро начало подготовки';
+        const pushBody = appt.client_name
+          ? `${appt.client_name}${appt.service_name ? ' — ' + appt.service_name : ''}, в ${timeStr(apptDate)}`
+          : (appt.record_notes || `Приём в ${timeStr(apptDate)}`);
+
         const pushOk = await sendPushToUser(appt.master_id, {
-          title: 'Скоро начало подготовки',
-          body: `В ${timeStr(prepDate)} подготовка к приёму в ${timeStr(apptDate)}: ${appt.client_name || 'Без клиента'}${appt.service_name ? ' — ' + appt.service_name : ''}`,
-          url: `/larchik/appointments/\${appt.id}`
+          title: pushTitle,
+          body: pushBody,
+          url: `/larchik/appointments/${appt.id}`
         });
 
         await logNotification(client, {
