@@ -64,8 +64,10 @@ const LEAD_MINUTES = [60];
 const leadLabel = (m) =>
   m === 60 ? 'Через час' : (m % 10 === 1 && m !== 11 ? `Через ${m} минуту` : `Через ${m} минут`);
 
+// 👈 ЗАПУСК CRON-ЗАДАЧИ (каждую минуту)
 const startNotificationCron = () => {
-  // Уведомления — только на проде
+  // Уведомления — только на проде. Локально (NODE_ENV != production)
+  // и при явном DISABLE_NOTIFICATIONS=true крон не стартует вовсе.
   if (process.env.NODE_ENV !== 'production' || process.env.DISABLE_NOTIFICATIONS === 'true') {
     console.log('🔕 [NOTIFY] Планировщик уведомлений отключён (не production или DISABLE_NOTIFICATIONS=true)');
     return;
@@ -75,8 +77,11 @@ const startNotificationCron = () => {
     const client = await connectDB();
     try {
       // Для каждого «лида» (за 60, 15, 5 мин) считаем свой момент напоминания:
-      // appointment_date - buffer_before - lead. Отправляем, если этот момент
-      // наступил в текущую минуту.
+      // appointment_date - buffer_before - lead_minutes.
+      // Сравниваем минуты через date_trunc, чтобы миллисекунды NOW() не съедали окно.
+      // Окно догона: моменты, наступившие за последние 5 минут, тоже отправляем
+      // (если сервер лежал или перезапускался). Дедупликация «5 минут» ниже
+      // не даст задвоить те, что уже ушли в свой момент.
       const query = `
         SELECT
           a.id, a.appointment_date, a.buffer_before_minutes,
@@ -93,12 +98,12 @@ const startNotificationCron = () => {
         LEFT JOIN appt_services  s ON s.id = a.service_id
         LEFT JOIN appt_locations l ON l.id = a.location_id
         WHERE a.status = 'scheduled'
-          AND (a.appointment_date
-               - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute'
-               - n.lead_minutes * interval '1 minute') >= NOW()
-          AND (a.appointment_date
-               - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute'
-               - n.lead_minutes * interval '1 minute') <  NOW() + interval '1 minute'
+          AND date_trunc('minute',
+                a.appointment_date
+                - COALESCE(a.buffer_before_minutes, 0) * interval '1 minute'
+                - n.lead_minutes * interval '1 minute')
+              BETWEEN date_trunc('minute', NOW()) - interval '5 minutes'
+                  AND date_trunc('minute', NOW())
       `;
 
       const result = await client.query(query, [LEAD_MINUTES]);
@@ -129,16 +134,26 @@ const startNotificationCron = () => {
 
         // --- MAX ---
         if (appt.max_user_id) {
+          // 1. Первая строка — превью в списке чатов: имя клиента или примечание
+          let previewLine = '';
+          if (appt.client_name) {
+            previewLine = `**${appt.client_name}**`;
+          } else if (appt.record_notes) {
+            const notePreview = appt.record_notes.length > 50
+              ? appt.record_notes.substring(0, 47) + '…'
+              : appt.record_notes;
+            previewLine = `**${notePreview}**`;
+          } else {
+            previewLine = `Приём в ${timeStr(apptDate)}`;
+          }
+
+          // 2. Полное сообщение в стиле карточки приёма
           const lines = [
+            previewLine,
             `⏰ ${when} — подготовка к приёму (в ${timeStr(prepDate)}).`,
             ``,
             `${timeStr(apptDate)} — ${appt.service_name || 'Приём'} — ${appt.duration_minutes} мин`
           ];
-          if (appt.client_name) {
-            lines.push(`👤 **${appt.client_name}**`);
-          } else if (appt.record_notes) {
-            lines.push(`📝 ${appt.record_notes}`);
-          }
           if (appt.location_name) lines.push(`📍 ${appt.location_name}`);
           if (appt.client_name && appt.record_notes) {
             lines.push(`📝 _${appt.record_notes}_`);
@@ -176,8 +191,12 @@ const startNotificationCron = () => {
           error: pushOk ? null : 'нет активных подписок или все не доставлены'
         });
 
-        /* --- Telegram (пока не активируем) --- */
-        // if (appt.telegram_chat_id) { ... }
+        /* --- Telegram (пока не активируем) ---
+        if (appt.telegram_chat_id) {
+          const tgText = `<b>${when} — подготовка к приёму</b>\n\n${appt.client_name || appt.record_notes || ''}, в ${timeStr(apptDate)}\n\n<a href="https://react.c-e.ru/larchik/appointments/${appt.id}">Открыть в Ларчике</a>`;
+          await sendTelegramNotification(appt.telegram_chat_id, tgText);
+        }
+        */
 
         // --- inApp (будущее) ---
       }
@@ -186,6 +205,7 @@ const startNotificationCron = () => {
     }
   });
 };
+
 
 
 module.exports = { startNotificationCron, sendPushToUser };
