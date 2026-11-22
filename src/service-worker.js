@@ -72,3 +72,39 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+// 👈 Обработка Push-уведомлений от сервера
+self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  
+  const options = {
+    body: data.body,
+    icon: '/larchik/logo192.png', // Иконка уведомления
+    badge: '/larchik/logo192.png',
+    data: { url: data.url } // Сохраняем ссылку на карточку
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// 👈 Обработка клика по уведомлению
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const urlToOpen = event.notification.data.url;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Если Ларчик уже открыт, переходим на нужный URL
+      for (let client of windowClients) {
+        if (client.url.includes('/larchik/') && 'focus' in client) {
+          client.navigate(urlToOpen);
+          return client.focus();
+        }
+      }
+      // Если не открыт — открываем новую вкладку
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});

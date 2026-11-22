@@ -2750,12 +2750,13 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
 
         // Подписки на пуш-уведомления — отдельным запросом из своей таблицы
     const subs = await client.query(
-      `SELECT id, user_agent, created_at
+      `SELECT id, subscription->>'endpoint' AS endpoint, user_agent, created_at
        FROM appt_push_subscriptions
        WHERE user_id = $1
        ORDER BY created_at DESC`,
       [req.user.id]
     );
+
 
 
     res.json({

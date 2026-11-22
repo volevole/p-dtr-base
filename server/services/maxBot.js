@@ -99,39 +99,12 @@ const handleMaxWebhook = async (req, res) => {
   const client = await connectDB();
 
   try {
-    // --- /start [id] ---
+        // --- /start [код] ---
     if (/^\/start/.test(text)) {
-      const linkUserId = text.split(' ')[1]?.trim();
+      const botUA = `MAX bot, chat ${senderId}`;
+      const code = text.split(' ')[1]?.trim()?.toUpperCase() || null;
 
-      if (linkUserId) {
-        const found = await client.query(
-          'SELECT id, name, max_user_id FROM users WHERE id = $1',
-          [linkUserId]
-        );
-
-        if (found.rowCount === 0) {
-          await sendMaxMessage(senderId,
-            'Пользователь не найден. Возможно, ссылка устарела — откройте профиль в Ларчике и получите свежую.',
-            { kind: 'bot' });
-        } else {
-          const u = found.rows[0];
-          if (u.max_user_id && String(u.max_user_id) !== String(senderId)) {
-            await sendMaxMessage(senderId,
-              `Аккаунт «${u.name}» уже привязан к другому профилю MAX. Если это ошибка — отвяжите его в профиле Ларчика или обратитесь в поддержку.`,
-              { kind: 'bot', internalUserId: u.id });
-          } else if (String(u.max_user_id) === String(senderId)) {
-            await sendMaxMessage(senderId,
-              `Привет, ${u.name}! Вы уже привязаны к Ларчику — напоминания о приёмах будут приходить сюда.`,
-              { kind: 'bot', internalUserId: u.id });
-          } else {
-            await client.query('UPDATE users SET max_user_id = $1 WHERE id = $2',
-              [String(senderId), u.id]);
-            await sendMaxMessage(senderId,
-              `✅ Отлично, ${u.name}! Теперь вы будете получать напоминания о приёмах здесь — за час до начала. Список последних: /last15`,
-              { kind: 'bot', internalUserId: u.id });
-          }
-        }
-      } else {
+      if (!code) {
         const me = await findUserByMaxId(client, senderId);
         if (me) {
           await sendMaxMessage(senderId,
@@ -139,8 +112,91 @@ const handleMaxWebhook = async (req, res) => {
             { kind: 'bot', internalUserId: me.id });
         } else {
           await sendMaxMessage(senderId,
-            'Привет! Чтобы получать напоминания о приёмах, перейдите по специальной ссылке из вашего профиля в Ларчике.',
+            'Привет! Чтобы получать напоминания о приёмах, откройте профиль в Ларчике, вкладку «Уведомления» → «Привязать MAX» и отправьте мне команду /start с кодом.',
             { kind: 'bot' });
+        }
+
+      } else {
+        const linkRes = await client.query(
+          `SELECT id, user_id, expires_at, used_at
+           FROM appt_max_link_codes
+           WHERE code = $1`,
+          [code]
+        );
+        const link = linkRes.rows[0];
+
+        if (!link) {
+          await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+             VALUES ($1, $2, $3, $4, 'max_link_fail', 'fail', $5)`,
+            [null, null, null, botUA, `unknown_code: ${code}`]
+          );
+          await sendMaxMessage(senderId,
+            '❌ Код не найден. Получите новый на сайте: профиль → «Уведомления» → «Привязать MAX».',
+            { kind: 'bot' });
+
+        } else if (link.used_at) {
+          await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+             VALUES ($1, $2, $3, $4, 'max_link_fail', 'fail', $5)`,
+            [null, null, null, botUA, `code_already_used: ${code}`]
+          );
+          await sendMaxMessage(senderId,
+            '❌ Этот код уже использован. Получите новый на сайте.',
+            { kind: 'bot' });
+
+        } else if (new Date(link.expires_at) < new Date()) {
+          await client.query(
+            `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+             VALUES ($1, $2, $3, $4, 'max_link_fail', 'fail', $5)`,
+            [null, null, null, botUA, `code_expired: ${code}`]
+          );
+          await sendMaxMessage(senderId,
+            '❌ Срок действия кода истёк (10 минут). Получите новый на сайте.',
+            { kind: 'bot' });
+
+        } else {
+          const found = await client.query(
+            'SELECT id, name, max_user_id FROM users WHERE id = $1',
+            [link.user_id]
+          );
+
+          if (found.rowCount === 0) {
+            await sendMaxMessage(senderId,
+              'Пользователь не найден. Возможно, код устарел — откройте профиль в Ларчике и получите свежий.',
+              { kind: 'bot' });
+          } else {
+            const u = found.rows[0];
+            if (u.max_user_id && String(u.max_user_id) !== String(senderId)) {
+              await client.query(
+                `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+                 VALUES ($1, $2, $3, $4, 'max_link_fail', 'fail', $5)`,
+                [u.phone, null, null, botUA, `already_bound_to_other_max: ${senderId}, code: ${code}`]
+              );
+              await sendMaxMessage(senderId,
+                `Аккаунт «${u.name}» уже привязан к другому профилю MAX. Если это ошибка — отвяжите его в профиле Ларчика или обратитесь в поддержку.`,
+                { kind: 'bot', internalUserId: u.id });
+            } else if (String(u.max_user_id) === String(senderId)) {
+              await sendMaxMessage(senderId,
+                `Привет, ${u.name}! Вы уже привязаны к Ларчику — напоминания о приёмах будут приходить сюда.`,
+                { kind: 'bot', internalUserId: u.id });
+            } else {
+              await client.query('UPDATE appt_max_link_codes SET used_at = NOW() WHERE id = $1',
+                [link.id]);
+              await client.query('UPDATE users SET max_user_id = $1, updated_at = NOW() WHERE id = $2',
+                [String(senderId), u.id]);
+
+              await client.query(
+                `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+                 VALUES ($1, $2, $3, $4, 'max_linked', 'success', $5)`,
+                [u.phone, null, null, botUA, `max_user_id: ${senderId}, code: ${code}`]
+              );
+
+              await sendMaxMessage(senderId,
+                `✅ Отлично, ${u.name}! Теперь вы будете получать напоминания о приёмах здесь — за час до начала. Список последних: /last15`,
+                { kind: 'bot', internalUserId: u.id });
+            }
+          }
         }
       }
 

@@ -533,6 +533,15 @@ export default function SettingsProfilePage() {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
     });
   };
+
+   // --- Определяем текущую подписку (этот браузер/устройство) ---
+  const currentEndpoint = localStorage.getItem(`larchik_push_endpoint_${profileInfo.id}`);
+
+  const isCurrentSub = (sub) => {
+    if (sub.endpoint && currentEndpoint && sub.endpoint === currentEndpoint) return true;
+    // Фолбэк: сравниваем по user_agent (неточно, но лучше, чем ничего)
+    return !sub.endpoint && sub.user_agent && navigator.userAgent.includes(sub.user_agent.slice(0, 20));
+  };
   
   return (
     <div className="detail-container" style={{ 
@@ -989,22 +998,27 @@ export default function SettingsProfilePage() {
 
       {/* Вкладка: Уведомления */}
       {activeTab === 'notifications' && (
-        <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', maxWidth: '500px' }}>
+        <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', maxWidth: isMobile ? '500px' : '700px' }}>
 
           {/* 1. WebPush (FCM) */}
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>🔔 Браузерные пуш-уведомления</h3>
           {profileInfo?.appt_push_subscriptions?.length > 0 ? (
             <>
               {profileInfo.appt_push_subscriptions.map(sub => (
-                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: '13px' }}>
+                <div key={sub.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: '13px', backgroundColor: isCurrentSub(sub) ? '#e7f1ff' : 'transparent', borderRadius: '4px' }}>
                   <span style={{ flex: 1 }}>
                     <b>{browserLabel(sub.user_agent)}</b>
+                    {isCurrentSub(sub) && (
+                      <span style={{ marginLeft: '8px', fontSize: '11px', color: '#0056b3', backgroundColor: '#d0e4ff', padding: '2px 8px', borderRadius: '10px' }}>
+                        это устройство
+                      </span>
+                    )}
                     <div style={{ fontSize: '11px', color: '#6c757d' }}>
                       с {new Date(sub.created_at).toLocaleDateString('ru-RU')}
                       {sub.is_pwa && ' (приложение)'}
                     </div>
                   </span>
-                  <button onClick={() => handleDeletePush(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc3545' }} title="Удалить подписку">
+                  <button onClick={() => handleDeletePush(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isCurrentSub(sub) ? '#dc3545' : '#6c757d' }} title={isCurrentSub(sub) ? 'Удалить подписку этого устройства' : 'Удалить подписку'}>
                     <FaTrash />
                   </button>
                 </div>
@@ -1039,7 +1053,11 @@ export default function SettingsProfilePage() {
           ) : maxCode ? (
             <div>
               <div style={{ fontSize: '13px', color: '#212529', marginBottom: '10px' }}>
-                Откройте чат с ботом в MAX и отправьте ему эту команду:
+                Скопируйте команду и отправьте её в чат с ботом{' '}
+                <a href="https://max.ru/id7716865664_bot" target="_blank" rel="noopener noreferrer" style={{ color: '#007bff', fontWeight: 'bold' }}>
+                  «Ларчик напоминает»
+                </a>{' '}
+                в MAX :
               </div>
               <div style={{ backgroundColor: '#eef2f5', padding: '12px', borderRadius: '6px', border: '1px dashed #adb5bd', textAlign: 'center' }}>
                 <code style={{ fontSize: '16px', fontWeight: 'bold', color: '#d63384' }}>/start {maxCode.code}</code>

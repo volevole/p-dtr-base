@@ -437,6 +437,11 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
              subscription = EXCLUDED.subscription`,
       [req.user.id, subscription, userAgent]
     );
+    await client.query(
+      `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+       VALUES ($1, $2, $3, $4, 'push_subscribed', 'success', $5)`,
+      [req.user.phone, deviceId, ipAddress, req.headers['user-agent'] || null, null]
+    );
     res.json({ success: true, message: 'Подписка сохранена' });
   } catch (error) {
     console.error('[ERROR] POST /api/push/subscribe:', error.message);
@@ -447,23 +452,30 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
 // POST /api/auth/profile/max/generate-code — создать одноразовый код для привязки MAX-бота
 router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
   const client = await connectDB();
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'] || null;
+  const deviceId = req.user?.device_id || null;
 
   try {
-    // Отзываем все предыдущие неиспользованные коды этого пользователя
     await client.query(
       `UPDATE appt_max_link_codes SET used_at = NOW()
        WHERE user_id = $1 AND used_at IS NULL`,
       [req.user.id]
     );
 
-    // Генерируем новый 8-символьный код
-    const code = crypto.randomBytes(4).toString('hex').toUpperCase(); // например, 'A3F19B2C'
+    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
 
-    // Сохраняем с TTL 10 минут
     await client.query(
       `INSERT INTO appt_max_link_codes (code, user_id, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
       [code, req.user.id]
+    );
+
+    // Лог: сгенерирован код привязки MAX
+    await client.query(
+      `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+       VALUES ($1, $2, $3, $4, 'max_code_generated', 'success', $5)`,
+      [req.user.phone, deviceId, ipAddress, userAgent, `code_expires_in_10min`]
     );
 
     res.json({ success: true, data: { code } });
@@ -473,9 +485,13 @@ router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
   }
 });
 
+
 // PUT /api/auth/profile/max/unlink — отвязать MAX-бота от аккаунта
 router.put('/profile/max/unlink', requireAuth, async (req, res) => {
   const client = await connectDB();
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'] || null;
+  const deviceId = req.user?.device_id || null;
 
   try {
     const result = await client.query(
@@ -489,6 +505,12 @@ router.put('/profile/max/unlink', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Пользователь не найден' });
     }
 
+    await client.query(
+      `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+       VALUES ($1, $2, $3, $4, 'max_unlinked', 'success', $5)`,
+      [req.user.phone, deviceId, ipAddress, userAgent, null]
+    );
+
     res.json({ success: true, message: 'MAX отвязан' });
   } catch (error) {
     console.error('[ERROR] PUT /api/auth/profile/max/unlink:', error.message);
@@ -496,12 +518,15 @@ router.put('/profile/max/unlink', requireAuth, async (req, res) => {
   }
 });
 
+
 // DELETE /api/auth/profile/push/:id — удалить подписку на пуши (конкретное устройство)
 router.delete('/profile/push/:id', requireAuth, async (req, res) => {
   const client = await connectDB();
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'] || null;
+  const deviceId = req.user?.device_id || null;
 
   try {
-    // user_id в WHERE гарантирует, что пользователь удаляет только СВОЮ подписку
     const result = await client.query(
       `DELETE FROM appt_push_subscriptions
        WHERE id = $1 AND user_id = $2`,
@@ -512,12 +537,19 @@ router.delete('/profile/push/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Подписка не найдена' });
     }
 
+    await client.query(
+      `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
+       VALUES ($1, $2, $3, $4, 'push_unsubscribed', 'success', $5)`,
+      [req.user.phone, deviceId, ipAddress, userAgent, `sub_id: ${req.params.id}`]
+    );
+
     res.json({ success: true, message: 'Подписка удалена' });
   } catch (error) {
     console.error('[ERROR] DELETE /api/auth/profile/push/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 
 

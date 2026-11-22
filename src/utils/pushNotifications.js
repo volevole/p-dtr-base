@@ -12,7 +12,7 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-export const subscribeUserToPush = async () => {
+export const subscribeUserToPush = async (userId) => {
   // 1. Проверяем поддержку
   console.log('🔵 [PUSH] Старт подписки...');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -45,7 +45,9 @@ export const subscribeUserToPush = async () => {
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-    });
+    });    
+    // Сохраняем endpoint с привязкой к пользователю
+    localStorage.setItem(`larchik_push_endpoint_${userId}`, subscription.endpoint);
     console.log('🔵 [PUSH] Подписка создана:', subscription);
 
     // 5. Отправляем подписку на сервер

@@ -40,12 +40,12 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, []);
 
-  // 👈 Подписываемся на пуши при успешном логине
+ // 👈 Подписываемся на пуши при успешном логине
   useEffect(() => {
     console.log('🔵 AuthContext: useEffect для пушей. User:', user);
     if (user && process.env.NODE_ENV === 'production') {
       console.log('🔵 AuthContext: Вызываю subscribeUserToPush...');
-      subscribeUserToPush();
+      subscribeUserToPush(user.id);
     }
   }, [user]);
 
