@@ -419,9 +419,11 @@ const registerLimiter = rateLimit({
   });
 
 // POST /api/auth/push/subscribe — сохранить подписку на пуши
-router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убрали /api, так как оно уже есть в префиксе
+router.post('/push/subscribe', requireAuth, async (req, res) => {
   const { subscription } = req.body;
   const userAgent = req.headers['user-agent'] || null;
+  const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const deviceId = req.user?.device_id || null; // 👈 вот этой строки не хватало
   const client = await connectDB();
 
   if (!subscription) return res.status(400).json({ success: false, error: 'Нет данных подписки' });
@@ -437,17 +439,20 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
              subscription = EXCLUDED.subscription`,
       [req.user.id, subscription, userAgent]
     );
+
     await client.query(
       `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
        VALUES ($1, $2, $3, $4, 'push_subscribed', 'success', $5)`,
-      [req.user.phone, deviceId, ipAddress, req.headers['user-agent'] || null, null]
+      [req.user.phone, deviceId, ipAddress, userAgent, null]
     );
+
     res.json({ success: true, message: 'Подписка сохранена' });
   } catch (error) {
-    console.error('[ERROR] POST /api/push/subscribe:', error.message);
+    console.error('[ERROR] POST /api/auth/push/subscribe:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // POST /api/auth/profile/max/generate-code — создать одноразовый код для привязки MAX-бота
 router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
