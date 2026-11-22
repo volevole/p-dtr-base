@@ -2768,9 +2768,9 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
             ORDER BY created_at DESC
             LIMIT 1
           ) l ON true
-          WHERE s.user_id = $1
+          WHERE s.user_id = $2
           ORDER BY s.created_at DESC`,
-          [req.user.phone]
+          [req.user.phone, req.user.id]  // 👈 $1 — телефон для логов, $2 — uuid для таблицы
         );
 
 
