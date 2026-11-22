@@ -442,8 +442,9 @@ router.post('/push/subscribe', requireAuth, async (req, res) => {
 
     await client.query(
       `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
-       VALUES ($1, $2, $3, $4, 'push_subscribed', 'success', $5)`,
-      [req.user.phone, deviceId, ipAddress, userAgent, null]
+      VALUES ($1, $2, $3, $4, 'push_subscribed', 'success', $5)`,
+      [req.user.phone, deviceId, ipAddress, userAgent,
+      JSON.stringify({ endpoint: subscription.endpoint })]
     );
 
     res.json({ success: true, message: 'Подписка сохранена' });

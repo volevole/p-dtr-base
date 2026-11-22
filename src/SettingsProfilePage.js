@@ -1049,7 +1049,8 @@ const getOS = (ua) => {
                     <div style={{ fontSize: '11px', color: '#6c757d' }}>
                       {getOS(sub.user_agent) && `${getOS(sub.user_agent)} · `}
                       с {new Date(sub.created_at).toLocaleDateString('ru-RU')}
-                      {sub.is_pwa && ' (приложение)'}
+                      {sub.last_confirmed_at && ` · активна ${new Date(sub.last_confirmed_at).toLocaleDateString('ru-RU')}`}
+                      {sub.ip_address && ` · IP ${sub.ip_address}`}
                     </div>
                   </span>
                   <button onClick={() => handleDeletePush(sub.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isCurrentSub(sub) ? '#dc3545' : '#6c757d' }} title={isCurrentSub(sub) ? 'Удалить подписку этого устройства' : 'Удалить подписку'}>
@@ -1076,8 +1077,20 @@ const getOS = (ua) => {
           {/* 3. MAX */}
           <h3 style={{ marginTop: '25px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>💬 MAX</h3>
           {profileInfo?.max_user_id ? (
-            <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '12px', borderRadius: '4px', fontSize: '13px' }}>
-              ✅ Аккаунт привязан — напоминания о приёмах приходят в ваш MAX.
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#d4edda',
+              color: '#155724',
+              borderRadius: '6px',
+              marginBottom: '10px',
+              fontSize: '13px'
+            }}>
+              ✅ Аккаунт привязан
+              {profileInfo.max_linked_at && (
+                ` (${new Date(profileInfo.max_linked_at).toLocaleDateString('ru-RU')} в ${new Date(profileInfo.max_linked_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })})`
+              )}
+              {' '}— напоминания о приёмах приходят в ваш MAX{' '}
+              ({profileInfo.max_display_name || `id: ${profileInfo.max_user_id}`})
               <div style={{ marginTop: '10px' }}>
                 <button onClick={handleUnlinkMax} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
                   Отвязать

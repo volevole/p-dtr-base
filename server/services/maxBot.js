@@ -98,8 +98,8 @@ const handleMaxWebhook = async (req, res) => {
 
   const text = message.body?.text || '';
   const senderId = message.sender?.user_id;
-  const senderName = update?.message?.sender?.name
-  || [update?.message?.sender?.first_name, update?.message?.sender?.last_name]
+  const senderName = message.sender?.name
+  || [message.sender?.first_name, message.sender?.last_name]
       .filter(Boolean).join(' ')
   || null;
   console.log(`[${now()}] Message from MAX, update_type: ${update_type} senderName: ${senderName}  body.text: ${text}`);
@@ -197,12 +197,18 @@ const handleMaxWebhook = async (req, res) => {
 
               await client.query(
                 `INSERT INTO auth_logs (phone, device_id, ip_address, user_agent, action, status, details)
-                 VALUES ($1, $2, $3, $4, 'max_linked', 'success', $5)`,
-                [u.phone, null, null, botUA, `max_user_id: ${senderId}, code: ${code}`]
+                VALUES ($1, $2, $3, $4, 'max_linked', 'success', $5)`,
+                [u.phone, null, null, botUA,
+                JSON.stringify({
+                  max_user_id: String(senderId),
+                  max_display_name: senderName,
+                  code: code
+                })]
               );
 
+
               await sendMaxMessage(senderId,
-                `✅ Отлично, ${u.name}! Теперь вы будете получать напоминания о приёмах здесь — за час до начала. Список последних: /last15`,
+                `✅ Отлично, ${u.name}! Теперь вы будете получать напоминания о приёмах здесь — по умолчанию, за час до начала. Список последних: /last15`,
                 { kind: 'bot', internalUserId: u.id });
             }
           }

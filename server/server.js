@@ -2749,21 +2749,55 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
     }
 
         // Подписки на пуш-уведомления — отдельным запросом из своей таблицы
-    const subs = await client.query(
-      `SELECT id, subscription->>'endpoint' AS endpoint, user_agent, created_at
-       FROM appt_push_subscriptions
-       WHERE user_id = $1
-       ORDER BY created_at DESC`,
-      [req.user.id]
-    );
+        const subs = await client.query(
+          `SELECT s.id,
+                  s.subscription->>'endpoint' AS endpoint,
+                  s.user_agent,
+                  s.created_at,
+                  l.created_at AS last_confirmed_at,
+                  l.ip_address
+          FROM appt_push_subscriptions s
+          LEFT JOIN LATERAL (
+            SELECT created_at, ip_address
+            FROM auth_logs
+            WHERE phone = $1
+              AND action = 'push_subscribed'
+              AND status = 'success'
+              AND details LIKE '{%'
+              AND details::jsonb->>'endpoint' = s.subscription->>'endpoint'
+            ORDER BY created_at DESC
+            LIMIT 1
+          ) l ON true
+          WHERE s.user_id = $1
+          ORDER BY s.created_at DESC`,
+          [req.user.phone]
+        );
 
+
+    // Последняя успешная привязка MAX — из логов
+    const maxInfo = await client.query(
+      `SELECT created_at AS max_linked_at,
+              details::jsonb->>'max_user_id' AS max_user_id,
+              details::jsonb->>'max_display_name' AS max_display_name
+      FROM auth_logs
+      WHERE phone = $1
+        AND action = 'max_linked'
+        AND status = 'success'
+        AND details LIKE '{%'
+      ORDER BY created_at DESC
+      LIMIT 1`,
+      [req.user.phone]
+    );
 
 
     res.json({
       success: true,
       data: {
         ...result.rows[0],
-        appt_push_subscriptions: subs.rows
+        appt_push_subscriptions: subs.rows,        
+        max_linked_at:    maxInfo.rows[0]?.max_linked_at || null,
+        max_display_name: maxInfo.rows[0]?.max_display_name || null,
+        max_user_id_from_log: maxInfo.rows[0]?.max_user_id || null
       }
     });
   } catch (error) {
