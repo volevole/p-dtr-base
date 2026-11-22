@@ -434,7 +434,7 @@ export default function SettingsProfilePage() {
   const handleGenerateMaxCode = async () => {
     setMaxCodeLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/profile/max/generate-code`, { method: 'POST', credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/auth/profile/max/generate-code`, { method: 'POST', credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setMaxCode(data.data);   // { code: 'K7F29QMD' }
@@ -453,7 +453,7 @@ export default function SettingsProfilePage() {
   const handleUnlinkMax = async () => {
     if (!window.confirm('Отвязать аккаунт MAX? Напоминания перестанут приходить.')) return;
     try {
-      const res = await fetch(`${API_URL}/api/profile/max/unlink`, { method: 'PUT', credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/auth/profile/max/unlink`, { method: 'PUT', credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setProfileInfo({ ...profileInfo, max_user_id: null });
@@ -488,7 +488,7 @@ export default function SettingsProfilePage() {
   const handleDeletePush = async (subId) => {
     if (!window.confirm('Удалить эту подписку на пуш-уведомления?')) return;
     try {
-      const res = await fetch(`${API_URL}/api/profile/push/${subId}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`${API_URL}/api/auth/profile/push/${subId}`, { method: 'DELETE', credentials: 'include' });
       const data = await res.json();
       if (data.success) {
         setProfileInfo({

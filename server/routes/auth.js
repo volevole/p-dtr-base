@@ -418,7 +418,7 @@ const registerLimiter = rateLimit({
     }
   });
 
-// POST /api/push/subscribe — сохранить подписку на пуши
+// POST /api/auth/push/subscribe — сохранить подписку на пуши
 router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убрали /api, так как оно уже есть в префиксе
   const { subscription } = req.body;
   const userAgent = req.headers['user-agent'] || null;
@@ -444,7 +444,7 @@ router.post('/push/subscribe', requireAuth, async (req, res) => { // 👈 Убр
   }
 });
 
-// POST /api/profile/max/generate-code — создать одноразовый код для привязки MAX-бота
+// POST /api/auth/profile/max/generate-code — создать одноразовый код для привязки MAX-бота
 router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
   const client = await connectDB();
 
@@ -468,12 +468,12 @@ router.post('/profile/max/generate-code', requireAuth, async (req, res) => {
 
     res.json({ success: true, data: { code } });
   } catch (error) {
-    console.error('[ERROR] POST /api/profile/max/generate-code:', error.message);
+    console.error('[ERROR] POST /api/auth/profile/max/generate-code:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// PUT /api/profile/max/unlink — отвязать MAX-бота от аккаунта
+// PUT /api/auth/profile/max/unlink — отвязать MAX-бота от аккаунта
 router.put('/profile/max/unlink', requireAuth, async (req, res) => {
   const client = await connectDB();
 
@@ -491,12 +491,12 @@ router.put('/profile/max/unlink', requireAuth, async (req, res) => {
 
     res.json({ success: true, message: 'MAX отвязан' });
   } catch (error) {
-    console.error('[ERROR] PUT /api/profile/max/unlink:', error.message);
+    console.error('[ERROR] PUT /api/auth/profile/max/unlink:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// DELETE /api/profile/push/:id — удалить подписку на пуши (конкретное устройство)
+// DELETE /api/auth/profile/push/:id — удалить подписку на пуши (конкретное устройство)
 router.delete('/profile/push/:id', requireAuth, async (req, res) => {
   const client = await connectDB();
 
@@ -514,7 +514,7 @@ router.delete('/profile/push/:id', requireAuth, async (req, res) => {
 
     res.json({ success: true, message: 'Подписка удалена' });
   } catch (error) {
-    console.error('[ERROR] DELETE /api/profile/push/:id:', error.message);
+    console.error('[ERROR] DELETE /api/auth/profile/push/:id:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
