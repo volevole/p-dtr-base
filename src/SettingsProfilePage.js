@@ -70,6 +70,10 @@ export default function SettingsProfilePage() {
   const [maxCodeLoading, setMaxCodeLoading] = useState(false);
   const [maxCopied, setMaxCopied] = useState(false);
 
+// 👈 Состояния для настроек напоминаний
+  const [leadMinutes, setLeadMinutes] = useState([60]);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
 
   useEffect(() => {
     if (activeTab === 'appointments' && hasAppointmentsAccess) {
@@ -77,24 +81,28 @@ export default function SettingsProfilePage() {
     }
   }, [activeTab, hasAppointmentsAccess]);
 
-  useEffect(() => {
-    // Загружаем детальную инфу при открытии страницы
-    const fetchProfileInfo = async () => {
+    useEffect(() => {
+    // Загружаем детальную инфу о профиле (и настройки для уведомлений)
+    const fetchProfileData = async () => {
       try {
         const res = await fetch(`${API_URL}/api/profile/me`, { credentials: 'include' });
         const data = await res.json();
+        
         if (data.success) {
-          setProfileInfo(data.data);
+          setProfileInfo(data.data); // Для общего профиля
+          
+          // 👈 Если мы на вкладке уведомлений, обновляем и чекбоксы
+          if (activeTab === 'notifications' && data.data.notification_lead_minutes_default) {
+            setLeadMinutes(data.data.notification_lead_minutes_default);
+          }
         }
       } catch (err) {
         console.error('Ошибка загрузки профиля:', err);
       }
     };
     
-    fetchProfileInfo();
-  }, []);
-
-
+    fetchProfileData();
+  }, [activeTab]); // 👈 Следим за сменой вкладки
 
   const isMobile = window.innerWidth <= 768;
 
@@ -515,8 +523,34 @@ export default function SettingsProfilePage() {
     return ua.substring(0, 30);
   };
 
+  // Функция сохранения настроек
+  const handleSaveReminders = async () => {
+    setSavingSettings(true);
+    setSettingsMessage('');
+    try {
+      const res = await fetch(`${API_URL}/api/profile/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          notification_lead_minutes: leadMinutes.join(',') 
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettingsMessage('✅ Настройки сохранены');
+        setTimeout(() => setSettingsMessage(''), 3000);
+      } else {
+        setSettingsMessage('❌ Ошибка: ' + data.error);
+      }
+    } catch (err) {
+      setSettingsMessage('❌ Ошибка сети: ' + err.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
-
+  
   const tabStyle = (isActive) => ({
     padding: '10px 20px', backgroundColor: isActive ? '#007bff' : '#f8f9fa',
     color: isActive ? 'white' : '#495057', border: '1px solid #dee2e6',
@@ -1032,6 +1066,59 @@ const getOS = (ua) => {
       {/* Вкладка: Уведомления */}
       {activeTab === 'notifications' && (
         <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', maxWidth: isMobile ? '500px' : '700px' }}>
+          
+          {/* 👈 Блок настроек напоминаний */}
+          <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', marginBottom: '20px', marginTop: '20px' }}>
+            <h3 style={{ marginTop: 0 }}>Напоминания о приёмах</h3>
+            <p style={{ fontSize: '14px', color: '#666' }}>
+              По умолчанию эти напоминания будут применяться ко всем вашим приёмам. В конкретном приёме вы сможете изменить их.
+            </p>
+            
+            {settingsMessage && (
+              <div style={{ marginBottom: '10px', color: settingsMessage.includes('✅') ? '#28a745' : '#dc3545' }}>
+                {settingsMessage}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                            {[1440, 360, 60, 30, 15, 5].map(min => {
+                const isChecked = leadMinutes.includes(min);
+                
+                // 👈 Красивые названия для чекбоксов
+                const labels = {
+                  1440: 'За 24 часа',
+                  360: 'За 6 часов',
+                  60: 'За 1 час',
+                  30: 'За 30 мин',
+                  15: 'За 15 мин',
+                  5: 'За 5 мин'
+                };
+
+                return (
+                  <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={isChecked}
+                      onChange={() => {
+                        setLeadMinutes(prev => 
+                          isChecked ? prev.filter(m => m !== min) : [...prev, min]
+                        );
+                      }}
+                    />
+                    {labels[min]}
+                  </label>
+                );
+              })}
+            </div>
+
+            <button 
+              onClick={handleSaveReminders} 
+              disabled={savingSettings}
+              style={{ padding: '8px 16px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: savingSettings ? 'not-allowed' : 'pointer' }}
+            >
+              {savingSettings ? 'Сохранение...' : 'Сохранить настройки'}
+            </button>
+          </div>
 
           {/* 1. WebPush (FCM) */}
           <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>🔔 Браузерные пуш-уведомления</h3>

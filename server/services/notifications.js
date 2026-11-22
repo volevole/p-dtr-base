@@ -58,11 +58,23 @@ const sendPushToUser = async (userId, payload, masterName = null) => {
 // 👈 ЗАПУСК CRON-ЗАДАЧИ (каждую минуту)
 // Настройка напоминаний: за сколько минут до начала подготовки оповещать.
 // Пока — константа «за час». Позже переедет в user_settings каждого мастера.
-const LEAD_MINUTES = [60];
+//const LEAD_MINUTES = [60];
+const DEFAULT_LEAD_MINUTES = [60]; // запасной вариант
 
-// Человекочитаемая метка лида
-const leadLabel = (m) =>
-  m === 60 ? 'Через час' : (m % 10 === 1 && m !== 11 ? `Через ${m} минуту` : `Через ${m} минут`);
+
+/// Человекочитаемая метка лида
+const leadLabel = (m) => {
+  if (m === 1440) return 'Через 24 часа';
+  if (m === 360) return 'Через 6 часов';
+  if (m === 60) return 'Через час';
+  if (m === 30) return 'Через 30 минут';
+  if (m === 15) return 'Через 15 минут';
+  if (m === 5) return 'Через 5 минут';
+  
+  // На всякий случай для нестандартных значений
+  if (m % 10 === 1 && m !== 11) return `Через ${m} минуту`;
+  return `Через ${m} минут`;
+};
 
 // 👈 ЗАПУСК CRON-ЗАДАЧИ (каждую минуту)
 const startNotificationCron = () => {
@@ -93,7 +105,19 @@ const startNotificationCron = () => {
           l.name AS location_name
         FROM appointments a
         JOIN users u ON u.id = a.master_id
-        JOIN unnest($1::int[]) AS n(lead_minutes) ON true
+        -- 👈 Берем лиды из приёма или из user_settings
+        CROSS JOIN LATERAL (
+          SELECT unnest(
+            COALESCE(
+              a.notification_lead_minutes,
+              string_to_array(
+                (SELECT value FROM user_settings WHERE user_id = u.id AND key = 'notification_lead_minutes'),
+                ','
+              )::int[],
+              $1::int[]
+            )
+          ) AS lead_minutes
+        ) n
         LEFT JOIN appt_clients   c ON c.id = a.client_id
         LEFT JOIN appt_services  s ON s.id = a.service_id
         LEFT JOIN appt_locations l ON l.id = a.location_id
@@ -106,7 +130,7 @@ const startNotificationCron = () => {
                   AND date_trunc('minute', NOW())
       `;
 
-      const result = await client.query(query, [LEAD_MINUTES]);
+      const result = await client.query(query, [DEFAULT_LEAD_MINUTES]);
       console.log(`[NOTIFY] ${new Date().toLocaleTimeString('ru-RU')}: к отправке найдено приёмов: ${result.rowCount}`);
 
       for (const appt of result.rows) {

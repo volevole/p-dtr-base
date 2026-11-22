@@ -121,7 +121,8 @@ router.post('/', async (req, res) => {
     discount_amount,
     final_price,
     general_notes, // 👈 Берем из тела запроса
-    record_notes   // 👈 Берем из тела запроса
+    record_notes,   // 👈 Берем из тела запроса
+    notification_lead_minutes
   } = req.body;
 
   if (!appointment_date || !service_id) {
@@ -172,8 +173,8 @@ router.post('/', async (req, res) => {
       `INSERT INTO appointments 
        (master_id, client_id, service_id, location_id, appointment_date, 
         duration_minutes, buffer_before_minutes, buffer_after_minutes, 
-        base_price, discount_amount, final_price, general_notes, record_notes, status) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'scheduled') 
+        base_price, discount_amount, final_price, general_notes, record_notes, status, notification_lead_minutes) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'scheduled', $14::int[]) 
        RETURNING *`,
       [
         req.user.id, client_id, service_id, location_id, appointment_date,
@@ -183,7 +184,8 @@ router.post('/', async (req, res) => {
         base_price || 0, discount_amount || 0, 
         final_price || 0, 
         general_notes || '', // $12
-        record_notes || ''   // $13
+        record_notes || '',
+        notification_lead_minutes || null 
       ]
     );
 
@@ -237,7 +239,7 @@ router.put('/:id', async (req, res) => {
     duration_minutes, buffer_before_minutes, buffer_after_minutes,
     base_price, discount_amount, final_price, status, general_notes, notes,
     record_notes,
-    subscription_info, chief_complaint, specialization_data
+    subscription_info, chief_complaint, specialization_data, notification_lead_minutes
   } = req.body;
 
   try {
@@ -282,7 +284,7 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Обновляем ВСЕ поля (включая кастомные и финансы)    
+        // Обновляем ВСЕ поля (включая кастомные и финансы)    
     const result = await client.query(
       `UPDATE appointments 
        SET client_id = $1, service_id = $2, location_id = $3, appointment_date = $4,
@@ -290,17 +292,29 @@ router.put('/:id', async (req, res) => {
            base_price = $8, discount_amount = $9, final_price = $10,
            status = $11, general_notes = $12, record_notes = $13,
            subscription_info = $14, chief_complaint = $15, specialization_data = $16,
+           notification_lead_minutes = $17::int[], -- 👈 17-й параметр (массив)
            updated_at = NOW()
-       WHERE id = $17 AND master_id = $18 RETURNING *`,
+       WHERE id = $18 AND master_id = $19 RETURNING *`,
       [
-        client_id || null, service_id, location_id || null, appointment_date,
-        duration_minutes || 60, buffer_before_minutes || 0, buffer_after_minutes || 0,
-        base_price || 0, discount_amount || 0, final_price || 0,
-        status || 'scheduled', general_notes || '', record_notes || '',
-        subscription_info || '',
-        chief_complaint || '',
-        specialization_data ? JSON.stringify(specialization_data) : '{}',
-        req.params.id, req.user.id
+        client_id || null,           // $1
+        service_id,                  // $2
+        location_id || null,         // $3
+        appointment_date,            // $4
+        duration_minutes || 60,      // $5
+        buffer_before_minutes || 0,  // $6
+        buffer_after_minutes || 0,   // $7
+        base_price || 0,             // $8
+        discount_amount || 0,        // $9
+        final_price || 0,            // $10
+        status || 'scheduled',       // $11
+        general_notes || '',         // $12
+        record_notes || '',          // $13
+        subscription_info || '',     // $14
+        chief_complaint || '',       // $15
+        specialization_data ? JSON.stringify(specialization_data) : '{}', // $16
+        notification_lead_minutes || null, // $17 👈 Массив (или null)
+        req.params.id,               // $18
+        req.user.id                  // $19
       ]
     );
 

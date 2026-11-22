@@ -119,7 +119,15 @@ const SUPPORTED_ROLES = [
             [id]
           );
         }
+        // 👈 Создаем дефолтную настройку уведомлений для роли appointments, если её еще нет
+        await client.query(
+          `INSERT INTO user_settings (user_id, key, value) 
+          VALUES ($1, 'notification_lead_minutes', '60') 
+          ON CONFLICT (user_id, key) DO NOTHING`,
+          [id]
+        );
       }
+
 
       await client.query('COMMIT');
       
@@ -186,6 +194,13 @@ const SUPPORTED_ROLES = [
             [id]
           );
         }
+        // 👈 Создаем дефолтную настройку уведомлений, если её еще нет
+        await client.query(
+          `INSERT INTO user_settings (user_id, key, value) 
+          VALUES ($1, 'notification_lead_minutes', '60') 
+          ON CONFLICT (user_id, key) DO NOTHING`,
+          [id]
+        );
       }
 
       await client.query('COMMIT');

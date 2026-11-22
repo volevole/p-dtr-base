@@ -2789,11 +2789,17 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
       [req.user.phone]
     );
 
+    const settingsRes = await client.query(
+      "SELECT value FROM user_settings WHERE user_id = $1 AND key = 'notification_lead_minutes'",
+      [req.user.id]
+    );
+    const defaultLeadMinutes = settingsRes.rows[0]?.value || '60';
 
     res.json({
       success: true,
       data: {
         ...result.rows[0],
+        notification_lead_minutes_default: defaultLeadMinutes.split(',').map(Number), // 👈 Отдаем массив [60, 15, 5]
         appt_push_subscriptions: subs.rows,        
         max_linked_at:    maxInfo.rows[0]?.max_linked_at || null,
         max_display_name: maxInfo.rows[0]?.max_display_name || null,
@@ -2824,6 +2830,29 @@ app.put('/api/profile/name', requireAuth, async (req, res) => {
     res.json({ success: true, message: 'Имя обновлено' });
   } catch (error) {
     console.error('[ERROR] PUT /api/profile/name:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/profile/settings — сохранить настройки пользователя
+app.put('/api/profile/settings', requireAuth, async (req, res) => {
+  const { notification_lead_minutes } = req.body;
+  const client = await connectDB();
+
+  if (!notification_lead_minutes) {
+    return res.status(400).json({ success: false, error: 'Нет данных для сохранения' });
+  }
+
+  try {
+    await client.query(
+      `INSERT INTO user_settings (user_id, key, value) 
+       VALUES ($1, 'notification_lead_minutes', $2) 
+       ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value`,
+      [req.user.id, notification_lead_minutes]
+    );
+    res.json({ success: true, message: 'Настройки сохранены' });
+  } catch (error) {
+    console.error('[ERROR] PUT /api/profile/settings:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

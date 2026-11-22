@@ -112,6 +112,8 @@ export default function SchedulePage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAppt, setSelectedAppt] = useState(null);
+
+  const [defaultLeadMinutes, setDefaultLeadMinutes] = useState([60]);
   
   // Состояние для формы редактирования
   const [editApptData, setEditApptData] = useState({ 
@@ -126,7 +128,8 @@ export default function SchedulePage() {
     final_price: 0, 
     status: 'scheduled', 
     general_notes: '',
-    record_notes: ''  
+    record_notes: '' ,
+    notification_lead_minutes: null 
   });
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -140,7 +143,7 @@ export default function SchedulePage() {
 
   const [newAppt, setNewAppt] = useState({
     time: '10:00', client_id: '', service_id: '', location_id: '', notes: '', general_notes: '',
-    buffer_before_minutes: '', buffer_after_minutes: '', duration_minutes: ''
+    buffer_before_minutes: '', buffer_after_minutes: '', duration_minutes: '', notification_lead_minutes: null
   });
   
   const [selectedService, setSelectedService] = useState(null);
@@ -229,7 +232,8 @@ export default function SchedulePage() {
           final_price: apptToOpen.final_price || 0,
           status: apptToOpen.status || 'scheduled',
           general_notes: apptToOpen.general_notes || '',
-          record_notes: apptToOpen.record_notes || ''
+          record_notes: apptToOpen.record_notes || '',
+          notification_lead_minutes: apptToOpen.notification_lead_minutes || null
         });
 
         // Очищаем URL, чтобы при обновлении страницы модалка не открывалась снова
@@ -243,11 +247,12 @@ export default function SchedulePage() {
       setLoading(true);
       setError(''); // 👈 Сбрасываем старую ошибку при новом запросе
       
-      const [apptRes, cliRes, servRes, locRes] = await Promise.all([
+      const [apptRes, cliRes, servRes, locRes, profileRes] = await Promise.all([
         fetch(`${API_URL}/api/appt/schedule?date=${selectedDate}`, { credentials: 'include' }),
         fetch(`${API_URL}/api/appt/clients`, { credentials: 'include' }),
         fetch(`${API_URL}/api/appt/services`, { credentials: 'include' }),
-        fetch(`${API_URL}/api/appt/locations`, { credentials: 'include' })
+        fetch(`${API_URL}/api/appt/locations`, { credentials: 'include' }),
+        fetch(`${API_URL}/api/profile/me`, { credentials: 'include' }) // 👈 Новый запрос
       ]);
 
       // 👈 ПРОВЕРЯЕМ СТАТУС ГЛАВНОГО ЗАПРОСА
@@ -262,6 +267,12 @@ export default function SchedulePage() {
       const cliData = await cliRes.json();
       const servData = await servRes.json();
       const locData = await locRes.json();
+      const profileData = await profileRes.json(); // 👈 Получаем данные профиля
+
+      // 👈 Сохраняем дефолтные настройки из профиля
+      if (profileData.success && profileData.data.notification_lead_minutes_default) {
+        setDefaultLeadMinutes(profileData.data.notification_lead_minutes_default);
+      }
 
       if (apptData.success) {
         setAppointments(apptData.data);
@@ -291,7 +302,8 @@ export default function SchedulePage() {
               final_price: apptToOpen.final_price || 0,
               status: apptToOpen.status || 'scheduled',
               general_notes: apptToOpen.general_notes || '',
-              record_notes: apptToOpen.record_notes || ''
+              record_notes: apptToOpen.record_notes || '',
+              notification_lead_minutes: apptToOpen.notification_lead_minutes || null
             });
 
             window.history.replaceState({}, document.title, window.location.pathname + `?date=${selectedDate}`);
@@ -341,7 +353,7 @@ export default function SchedulePage() {
     setNewAppt({ 
       time, client_id: '', service_id: '', location_id: '', notes: '',
       general_notes: '', // 👈 Обязательно очищаем
-      buffer_before_minutes: '', buffer_after_minutes: '', duration_minutes: ''
+      buffer_before_minutes: '', buffer_after_minutes: '', duration_minutes: '', notification_lead_minutes: null
     });
     setSelectedService(null);
     setSelectedLocation(null);
@@ -529,6 +541,7 @@ export default function SchedulePage() {
       base_price: selectedService?.default_price || 0,
       discount_amount: 0,
       final_price: selectedService?.default_price || 0,
+      notification_lead_minutes: newAppt.notification_lead_minutes,
       general_notes: newAppt.general_notes || '', // 👈 Берем из состояния формы
       record_notes: newAppt.notes || ''           // 👈 Берем из состояния формы  👈 Передаем то, что ввели в поле "Примечание к записи"
     };
@@ -568,6 +581,7 @@ export default function SchedulePage() {
         buffer_after_minutes: Number(editApptData.buffer_after_minutes),
         final_price: Number(editApptData.final_price),
         status: editApptData.status,
+        notification_lead_minutes: editApptData.notification_lead_minutes,
         general_notes: editApptData.general_notes,
         record_notes: editApptData.record_notes,
 
@@ -828,7 +842,8 @@ export default function SchedulePage() {
                       final_price: appt.final_price || 0,
                       status: appt.status || 'scheduled',
                       general_notes: appt.general_notes || '',
-                      record_notes: appt.record_notes || ''
+                      record_notes: appt.record_notes || '',
+                      notification_lead_minutes: appt.notification_lead_minutes || null
                     });
                   }}
                   style={{
@@ -1096,7 +1111,53 @@ export default function SchedulePage() {
                 </div>
               )}
 
-                             <div style={{ marginBottom: '15px' }}>
+              {/* 👈 Блок напоминаний (Создание) */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
+                  Напомнить о подготовке:
+                </label>
+                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                  {[1440, 360, 60, 30, 15, 5].map(min => {
+                    const currentLeads = (newAppt.notification_lead_minutes !== null && newAppt.notification_lead_minutes !== undefined) 
+                        ? newAppt.notification_lead_minutes 
+                        : (defaultLeadMinutes || []);
+                    
+                    const isChecked = currentLeads.includes(min);
+                    // 👈 Красивые названия для чекбоксов
+                    const labels = {
+                      1440: 'За 24 часа',
+                      360: 'За 6 часов',
+                      60: 'За 1 час',
+                      30: 'За 30 мин',
+                      15: 'За 15 мин',
+                      5: 'За 5 мин'
+                    };
+
+                    return (
+                      <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={() => {
+                            const newLeads = isChecked 
+                              ? currentLeads.filter(l => l !== min) 
+                              : [...currentLeads, min];
+                            
+                            setNewAppt({ 
+                              ...newAppt, 
+                              // Если массив пуст, сохраняем null (чтобы работал дефолт)
+                              notification_lead_minutes: newLeads.length === 0 ? null : newLeads 
+                            });
+                          }}
+                        />
+                        {min === 60 ? 'за 1 час' : `за ${min} мин`}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', flexWrap: 'wrap', gap: '5px' }}>
                   <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#0056b3', margin: 0 }}>Примечание к записи (адрес, детали)</label>
                   
@@ -1315,6 +1376,52 @@ export default function SchedulePage() {
                     onChange={e => setEditApptData({...editApptData, buffer_after_minutes: e.target.value})}
                     style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                   />
+                </div>
+              </div>
+
+              {/* 👈 Блок напоминаний (Редактирование) */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
+                  Напомнить о подготовке:
+                </label>
+                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                  {[1440, 360, 60, 30, 15, 5] .map(min => {
+                    const currentLeads = (editApptData.notification_lead_minutes !== null && editApptData.notification_lead_minutes !== undefined) 
+                        ? editApptData.notification_lead_minutes 
+                        : (defaultLeadMinutes || []);
+                    
+                    const isChecked = currentLeads.includes(min);
+
+                    // 👈 Красивые названия для чекбоксов
+                    const labels = {
+                      1440: 'За 24 часа',
+                      360: 'За 6 часов',
+                      60: 'За 1 час',
+                      30: 'За 30 мин',
+                      15: 'За 15 мин',
+                      5: 'За 5 мин'
+                    };
+
+                    return (
+                      <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', cursor: 'pointer' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={() => {
+                            const newLeads = isChecked 
+                              ? currentLeads.filter(l => l !== min) 
+                              : [...currentLeads, min];
+                            
+                            setEditApptData({ 
+                              ...editApptData, 
+                              notification_lead_minutes: newLeads.length === 0 ? null : newLeads 
+                            });
+                          }}
+                        />
+                        {min === 60 ? 'за 1 час' : `за ${min} мин`}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
