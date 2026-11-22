@@ -87,7 +87,7 @@ const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserI
 // Обработчик Webhook
 const handleMaxWebhook = async (req, res) => {
   
-  console.log('[MAX] payload:', JSON.stringify(req.body).slice(0, 800));
+  //console.log('[MAX] payload:', JSON.stringify(req.body).slice(0, 800));
 
   const { update_type, message } = req.body;
 
@@ -166,9 +166,10 @@ const handleMaxWebhook = async (req, res) => {
 
         } else {
           const found = await client.query(
-            'SELECT id, name, max_user_id FROM users WHERE id = $1',
+            'SELECT id, name, phone, max_user_id FROM users WHERE id = $1',
             [link.user_id]
           );
+
 
           if (found.rowCount === 0) {
             await sendMaxMessage(senderId,

@@ -1049,7 +1049,12 @@ const getOS = (ua) => {
                     <div style={{ fontSize: '11px', color: '#6c757d' }}>
                       {getOS(sub.user_agent) && `${getOS(sub.user_agent)} · `}
                       с {new Date(sub.created_at).toLocaleDateString('ru-RU')}
-                      {sub.last_confirmed_at && ` · активна ${new Date(sub.last_confirmed_at).toLocaleDateString('ru-RU')}`}
+                      {sub.last_confirmed_at && (
+                        ` · активна ${new Date(sub.last_confirmed_at).toLocaleString('ru-RU', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}`
+                      )}
                       {sub.ip_address && ` · IP ${sub.ip_address}`}
                     </div>
                   </span>

@@ -14,7 +14,7 @@ function urlBase64ToUint8Array(base64String) {
 
 export const subscribeUserToPush = async (userId) => {
   // 1. Проверяем поддержку
-  console.log('🔵 [PUSH] Старт подписки...');
+  //console.log('🔵 [PUSH] Старт подписки...');
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.warn('Push-уведомления не поддерживаются этим браузером');
     return false;
@@ -22,16 +22,16 @@ export const subscribeUserToPush = async (userId) => {
 
   try {
     // 2. Регистрируем Service Worker (если еще не зарегистрирован)
-    console.log('🔵 [PUSH] Регистрация SW...');
+    //console.log('🔵 [PUSH] Регистрация SW...');
     const registration = await navigator.serviceWorker.register('/larchik/service-worker.js');
     console.log('🔵 [PUSH] SW зарегистрирован:', registration);
 
     await navigator.serviceWorker.ready;
-    console.log('🔵 [PUSH] SW готов');
+    //console.log('🔵 [PUSH] SW готов');
 
     // 3. Запрашиваем разрешение у пользователя
     const permission = await Notification.requestPermission();
-    console.log('🔵 [PUSH] Разрешение:', permission);
+    //console.log('🔵 [PUSH] Разрешение:', permission);
     if (permission !== 'granted') {
       console.warn('Пользователь отклонил запрос на уведомления');
       return false;
@@ -39,7 +39,7 @@ export const subscribeUserToPush = async (userId) => {
 
     // 4. Подписываемся на пуши
     const publicVapidKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
-    console.log('🔵 [PUSH] Ключ:', publicVapidKey ? 'Есть' : 'НЕТ');
+    //console.log('🔵 [PUSH] Ключ:', publicVapidKey ? 'Есть' : 'НЕТ');
     if (!publicVapidKey) throw new Error('Не задан REACT_APP_VAPID_PUBLIC_KEY');
 
     const subscription = await registration.pushManager.subscribe({
@@ -48,10 +48,10 @@ export const subscribeUserToPush = async (userId) => {
     });    
     // Сохраняем endpoint с привязкой к пользователю
     localStorage.setItem(`larchik_push_endpoint_${userId}`, subscription.endpoint);
-    console.log('🔵 [PUSH] Подписка создана:', subscription);
+    //console.log('🔵 [PUSH] Подписка создана:', subscription);
 
     // 5. Отправляем подписку на сервер
-    console.log('🔵 [PUSH] Отправка на сервер...');
+    //console.log('🔵 [PUSH] Отправка на сервер...');
     const res = await fetch(`${API_URL}/api/auth/push/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -60,7 +60,7 @@ export const subscribeUserToPush = async (userId) => {
     });
 
     const data = await res.json();
-    console.log('🔵 [PUSH] Ответ сервера:', data);
+    //console.log('🔵 [PUSH] Ответ сервера:', data);
 
     if (data.success) {
       console.log('✅ [PUSH] Успешно подписались!');

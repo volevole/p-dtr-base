@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     console.log('🔵 AuthContext: useEffect для пушей. User:', user);
     if (user && process.env.NODE_ENV === 'production') {
-      console.log('🔵 AuthContext: Вызываю subscribeUserToPush...');
+      console.log('🔵 AuthContext: Вызываю subscribeUserToPush...User:', user);
       subscribeUserToPush(user.id);
     }
   }, [user]);
