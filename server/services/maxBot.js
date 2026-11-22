@@ -86,7 +86,11 @@ const sendMaxMessage = async (maxUserId, text, { kind = 'general', internalUserI
 
 // Обработчик Webhook
 const handleMaxWebhook = async (req, res) => {
+  
+  console.log('[MAX] payload:', JSON.stringify(req.body).slice(0, 800));
+
   const { update_type, message } = req.body;
+
 
   if (update_type !== 'message_created' || !message) {
     return res.status(200).send('OK');
@@ -94,7 +98,11 @@ const handleMaxWebhook = async (req, res) => {
 
   const text = message.body?.text || '';
   const senderId = message.sender?.user_id;
-  console.log(`[${now()}] Message from MAX, update_type: ${update_type} body.text: ${text}`);
+  const senderName = update?.message?.sender?.name
+  || [update?.message?.sender?.first_name, update?.message?.sender?.last_name]
+      .filter(Boolean).join(' ')
+  || null;
+  console.log(`[${now()}] Message from MAX, update_type: ${update_type} senderName: ${senderName}  body.text: ${text}`);
 
   const client = await connectDB();
 

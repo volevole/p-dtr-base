@@ -546,15 +546,34 @@ export default function SettingsProfilePage() {
   };
   
   // --- Определяем ОС из user_agent ---
-  const getOS = (ua) => {
-    if (!ua) return '';
-    if (/Android/i.test(ua)) return 'Android';
-    if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
-    if (/Windows NT/i.test(ua)) return 'Windows';
-    if (/Mac OS X|Macintosh/i.test(ua)) return 'macOS';
-    if (/Linux/i.test(ua)) return 'Linux';
-    return '';
-  };
+const getOS = (ua) => {
+  if (!ua) return '';
+  
+  // Сначала проверяем мобильные ОС (они часто содержат в себе слова десктопных движков)
+  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) { 
+     // Тут хитрость: если это не мобильное устройство, но слово Android есть (редко, но бывает в эмуляторах)
+     // Но обычно для веба на ПК Android не пишут. 
+     // Если у вас в логах реально UA с ПК содержит слово Android — это очень странно.
+  }
+
+  // Приоритет: iOS/iPadOS
+  if (/iPad|iPhone|iPod/i.test(ua)) return 'iOS';
+  
+  // Приоритет: Android (мобильный)
+  if (/Android/i.test(ua)) return 'Android';
+
+  // Приоритет: Windows (ищем специфичную сигнатуру)
+  if (/Windows NT/i.test(ua)) return 'Windows';
+
+  // Приоритет: macOS
+  if (/Mac OS X/i.test(ua)) return 'macOS';
+
+  // Приоритет: Linux
+  if (/Linux/i.test(ua)) return 'Linux';
+
+  return 'Неизвестно';
+};
+
 
 
   return (
