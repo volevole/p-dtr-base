@@ -535,7 +535,9 @@ export default function SettingsProfilePage() {
   };
 
    // --- Определяем текущую подписку (этот браузер/устройство) ---
-  const currentEndpoint = localStorage.getItem(`larchik_push_endpoint_${profileInfo.id}`);
+  const currentEndpoint = profileInfo?.id
+    ? localStorage.getItem(`larchik_push_endpoint_${profileInfo.id}`)
+    : null;
 
   const isCurrentSub = (sub) => {
     if (sub.endpoint && currentEndpoint && sub.endpoint === currentEndpoint) return true;
