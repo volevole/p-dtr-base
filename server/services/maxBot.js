@@ -118,11 +118,12 @@ const handleMaxWebhook = async (req, res) => {
 
       } else {
         const linkRes = await client.query(
-          `SELECT id, user_id, expires_at, used_at
+          `SELECT user_id, expires_at, used_at
            FROM appt_max_link_codes
            WHERE code = $1`,
           [code]
         );
+
         const link = linkRes.rows[0];
 
         if (!link) {
@@ -181,8 +182,8 @@ const handleMaxWebhook = async (req, res) => {
                 `Привет, ${u.name}! Вы уже привязаны к Ларчику — напоминания о приёмах будут приходить сюда.`,
                 { kind: 'bot', internalUserId: u.id });
             } else {
-              await client.query('UPDATE appt_max_link_codes SET used_at = NOW() WHERE id = $1',
-                [link.id]);
+              await client.query('UPDATE appt_max_link_codes SET used_at = NOW() WHERE code = $1',
+                [link.code]);
               await client.query('UPDATE users SET max_user_id = $1, updated_at = NOW() WHERE id = $2',
                 [String(senderId), u.id]);
 

@@ -545,6 +545,18 @@ export default function SettingsProfilePage() {
     return !sub.endpoint && sub.user_agent && navigator.userAgent.includes(sub.user_agent.slice(0, 20));
   };
   
+  // --- Определяем ОС из user_agent ---
+  const getOS = (ua) => {
+    if (!ua) return '';
+    if (/Android/i.test(ua)) return 'Android';
+    if (/iPhone|iPad|iPod/i.test(ua)) return 'iOS';
+    if (/Windows NT/i.test(ua)) return 'Windows';
+    if (/Mac OS X|Macintosh/i.test(ua)) return 'macOS';
+    if (/Linux/i.test(ua)) return 'Linux';
+    return '';
+  };
+
+
   return (
     <div className="detail-container" style={{ 
       maxWidth: '1000px', 
@@ -1016,6 +1028,7 @@ export default function SettingsProfilePage() {
                       </span>
                     )}
                     <div style={{ fontSize: '11px', color: '#6c757d' }}>
+                      {getOS(sub.user_agent) && `${getOS(sub.user_agent)} · `}
                       с {new Date(sub.created_at).toLocaleDateString('ru-RU')}
                       {sub.is_pwa && ' (приложение)'}
                     </div>
