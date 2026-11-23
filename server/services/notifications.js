@@ -182,7 +182,7 @@ const startNotificationCron = () => {
           if (appt.client_name && appt.record_notes) {
             lines.push(`📝 _${appt.record_notes}_`);
           }
-          lines.push('', `https://react.c-e.ru/larchik/appointments/${appt.id}`);
+          lines.push('', `[Открыть в Ларчике](https://react.c-e.ru/larchik/appointments/${appt.id})`);
 
           await sendMaxMessage(String(appt.max_user_id), lines.join('\n'), {
             kind: 'appointment',
