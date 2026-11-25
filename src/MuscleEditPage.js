@@ -66,7 +66,7 @@ function MuscleEditPage() {
     return (
       <div style={{ padding: '2rem' }}>
         <div style={{ marginBottom: '20px' }}>
-          <Link to="/">← Назад к списку</Link>
+          <Link to="/muscles">← Назад к списку</Link>
         </div>
         <h2>Мышца не найдена</h2>
       </div>
@@ -78,7 +78,7 @@ function MuscleEditPage() {
       <div style={{ marginBottom: '20px' }}>
         <Link to={`/muscle/${id}`}>← Назад к просмотру мышцы</Link>
         <span style={{ margin: '0 10px' }}>|</span>
-        <Link to="/">Вернуться к списку</Link>
+        <Link to="/muscles">Вернуться к списку</Link>
       </div>
 
       <h2>Редактирование мышцы: {muscle.name_ru || muscle.name_lat || 'Без названия'}</h2>

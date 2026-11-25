@@ -5,6 +5,7 @@ import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus, Fa
 
 import { formatPhone } from './utils/formatPhone';
 import API_URL from './config/api';
+import { LEAD_MINUTES_OPTIONS, getLeadLabel } from './utils/appLogic';
 
 export default function SettingsProfilePage() {
   const { user } = useAuth();
@@ -1081,19 +1082,9 @@ const getOS = (ua) => {
             )}
 
             <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '20px' }}>
-                            {[1440, 360, 60, 30, 15, 5].map(min => {
-                const isChecked = leadMinutes.includes(min);
+              {LEAD_MINUTES_OPTIONS.map(min => {
+                const isChecked = leadMinutes.includes(min);             
                 
-                // 👈 Красивые названия для чекбоксов
-                const labels = {
-                  1440: 'За 24 часа',
-                  360: 'За 6 часов',
-                  60: 'За 1 час',
-                  30: 'За 30 мин',
-                  15: 'За 15 мин',
-                  5: 'За 5 мин'
-                };
-
                 return (
                   <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
                     <input 
@@ -1105,7 +1096,7 @@ const getOS = (ua) => {
                         );
                       }}
                     />
-                    {labels[min]}
+                    {getLeadLabel(min)}
                   </label>
                 );
               })}

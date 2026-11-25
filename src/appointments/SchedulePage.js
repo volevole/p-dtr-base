@@ -4,6 +4,7 @@ import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileA
 import API_URL from '../config/api';
 import { formatPhoneInput, formatPhone } from '../utils/formatPhone';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
+import { LEAD_MINUTES_OPTIONS, getLeadLabel } from '../utils/appLogic';
 
 // Компонент поиска клиента
 function ClientSearch({ clients, value, onChange, onAddNew }) {
@@ -92,6 +93,139 @@ function ClientSearch({ clients, value, onChange, onAddNew }) {
     </div>
   );
 }
+
+// 👈 Компонент выбора клиента
+const ClientField = ({ clients, value, onChange, onAddNew, isEditMode, selectedApptId, selectedDate, isMobile }) => {
+  return (
+    <div style={{ marginBottom: '15px' }}>
+      <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <ClientSearch 
+            clients={clients} 
+            value={value} 
+            onChange={onChange} 
+            onAddNew={onAddNew}
+          />
+        </div>
+        
+        {value && (
+          isEditMode ? (
+            <ButtonWithTooltip 
+              to={`/appointments/clients?editClient=${value}&returnToAppt=${selectedApptId}&date=${selectedDate}`}
+              tooltip="Открыть карточку клиента для редактирования"
+              style={{ 
+                padding: 0, backgroundColor: '#e3f2fd', color: '#007bff', border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: '34px', height: '34px', margin: 0, boxSizing: 'border-box', flexShrink: 0, overflow: 'hidden'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0 }}>
+                <FaEdit size={14} style={{ display: 'block' }} />
+              </div>
+            </ButtonWithTooltip>
+          ) : (
+            <ButtonWithTooltip 
+              type="button"
+              onClick={() => alert('Сначала сохраните запись на приём. После этого вы сможете отредактировать карточку клиента.')}
+              tooltip="Сначала сохраните запись"
+              style={{ 
+                padding: 0, backgroundColor: '#e3f2fd', color: '#007bff', border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed', width: '34px', height: '34px', margin: 0, boxSizing: 'border-box', flexShrink: 0, overflow: 'hidden'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0, flexShrink: 0 }}>
+                <FaEdit size={14} style={{ display: 'block' }} />
+              </div>
+            </ButtonWithTooltip>
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
+// 👈 Компонент выбора места и буферов
+const LocationAndBuffers = ({ locations, selectedLocationId, onLocationChange, bufferBefore, bufferAfter, onBufferBeforeChange, onBufferAfterChange }) => {
+  const selectedLocation = locations.find(l => l.id === selectedLocationId);
+  return (
+    <>
+      <div style={{ marginBottom: '15px' }}>
+        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Место</label>
+        <select value={selectedLocationId} onChange={onLocationChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
+          <option value="">Не указано</option>
+          {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+        </select>
+      </div>
+
+      {selectedLocation && (
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "до" (мин)</label>
+            <input 
+              type="number" 
+              value={bufferBefore} 
+              onChange={onBufferBeforeChange}
+              onFocus={() => {
+                if (bufferBefore === '' && selectedLocation.buffer_before_minutes) {
+                  onBufferBeforeChange({ target: { value: selectedLocation.buffer_before_minutes } });
+                }
+              }}
+              placeholder={selectedLocation.buffer_before_minutes} 
+              style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "после" (мин)</label>
+            <input 
+              type="number" 
+              value={bufferAfter} 
+              onChange={onBufferAfterChange}
+              onFocus={() => {
+                if (bufferAfter === '' && selectedLocation.buffer_after_minutes) {
+                  onBufferAfterChange({ target: { value: selectedLocation.buffer_after_minutes } });
+                }
+              }}
+              placeholder={selectedLocation.buffer_after_minutes} 
+              style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// 👈 Компонент напоминаний
+const RemindersField = ({ value, onChange, defaultLeadMinutes }) => {
+  return (
+    <div style={{ marginBottom: '15px' }}>
+      <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
+        Напомнить о подготовке:
+      </label>
+      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+        {LEAD_MINUTES_OPTIONS.map(min => {
+          const currentLeads = (value !== null && value !== undefined) ? value : (defaultLeadMinutes || []);
+          const isChecked = currentLeads.includes(min);                    
+
+          return (
+            <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={isChecked}
+                onChange={() => {
+                  const newLeads = isChecked 
+                    ? currentLeads.filter(l => l !== min) 
+                    : [...currentLeads, min];
+                  onChange(newLeads.length === 0 ? null : newLeads);
+                }}
+              />
+              {getLeadLabel(min)} 
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 
 export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -998,57 +1132,16 @@ export default function SchedulePage() {
                 />
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
-                
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <ClientSearch 
-                      clients={clients} 
-                      value={newAppt.client_id} 
-                      onChange={(id) => setNewAppt({...newAppt, client_id: id})} 
-                      onAddNew={(initialName) => {
-                        setQuickClientData({ name: initialName, phone: '+79', address: '' });
-                        setQuickClientModal({ isOpen: true, initialName });
-                      }}
-                    />
-                  </div>
-                                    
-                    {/* 👈 Кнопка перехода в карточку (показываем, только если клиент выбран) */}
-                    {newAppt.client_id && (
-                    <ButtonWithTooltip 
-                      type="button"
-                      onClick={() => alert('Сначала сохраните запись на приём. После этого вы сможете отредактировать карточку клиента.')}
-                      tooltip="Сначала сохраните запись"
-                      style={{ 
-                        padding: 0, 
-                        backgroundColor: '#e3f2fd', 
-                        color: '#007bff', 
-                        border: '1px solid #90caf9', 
-                        borderRadius: '4px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        cursor: 'not-allowed',
-                        minWidth: '34px',       // 👈 ДОБАВЛЯЕМ, чтобы запретить расширение
-                        maxWidth: '34px',       // 👈 ДОБАВЛЯЕМ, чтобы запретить расширение
-                        minHeight: '34px',      
-                        maxHeight: '34px',
-                        margin: 0,              
-                        boxSizing: 'border-box',
-                        flexShrink: 0,
-                        overflow: 'hidden'
-                      }}
-                    >
-                      {/* 👈 Запрещаем этому div'у растягиваться */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0, flexShrink: 0 }}>
-                        <FaEdit size={14} style={{ display: 'block' }} /> {/* 👈 Уменьшили иконку до 14, чтобы точно влезла */}
-                      </div>
-                    </ButtonWithTooltip>
-                  )}
-
-                </div>
-              </div>
+              <ClientField 
+                clients={clients} 
+                value={newAppt.client_id} 
+                onChange={(id) => setNewAppt({...newAppt, client_id: id})}
+                onAddNew={(initialName) => {
+                  setQuickClientData({ name: initialName, phone: '+79', address: '' });
+                  setQuickClientModal({ isOpen: true, initialName });
+                }}
+                isEditMode={false}
+              />
 
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Услуга *</label>
@@ -1068,94 +1161,22 @@ export default function SchedulePage() {
                 />
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Место</label>
-                <select value={newAppt.location_id} onChange={handleLocationChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                  <option value="">Не указано</option>
-                  {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </div>
-
-              {selectedLocation && (
-                <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "до" (мин)</label>
-                    <input 
-                      type="number" 
-                      value={newAppt.buffer_before_minutes} // 👈 Теперь только из стейта
-                      onChange={e => setNewAppt({...newAppt, buffer_before_minutes: e.target.value})}
-                      onFocus={(e) => {
-                        if (newAppt.buffer_before_minutes === '' && selectedLocation.buffer_before_minutes) {
-                           setNewAppt({...newAppt, buffer_before_minutes: selectedLocation.buffer_before_minutes});
-                        }
-                      }}
-                      placeholder={selectedLocation.buffer_before_minutes} // Показываем дефолт как подсказку
-                      style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                    />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "после" (мин)</label>
-                    <input 
-                      type="number" 
-                      value={newAppt.buffer_after_minutes} // 👈 Теперь только из стейта
-                      onChange={e => setNewAppt({...newAppt, buffer_after_minutes: e.target.value})}
-                      onFocus={(e) => {
-                        if (newAppt.buffer_after_minutes === '' && selectedLocation.buffer_after_minutes) {
-                           setNewAppt({...newAppt, buffer_after_minutes: selectedLocation.buffer_after_minutes});
-                        }
-                      }}
-                      placeholder={selectedLocation.buffer_after_minutes} // Показываем дефолт как подсказку
-                      style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                    />
-                  </div>
-                </div>
-              )}
+              <LocationAndBuffers 
+                locations={locations}
+                selectedLocationId={newAppt.location_id}
+                onLocationChange={(e) => setNewAppt({ ...newAppt, location_id: e.target.value })}
+                bufferBefore={newAppt.buffer_before_minutes}
+                bufferAfter={newAppt.buffer_after_minutes}
+                onBufferBeforeChange={(e) => setNewAppt({ ...newAppt, buffer_before_minutes: e.target.value })}
+                onBufferAfterChange={(e) => setNewAppt({ ...newAppt, buffer_after_minutes: e.target.value })}
+              />
 
               {/* 👈 Блок напоминаний (Создание) */}
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
-                  Напомнить о подготовке:
-                </label>
-                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                  {[1440, 360, 60, 30, 15, 5].map(min => {
-                    const currentLeads = (newAppt.notification_lead_minutes !== null && newAppt.notification_lead_minutes !== undefined) 
-                        ? newAppt.notification_lead_minutes 
-                        : (defaultLeadMinutes || []);
-                    
-                    const isChecked = currentLeads.includes(min);
-                    // 👈 Красивые названия для чекбоксов
-                    const labels = {
-                      1440: 'За 24 часа',
-                      360: 'За 6 часов',
-                      60: 'За 1 час',
-                      30: 'За 30 мин',
-                      15: 'За 15 мин',
-                      5: 'За 5 мин'
-                    };
-
-                    return (
-                      <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', cursor: 'pointer' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked}
-                          onChange={() => {
-                            const newLeads = isChecked 
-                              ? currentLeads.filter(l => l !== min) 
-                              : [...currentLeads, min];
-                            
-                            setNewAppt({ 
-                              ...newAppt, 
-                              // Если массив пуст, сохраняем null (чтобы работал дефолт)
-                              notification_lead_minutes: newLeads.length === 0 ? null : newLeads 
-                            });
-                          }}
-                        />
-                        {min === 60 ? 'за 1 час' : `за ${min} мин`}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <RemindersField 
+                value={newAppt.notification_lead_minutes}
+                onChange={(newLeads) => setNewAppt({ ...newAppt, notification_lead_minutes: newLeads })}
+                defaultLeadMinutes={defaultLeadMinutes}
+              />
 
               <div style={{ marginBottom: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px', flexWrap: 'wrap', gap: '5px' }}>
@@ -1253,55 +1274,18 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
-                
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <ClientSearch 
-                      clients={clients} 
-                      value={editApptData.client_id} 
-                      onChange={(id) => setEditApptData({...editApptData, client_id: id})} 
-                      onAddNew={(initialName) => {
-                        setQuickClientData({ name: initialName, phone: '+79', address: '' });
-                        setQuickClientModal({ isOpen: true, initialName });
-                      }}
-                    />
-                  </div>
-                  
-                  {editApptData.client_id && (
-                    <ButtonWithTooltip 
-                      to={`/appointments/clients?editClient=${editApptData.client_id}&returnToAppt=${selectedAppt.id}&date=${selectedDate}`}
-                      tooltip="Открыть карточку клиента для редактирования"
-                      style={{ 
-                        padding: 0, 
-                        backgroundColor: '#e3f2fd', 
-                        color: '#007bff', 
-                        border: '1px solid #90caf9', 
-                        borderRadius: '4px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        textDecoration: 'none',
-                        width: '34px',         
-                        height: '34px',         
-                        minWidth: '34px',       
-                        maxWidth: '34px',       
-                        minHeight: '34px',      
-                        maxHeight: '34px',
-                        margin: 0,              
-                        boxSizing: 'border-box',
-                        flexShrink: 0,
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0 }}>
-                        <FaEdit size={14} style={{ display: 'block' }} />
-                      </div>
-                    </ButtonWithTooltip>
-                  )}
-                </div>
-              </div>
+              <ClientField 
+                clients={clients} 
+                value={editApptData.client_id} 
+                onChange={(id) => setEditApptData({...editApptData, client_id: id})}
+                onAddNew={(initialName) => {
+                  setQuickClientData({ name: initialName, phone: '+79', address: '' });
+                  setQuickClientModal({ isOpen: true, initialName });
+                }}
+                isEditMode={true}
+                selectedApptId={selectedAppt.id}
+                selectedDate={selectedDate}
+              />
 
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Услуга *</label>
@@ -1341,9 +1325,10 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Место</label>
-                <select value={editApptData.location_id} onChange={e => {
+              <LocationAndBuffers 
+                locations={locations}
+                selectedLocationId={editApptData.location_id}
+                onLocationChange={(e) => {
                   const lId = e.target.value;
                   const loc = locations.find(l => l.id === lId);
                   setEditApptData({
@@ -1352,78 +1337,19 @@ export default function SchedulePage() {
                     buffer_before_minutes: loc ? loc.buffer_before_minutes : editApptData.buffer_before_minutes,
                     buffer_after_minutes: loc ? loc.buffer_after_minutes : editApptData.buffer_after_minutes
                   });
-                }} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                  <option value="">Не указано</option>
-                  {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "до" (мин)</label>
-                  <input 
-                    type="number" 
-                    value={editApptData.buffer_before_minutes} 
-                    onChange={e => setEditApptData({...editApptData, buffer_before_minutes: e.target.value})}
-                    style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Время "после" (мин)</label>
-                  <input 
-                    type="number" 
-                    value={editApptData.buffer_after_minutes} 
-                    onChange={e => setEditApptData({...editApptData, buffer_after_minutes: e.target.value})}
-                    style={{ width: '100%', height: '38px', boxSizing: 'border-box', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  />
-                </div>
-              </div>
+                }}
+                bufferBefore={editApptData.buffer_before_minutes}
+                bufferAfter={editApptData.buffer_after_minutes}
+                onBufferBeforeChange={(e) => setEditApptData({ ...editApptData, buffer_before_minutes: e.target.value })}
+                onBufferAfterChange={(e) => setEditApptData({ ...editApptData, buffer_after_minutes: e.target.value })}
+              />
 
               {/* 👈 Блок напоминаний (Редактирование) */}
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
-                  Напомнить о подготовке:
-                </label>
-                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                  {[1440, 360, 60, 30, 15, 5] .map(min => {
-                    const currentLeads = (editApptData.notification_lead_minutes !== null && editApptData.notification_lead_minutes !== undefined) 
-                        ? editApptData.notification_lead_minutes 
-                        : (defaultLeadMinutes || []);
-                    
-                    const isChecked = currentLeads.includes(min);
-
-                    // 👈 Красивые названия для чекбоксов
-                    const labels = {
-                      1440: 'За 24 часа',
-                      360: 'За 6 часов',
-                      60: 'За 1 час',
-                      30: 'За 30 мин',
-                      15: 'За 15 мин',
-                      5: 'За 5 мин'
-                    };
-
-                    return (
-                      <label key={min} style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', cursor: 'pointer' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked}
-                          onChange={() => {
-                            const newLeads = isChecked 
-                              ? currentLeads.filter(l => l !== min) 
-                              : [...currentLeads, min];
-                            
-                            setEditApptData({ 
-                              ...editApptData, 
-                              notification_lead_minutes: newLeads.length === 0 ? null : newLeads 
-                            });
-                          }}
-                        />
-                        {min === 60 ? 'за 1 час' : `за ${min} мин`}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
+              <RemindersField 
+                value={editApptData.notification_lead_minutes}
+                onChange={(newLeads) => setEditApptData({ ...editApptData, notification_lead_minutes: newLeads })}
+                defaultLeadMinutes={defaultLeadMinutes}
+              />
 
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Статус</label>
