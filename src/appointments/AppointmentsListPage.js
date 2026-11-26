@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import { FaSearch, FaCalendarAlt, FaUser, FaClock, FaChevronLeft, FaChevronRight, FaStickyNote, FaMapMarkerAlt } from 'react-icons/fa';
 import { formatPhone } from '../utils/formatPhone';
 import API_URL from '../config/api';
+import { useAuth } from '../context/AuthContext';
+import { LIST_LABELS, LIST_LABELS_VISITOR } from '../utils/appLogic';
 
 export default function AppointmentsListPage() {
   const [appointments, setAppointments] = useState([]);
@@ -22,6 +24,10 @@ export default function AppointmentsListPage() {
   const limit = 15;
 
   const isMobile = window.innerWidth <= 768;
+
+  const { user } = useAuth(); // 👈 Не забудь импортировать useAuth, если его нет
+  const isVisitorMode = user?.isVisitorMode || false;
+  const labels = isVisitorMode ? LIST_LABELS_VISITOR : LIST_LABELS;
 
   useEffect(() => {
     fetchAppointments();
@@ -120,7 +126,7 @@ export default function AppointmentsListPage() {
        boxSizing: 'border-box'
       }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
-        <h1 className="detail-title" style={{ margin: 0 }}>Все приёмы</h1>
+        <h1 className="detail-title" style={{ margin: 0 }}>{labels.title}  {/*Все приёмы*/} </h1>
         <div style={{ fontSize: '14px', color: '#666' }}>Всего записей: <strong>{total}</strong></div>
       </div>
 
@@ -130,7 +136,7 @@ export default function AppointmentsListPage() {
         <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' }}>
           <input 
             type="text" 
-            placeholder="Поиск по клиенту или услуге..." 
+            placeholder={labels.searchPlaceholder} //* "Поиск по клиенту или услуге..." 
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             style={{ flex: 1, minWidth: '200px', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
@@ -190,7 +196,7 @@ export default function AppointmentsListPage() {
         <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>Загрузка...</div>
       ) : appointments.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#666' }}>
-          Приёмов не найдено.
+          {labels.noResults} {/* Приёмов не найдено. */}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

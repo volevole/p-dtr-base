@@ -6,6 +6,8 @@ import API_URL from '../config/api';
 import { SPECIALIZATION_CONFIG, renderSpecializationField } from './specializationFields';
 import { formatPhone } from '../utils/formatPhone';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
+import { useAuth } from '../context/AuthContext';
+import { DETAIL_LABELS, DETAIL_LABELS_VISITOR } from '../utils/appLogic';
 
 
 export default function AppointmentDetailPage() {
@@ -35,6 +37,10 @@ export default function AppointmentDetailPage() {
   const [specializationData, setSpecializationData] = useState({});
 
   const isMobile = window.innerWidth <= 768;
+
+  const { user } = useAuth();
+  const isVisitorMode = user?.isVisitorMode || false;
+  const labels = isVisitorMode ? DETAIL_LABELS_VISITOR : DETAIL_LABELS;
 
 // Загружаем все приёмы этого клиента для навигации
   useEffect(() => {
@@ -160,7 +166,7 @@ export default function AppointmentDetailPage() {
 
       const data = await res.json();
       if (data.success) {
-        alert('✅ Карточка приёма сохранена');
+        alert('✅ ${labels.title} сохранена');  //Карточка приёма
       } else {
         setError(data.error);
       }
@@ -363,7 +369,7 @@ export default function AppointmentDetailPage() {
       }}>
 
       <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-        <h1 className="detail-title" style={{ margin: 0, display: 'inline-block' }}>Карточка приёма</h1>
+        <h1 className="detail-title" style={{ margin: 0, display: 'inline-block' }}>{labels.title}  {/*Карточка приёма */}</h1>
       </div>
 
       {error && (
@@ -379,9 +385,9 @@ export default function AppointmentDetailPage() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'space-between' }}>
 
             <div>
-              <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px' }}>Клиент</div>
+              <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px' }}>{labels.client} {/*Клиент */}</div>
               <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0d47a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <FaUser /> {appt.client_name || 'Без клиента'}
+                <FaUser /> {appt.client_name || labels.NOclient } {/*'Без клиента'*/} 
               </div>
               {appt.client_phone && <div style={{ fontSize: '13px', color: '#495057' }}>{formatPhone(appt.client_phone)}</div>}
             </div>
@@ -472,28 +478,30 @@ export default function AppointmentDetailPage() {
 
         {/* Медицинские данные */}
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6' }}>
-          <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px', color: '#0d47a1' }}>Карта приёма</h3>
+          <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px', color: '#0d47a1' }}>
+            {labels.sectionInfo} {/* Карта приёма */}
+          </h3>
 
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#0056b3' }}>
-              Жалобы, запросы клиента
+              {labels.complaints} {/*Жалобы, запросы клиента */}
             </label>
             <textarea
               value={chiefComplaint}
               onChange={e => setChiefComplaint(e.target.value)}
-              placeholder="На что жалуется клиент? (боль, ограничение движения и т.д.)"
+              placeholder={labels.complaintsPlaceholder} //"На что жалуется клиент? (боль, ограничение движения и т.д.)"
               style={{ width: '100%', boxSizing: 'border-box', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '80px', fontSize: '14px' }}
             />
           </div>
 
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#0056b3' }}>
-              Общие заметки мастера
+              {labels.notes} {/* Общие заметки мастера */}
             </label>
             <textarea
               value={generalNotes}
               onChange={e => setGeneralNotes(e.target.value)}
-              placeholder="Ход сеанса, результаты тестов, рекомендации..."
+              placeholder={labels.notesPlaceholder} //"Ход сеанса, результаты тестов, рекомендации..."
               style={{ width: '100%', boxSizing: 'border-box', padding: '10px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '120px', fontSize: '14px' }}
             />
           </div>

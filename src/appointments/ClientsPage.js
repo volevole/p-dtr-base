@@ -256,6 +256,20 @@ export default function ClientsPage() {
         }
     };
 
+  const handleCloseClient = () => {
+    const params = new URLSearchParams(window.location.search);
+    const returnToAppt = params.get('returnToAppt');
+    const returnDate = params.get('date');
+
+    if (returnToAppt !== null) {
+      // Возвращаемся в карточку приёма
+      navigate(`/appointments/schedule?date=${returnDate || new Date().toISOString().split('T')[0]}${returnToAppt ? `&openApptId=${returnToAppt}` : ''}`);
+    } else {
+      // Просто закрываем модалку
+      setSelectedClient(null);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Удалить клиента? Все его приёмы останутся в истории, но отвяжутся от карточки.')) return;
     try {
@@ -670,7 +684,7 @@ export default function ClientsPage() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <ButtonWithTooltip 
                     type="button" 
-                    onClick={() => setSelectedClient(null)} 
+                    onClick={handleCloseClient}
                     tooltip="Закрыть без сохранения"
                     style={{ padding: '8px 16px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer' }}
                   >

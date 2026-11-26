@@ -3,11 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FaUser, FaMapMarkerAlt, FaStickyNote, FaTrash, FaTimes, FaSave, FaFileAlt, FaPlus, FaEdit } from 'react-icons/fa';
 import API_URL from '../config/api';
 import { formatPhoneInput, formatPhone } from '../utils/formatPhone';
+import { useAuth } from '../context/AuthContext';
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
-import { LEAD_MINUTES_OPTIONS, getLeadLabel } from '../utils/appLogic';
+import { LEAD_MINUTES_OPTIONS, getLeadLabel, MODAL_LABELS, MODAL_LABELS_VISITOR } from '../utils/appLogic';
+
+
 
 // Компонент поиска клиента
-function ClientSearch({ clients, value, onChange, onAddNew }) {
+function ClientSearch({ clients, value, onChange, onAddNew, addclient }) {
   const [search, setSearch] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
@@ -85,7 +88,7 @@ function ClientSearch({ clients, value, onChange, onAddNew }) {
               onMouseEnter={(e) => e.target.style.backgroundColor = '#d0e8ff'}
               onMouseLeave={(e) => e.target.style.backgroundColor = '#e3f2fd'}
             >
-              <FaPlus /> Добавить {search ? `"${search}"` : 'нового клиента'}
+              <FaPlus /> Добавить {search ? `"${search}"` : `нового  ${addclient}`} {/*//клиента */}
             </div>
           )}
         </div>
@@ -95,10 +98,12 @@ function ClientSearch({ clients, value, onChange, onAddNew }) {
 }
 
 // 👈 Компонент выбора клиента
-const ClientField = ({ clients, value, onChange, onAddNew, isEditMode, selectedApptId, selectedDate, isMobile }) => {
+const ClientField = ({ clients, value, onChange, onAddNew, isEditMode, selectedApptId, selectedDate, isMobile, labels }) => {
   return (
     <div style={{ marginBottom: '15px' }}>
-      <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Клиент</label>
+      <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
+        {labels.client} {/*Клиент */}
+      </label> 
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
         <div style={{ flex: 1 }}>
           <ClientSearch 
@@ -106,6 +111,7 @@ const ClientField = ({ clients, value, onChange, onAddNew, isEditMode, selectedA
             value={value} 
             onChange={onChange} 
             onAddNew={onAddNew}
+            addclient={labels.addclient}
           />
         </div>
         
@@ -113,7 +119,7 @@ const ClientField = ({ clients, value, onChange, onAddNew, isEditMode, selectedA
           isEditMode ? (
             <ButtonWithTooltip 
               to={`/appointments/clients?editClient=${value}&returnToAppt=${selectedApptId}&date=${selectedDate}`}
-              tooltip="Открыть карточку клиента для редактирования"
+              tooltip={`Открыть карточку ${labels.ofclient} для редактирования`}
               style={{ 
                 padding: 0, backgroundColor: '#e3f2fd', color: '#007bff', border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: '34px', height: '34px', margin: 0, boxSizing: 'border-box', flexShrink: 0, overflow: 'hidden'
               }}
@@ -125,13 +131,16 @@ const ClientField = ({ clients, value, onChange, onAddNew, isEditMode, selectedA
           ) : (
             <ButtonWithTooltip 
               type="button"
-              onClick={() => alert('Сначала сохраните запись на приём. После этого вы сможете отредактировать карточку клиента.')}
+              onClick={() => alert(`Сначала сохраните запись на ${labels.editTitle}. После этого вы сможете отредактировать карточку ${labels.ofclient}.`)}
               tooltip="Сначала сохраните запись"
               style={{ 
-                padding: 0, backgroundColor: '#e3f2fd', color: '#007bff', border: '1px solid #90caf9', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed', width: '34px', height: '34px', margin: 0, boxSizing: 'border-box', flexShrink: 0, overflow: 'hidden'
+                padding: 0, backgroundColor: '#e3f2fd', color: '#007bff', border: '1px solid #90caf9', borderRadius: '4px', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed', width: '34px', 
+                height: '34px', margin: 0, boxSizing: 'border-box', flexShrink: 0, overflow: 'hidden'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: 0, margin: 0, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', 
+                padding: 0, margin: 0, flexShrink: 0 }}>
                 <FaEdit size={14} style={{ display: 'block' }} />
               </div>
             </ButtonWithTooltip>
@@ -268,6 +277,10 @@ export default function SchedulePage() {
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const gridRef = useRef(null);
+
+  const { user } = useAuth();
+  const isVisitorMode = user?.isVisitorMode || false;
+  const labels = isVisitorMode ? MODAL_LABELS_VISITOR : MODAL_LABELS;
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -1103,7 +1116,7 @@ export default function SchedulePage() {
             boxSizing: 'border-box',
             paddingBottom: isMobile ? 0 : '20px' // 👈 Убрали лишний отступ снизу на мобилке
           }}>
-            <h3 style={{ marginTop: 0 }}>Новый приём</h3>
+            <h3 style={{ marginTop: 0 }}>{labels.createTitle} {/*Новый приём */}</h3>
             
             {error && (
               <div style={{ color: '#721c24', backgroundColor: '#f8d7da', padding: '10px', borderRadius: '4px', marginBottom: '15px', fontSize: '13px' }}>
@@ -1141,6 +1154,7 @@ export default function SchedulePage() {
                   setQuickClientModal({ isOpen: true, initialName });
                 }}
                 isEditMode={false}
+                labels={labels}
               />
 
               <div style={{ marginBottom: '15px' }}>
@@ -1247,7 +1261,7 @@ export default function SchedulePage() {
             paddingBottom: isMobile ? 0 : '20px' // 👈 Убрали лишний отступ
           }}>
                 <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-                Редактирование записи на приём
+                Редактирование записи на {labels.editTitle} {/* приём */}
                 </h3>
                 
           <form onSubmit={handleUpdateAppointment} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
@@ -1285,6 +1299,7 @@ export default function SchedulePage() {
                 isEditMode={true}
                 selectedApptId={selectedAppt.id}
                 selectedDate={selectedDate}
+                labels={labels}
               />
 
               <div style={{ marginBottom: '15px' }}>
@@ -1357,9 +1372,9 @@ export default function SchedulePage() {
                   {[
                     { value: 'pending', label: 'Ожидает подтверждения', icon: '⏳', color: '#856404', bg: '#fff3cd' },
                     { value: 'scheduled', label: 'Запланировано', icon: '📅', color: '#0056b3', bg: '#e3f2fd' },
-                    { value: 'completed', label: 'Готово - услуга оказана, приём завершён', icon: '✅', color: '#28a745', bg: '#d4edda' },
+                    { value: 'completed', label: `Готово - ${labels.statusCompleted}`, icon: '✅', color: '#28a745', bg: '#d4edda' },
                     { value: 'canceled', label: 'Запись отменена', icon: '❌', color: '#dc3545', bg: '#f8d7da' },
-                    { value: 'no_show', label: 'Клиент не пришёл', icon: '👻', color: '#6c757d', bg: '#e2e3e5' }
+                    { value: 'no_show', label: labels.statusNoShow /*'Клиент не пришёл'*/, icon: '👻', color: '#6c757d', bg: '#e2e3e5' }
                   ].map(s => (
                     <ButtonWithTooltip
                       key={s.value}
@@ -1398,10 +1413,10 @@ export default function SchedulePage() {
                     <ButtonWithTooltip 
                       type="button" 
                       onClick={() => appendClientAddress(true)} 
-                      tooltip="Добавить адрес клиента в текст"
+                      tooltip={`Добавить адрес ${labels.ofclient} в текст`}  /* клиента */
                       style={{ padding: '2px 6px', fontSize: '11px', lineHeight: '1.2', height: 'auto', minHeight: 'auto', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', color: '#007bff', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                      + Адрес клиента
+                       + Адрес {labels.ofclient}  {/*клиента */}
                     </ButtonWithTooltip>
                     <ButtonWithTooltip 
                       type="button" 
@@ -1417,10 +1432,10 @@ export default function SchedulePage() {
                        <ButtonWithTooltip 
                          type="button" 
                          onClick={() => openNavigator(clients.find(c => c.id === editApptData.client_id).address)} 
-                         tooltip="Поехали к клиенту с Яндекс-Навигатором"
+                         tooltip={`Поехали к ${labels.toClient} с Яндекс-Навигатором`} /* клиенту */
                          style={{ padding: '2px 6px', fontSize: '11px', lineHeight: '1.2', height: 'auto', minHeight: 'auto', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', color: '#155724', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                        >
-                         🚗 К клиенту
+                         🚗 К {labels.toClient} {/* клиенту */}
                        </ButtonWithTooltip>
                     )}
                     {editApptData.location_id && locations.find(l => l.id === editApptData.location_id)?.address && (
@@ -1444,7 +1459,9 @@ export default function SchedulePage() {
               </div>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>Общие заметки мастера</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>
+                  {labels.generalNotes}  {/*Общие заметки мастера */}
+                  </label>
                 <textarea 
                   value={editApptData.general_notes} 
                   onChange={e => setEditApptData({...editApptData, general_notes: e.target.value})}
@@ -1460,8 +1477,8 @@ export default function SchedulePage() {
                 <ButtonWithTooltip 
                   type="button" 
                   onClick={handleDeleteAppointment}
-                  tooltip="Удалить запись на приём"
-                  title="Удалить запись на приём"
+                  tooltip={`Удалить запись на ${labels.editTitle}`}
+                  title={`Удалить запись на ${labels.editTitle}`}
                   style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   <FaTrash />
@@ -1471,7 +1488,7 @@ export default function SchedulePage() {
                   {/* Ссылка на полную карточку */}
                   <ButtonWithTooltip 
                     to={`/appointments/${selectedAppt.id}`} // 👈 Передаем путь вместо href
-                    tooltip="Открыть полную карточку приёма"
+                    tooltip={`Открыть полную карточку ${labels.goToCard}`}   /*приёма */
                     style={{ padding: '8px 12px', backgroundColor: '#e3f2fd', color: '#0056b3', 
                         border: 'none', borderRadius: '4px', display: 'flex', 
                         alignItems: 'center', justifyContent: 'center', textDecoration: 'none', 
@@ -1480,14 +1497,14 @@ export default function SchedulePage() {
                         fontSize: '13px'
                     }}
                   >
-                    <FaFileAlt />  В карточку приёма
+                    <FaFileAlt />  В карточку {labels.goToCard}   {/*приёма */}
                   </ButtonWithTooltip>
 
                   <ButtonWithTooltip 
                     type="button" 
                     onClick={() => setSelectedAppt(null)} 
-                    tooltip="Закрыть запись на приём без сохранения"
-                    title="Закрыть запись на приём без сохранения"
+                    tooltip={`Закрыть запись на ${labels.editTitle} без сохранения`}
+                    title={`Закрыть запись на ${labels.editTitle} без сохранения`}
                     style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <FaTimes />
@@ -1495,8 +1512,8 @@ export default function SchedulePage() {
                   
                   <ButtonWithTooltip 
                     type="submit" 
-                    tooltip="Сохранить запись на приём"
-                    title="Сохранить запись на приём"
+                    tooltip={`Сохранить запись на ${labels.editTitle}`}
+                    title={`Сохранить запись на ${labels.editTitle}`}
                     style={{ padding: '8px 12px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <FaSave />
@@ -1512,7 +1529,7 @@ export default function SchedulePage() {
       {quickClientModal.isOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: isMobile ? '10px' : '20px' }}>
           <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', width: '100%', maxWidth: '400px', boxSizing: 'border-box' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Быстрое добавление клиента</h3>
+            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Быстрое добавление {labels.ofclient}</h3>  {/* клиента */}
             
             <form onSubmit={handleQuickAddClient}>
               {/* 👈 НОВАЯ КНОПКА ИМПОРТА из Контактов*/}

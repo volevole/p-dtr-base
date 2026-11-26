@@ -38,3 +38,66 @@ export const MENU_LABELS_VISITOR = {
   schedule: 'Расписание',
   allAppointments: 'События',
 };
+
+// 👈 Константы для страницы "Все приёмы"
+export const LIST_LABELS = {
+  title: 'Все приёмы',
+  searchPlaceholder: 'Поиск по клиенту или услуге...',
+  noResults: 'Приёмов не найдено.',
+};
+
+export const LIST_LABELS_VISITOR = {
+  title: 'Все события',
+  searchPlaceholder: 'Поиск по персоне или услуге...',
+  noResults: 'Событий не найдено.',
+};
+
+// 👈 Константы для страницы "Карточка приёма"
+export const DETAIL_LABELS = {
+  title: 'Карточка приёма',
+  sectionInfo: 'Карта приёма',
+  client: 'Клиент',
+  NOclient: 'Без клиента',
+  complaints: 'Жалобы, запросы клиента',
+  complaintsPlaceholder: 'На что жалуется клиент? (боль, ограничение движения и т.д.)',
+  notes: 'Общие заметки мастера',
+  notesPlaceholder: 'Ход сеанса, результаты тестов, рекомендации...',
+};
+
+export const DETAIL_LABELS_VISITOR = {
+  title: 'Карточка события',
+  sectionInfo: 'О событии',
+  client: 'Персона',
+  NOclient: 'Без персоны',
+  complaints: 'Ожидания и планы',
+  complaintsPlaceholder: 'В программе заявлено:',
+  notes: 'Фактические заметки о событии',
+  notesPlaceholder: 'Что запомнилось... Заметки...',
+};
+
+// 👈 Константы для модальных окон приёма (Создание/Редактирование)
+export const MODAL_LABELS = {
+  createTitle: 'Новый приём',
+  editTitle: 'приём',
+  client: 'Клиент',
+  addclient: 'клиента',
+  ofclient: 'клиента',
+  statusCompleted: 'услуга оказана, приём завершён',
+  statusNoShow: 'Клиент не пришёл',  
+  toClient: 'клиенту',
+  generalNotes: 'Общие заметки мастера',  
+  goToCard: 'приёма',
+};
+
+export const MODAL_LABELS_VISITOR = {
+  createTitle: 'Новое событие',
+  editTitle: 'событие',
+  client: 'Персона',
+  addclient: '',
+  ofclient: 'персоны',
+  statusCompleted: 'событие завершено',
+  statusNoShow: 'Событие не состоялось',  
+  toClient: 'персоне',
+  generalNotes: 'Фактические заметки о событии',  
+  goToCard: 'события',
+};
