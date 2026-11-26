@@ -9,6 +9,7 @@ import {
   FaUserFriends, FaCalendarAlt, FaServer,
   FaImages, FaDatabase, FaSignInAlt, FaLightbulb
 } from 'react-icons/fa';
+import { MENU_LABELS, MENU_LABELS_VISITOR } from './utils/appLogic';
 
 function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
@@ -28,10 +29,20 @@ function Sidebar({ isOpen, onToggle }) {
   // 👈 Здесь мы задаём, кто может видеть медиа и экспорт
   const hasSystemAccess = isAdmin || isAdminContent; 
 
+  // 👈 Функция для проверки, находимся ли мы внутри раздела
+  const isPathActive = (paths) => {
+    return paths.some(p => location.pathname.startsWith(p));
+  };
+
+  // 👈 Вычисляем активность для блока "Настройки и сервис" (исключая Мой профиль)
+  const isSettingsSectionActive = 
+    (location.pathname.startsWith('/settings') && !location.pathname.startsWith('/settings/profile')) || 
+    isPathActive(['/all-media', '/export', '/environment-info', '/admin/users']);
+
   useEffect(() => {
     if (location.pathname.startsWith('/receptor')) setReceptorsOpen(true);
     if (location.pathname === '/' || location.pathname.startsWith('/muscle') || location.pathname.startsWith('/group')) setMusclesOpen(true);
-    if (location.pathname.startsWith('/settings') || location.pathname.startsWith('/all-media') || location.pathname.startsWith('/export') || location.pathname.startsWith('/environment-info') || location.pathname.startsWith('/admin/users')) {
+    if (isSettingsSectionActive) {
       setSettingsOpen(true);
     }
     // 👈 Автооткрытие Базы знаний
@@ -84,22 +95,19 @@ function Sidebar({ isOpen, onToggle }) {
     return '';
   };
 
- // 👈 Функция для проверки, находимся ли мы внутри раздела
-  const isPathActive = (paths) => {
-    return paths.some(p => location.pathname.startsWith(p));
-  };
+ 
 
   const activeEntity = getActiveEntity();
 
-  // 👈 Вычисляем активность для блока "Настройки и сервис" (исключая Мой профиль)
-  const isSettingsSectionActive = 
-    (location.pathname.startsWith('/settings') && !location.pathname.startsWith('/settings/profile')) || 
-    isPathActive(['/all-media', '/export', '/environment-info', '/admin/users']);
+  
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
+
+  const isVisitorMode = user?.isVisitorMode || false; 
+  const labels = isVisitorMode ? MENU_LABELS_VISITOR : MENU_LABELS;
 
   const getMenuItemStyle = (path) => {
     // Если передан путь, проверяем по нему. Если передана строка без слэша (старый вариант), проверяем по activeEntity
@@ -149,7 +157,8 @@ function Sidebar({ isOpen, onToggle }) {
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px', flexShrink: 0 }}>
         <FaBars style={{ marginRight: '15px' }} />
         <h3 className="sidebar-title" style={{ margin: 0, paddingLeft: '30px' }}>
-          Ларчик {hasContentAccess && 'P-DTR'}
+          {/*Ларчик {hasContentAccess && 'P-DTR'} */}
+          {labels.appName}
         </h3>
       </div>
 
@@ -159,24 +168,26 @@ function Sidebar({ isOpen, onToggle }) {
         {hasAppointmentsAccess && (
           <div style={{ marginBottom: '15px' }}>
             <h4 className="sidebar-section-title" style={{ fontSize: '14px', color: '#228b14', marginBottom: '10px' }}>
-              Ведение приёмов
+              {/* Ведение приёмов */}
+              {labels.appointmentsSection}
             </h4>
             <ul style={{ listStyle: 'none', padding: 0 }}>              
               <li style={{ marginBottom: '8px' }}>
                 <Link to="/appointments/clients" className="sidebar-menu-link" style={getMenuItemStyle('appt-clients')}>
-                  <FaUserFriends style={{ marginRight: '8px' }} /> Клиенты
+                  <FaUserFriends style={{ marginRight: '8px' }} /> 
+                   {/* Клиенты */} {labels.clients}
                 </Link>
               </li>              
               <li style={{ marginBottom: '8px' }}>
                 <Link to="/appointments/schedule" className="sidebar-menu-link" style={getMenuItemStyle('appt-schedule')}>
                   <FaCalendarAlt style={{ marginRight: '8px', flexShrink: 0, width: '16px', height: '16px' }} /> 
-                  <span style={{ whiteSpace: 'nowrap' }}>Расписание (Записи)</span>
+                  <span style={{ whiteSpace: 'nowrap' }}> {labels.schedule} {/* Расписание (Записи) */} </span>
                 </Link>
               </li>
               <li style={{ marginBottom: '8px' }}>
                 <Link to="/appointments" className="sidebar-menu-link" style={getMenuItemStyle('appt-list')}>
                   <FaClipboardList style={{ marginRight: '8px', flexShrink: 0 }} /> 
-                  <span style={{ whiteSpace: 'nowrap' }}>Все приёмы</span>
+                  <span style={{ whiteSpace: 'nowrap' }}>{labels.allAppointments} {/* Все приёмы */}</span>
                 </Link>
               </li>
             </ul>
@@ -306,7 +317,7 @@ function Sidebar({ isOpen, onToggle }) {
                 
                 {isAdmin && (
                   <li style={{ marginBottom: '5px' }}>
-                    <Link to="/admin/users" className="sidebar-submenu-link" style={getSubMenuItemStyle('admin-users')}>
+                    <Link to="/admin/users" className="sidebar-submenu-link" style={getSubMenuItemStyle('/admin/users')}>
                       <div style={getSubMenuIndicatorStyle('admin-users')} />
                       <FaUsers style={{ marginRight: '8px', fontSize: '14px' }} />
                       Управление пользователями
@@ -317,19 +328,19 @@ function Sidebar({ isOpen, onToggle }) {
                 {hasSystemAccess && (
                   <>
                     <li style={{ marginBottom: '5px' }}>
-                      <Link to="/all-media" className="sidebar-submenu-link" style={getSubMenuItemStyle('all-media')}>
+                      <Link to="/all-media" className="sidebar-submenu-link" style={getSubMenuItemStyle('/all-media')}>
                         <div style={getSubMenuIndicatorStyle('all-media')} />
                         <FaImages style={{ marginRight: '8px', fontSize: '12px' }} />Все медиа
                       </Link>
                     </li>
                     <li style={{ marginBottom: '5px' }}>
-                      <Link to="/export" className="sidebar-submenu-link" style={getSubMenuItemStyle('export')}>
+                      <Link to="/export" className="sidebar-submenu-link" style={getSubMenuItemStyle('/export')}>
                         <div style={getSubMenuIndicatorStyle('export')} />
                         <FaDatabase style={{ marginRight: '8px', fontSize: '12px' }} />Экспорт данных
                       </Link>
                     </li>
                     <li style={{ marginBottom: '5px' }}>
-                      <Link to="/settings" className="sidebar-submenu-link" style={getSubMenuItemStyle('settings')}>
+                      <Link to="/settings" className="sidebar-submenu-link" style={getSubMenuItemStyle('/settings')}>
                         <div style={getSubMenuIndicatorStyle('settings')} />
                         ⚙️ Настройки
                       </Link>
@@ -338,7 +349,7 @@ function Sidebar({ isOpen, onToggle }) {
                 )}
                 
                 <li style={{ marginBottom: '5px' }}>
-                  <Link to="/environment-info" className="sidebar-submenu-link" style={getSubMenuItemStyle('environment-info')}>
+                  <Link to="/environment-info" className="sidebar-submenu-link" style={getSubMenuItemStyle('/environment-info')}>
                     <div style={getSubMenuIndicatorStyle('environment-info')} />
                     <FaServer style={{ marginRight: '8px', fontSize: '14px' }} />
                     Информация об окружении

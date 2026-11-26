@@ -358,17 +358,36 @@ const registerLimiter = rateLimit({
    * GET /api/auth/me — текущий пользователь
    */
   router.get('/me', requireAuth, async (req, res) => {
-    res.json({
-      success: true,
-      user: {
-        id: req.user.id,
-        phone: req.user.phone,
-        name: req.user.name,
-        email: req.user.email,
-        avatar_url: req.user.avatar_url,
-        roles: req.user.roles,        
-      }
-    });
+    try {
+      const client = await connectDB();
+      
+      // 👈 Получаем специализации пользователя
+      const specsRes = await client.query(
+        'SELECT specialization_code FROM appt_master_specializations WHERE master_id = $1',
+        [req.user.id]
+      );
+      const specs = specsRes.rows.map(r => r.specialization_code);
+      
+      // 👈 Вычисляем режим: если есть только visitor (и больше ничего) или список пуст
+      const isVisitorMode = specs.length === 0 || (specs.length === 1 && specs[0] === 'visitor');
+
+      res.json({
+        success: true,
+        user: {
+          id: req.user.id,
+          phone: req.user.phone,
+          name: req.user.name,
+          email: req.user.email,
+          avatar_url: req.user.avatar_url,
+          roles: req.user.roles,
+          specializations: specs, // 👈 Отдаем массив специализаций
+          isVisitorMode: isVisitorMode // 👈 Отдаем флаг
+        }
+      });
+    } catch (error) {
+      console.error('[ERROR] GET /api/auth/me:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
   
 

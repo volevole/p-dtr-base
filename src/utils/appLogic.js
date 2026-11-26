@@ -20,3 +20,21 @@ export const getLeadLabel = (minutes) => {
 // export const APPOINTMENT_STATUSES = [...];
 // export const ROLES = [...];
 // и т.д.
+
+// 👈 Константы для названий разделов (обычный режим)
+export const MENU_LABELS = {
+  appName: 'Ларчик P-DTR',
+  appointmentsSection: 'Ведение приёмов',
+  clients: 'Клиенты',
+  schedule: 'Расписание (Записи)',
+  allAppointments: 'Все приёмы',
+};
+
+// 👈 Константы для названий разделов (режим событий / visitor)
+export const MENU_LABELS_VISITOR = {
+  appName: 'Ларчик',
+  appointmentsSection: 'Планирование событий',
+  clients: 'Персоналии',
+  schedule: 'Расписание',
+  allAppointments: 'События',
+};
