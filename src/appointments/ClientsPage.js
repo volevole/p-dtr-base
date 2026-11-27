@@ -5,9 +5,15 @@ import { FaPlus, FaSearch, FaEdit, FaTrash, FaEllipsisV, FaUser } from 'react-ic
 import ButtonWithTooltip from '../components/ButtonWithTooltip';
 import { formatPhone, formatPhoneInput } from '../utils/formatPhone';
 import API_URL from '../config/api';
+import { useAuth } from '../context/AuthContext';
+import { MODAL_LABELS, MODAL_LABELS_VISITOR } from '../utils/appLogic';
 
 export default function ClientsPage() {
   const isMobile = window.innerWidth <= 768 ;
+
+  const { user } = useAuth();
+  const isVisitorMode = user?.isVisitorMode || false;
+  const labels = isVisitorMode ? MODAL_LABELS_VISITOR : MODAL_LABELS;
     // 👈 Проверяем, поддерживает ли браузер и устройство Contact Picker API
   const isContactsApiSupported = 'contacts' in navigator && 'ContactsManager' in window;
   const [clients, setClients] = useState([]);
@@ -271,7 +277,7 @@ export default function ClientsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Удалить клиента? Все его приёмы останутся в истории, но отвяжутся от карточки.')) return;
+    if (!window.confirm(`Удалить ${labels.delclient} ? Все его ${labels.Cards} останутся в истории, но отвяжутся от карточки.`)) return;
     try {
       await fetch(`${API_URL}/api/appt/clients/${id}`, { method: 'DELETE', credentials: 'include' });
       setClients(clients.filter(c => c.id !== id));
@@ -290,7 +296,7 @@ export default function ClientsPage() {
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-          <h1 className="detail-title" style={{ margin: 0 }}>Мои клиенты</h1>
+          <h1 className="detail-title" style={{ margin: 0 }}>{labels.myclients}</h1>  {/*Мои клиенты*/}
           <span style={{ 
             backgroundColor: '#e3f2fd', color: '#0056b3', 
             padding: '4px 12px', borderRadius: '16px', 
@@ -304,7 +310,7 @@ export default function ClientsPage() {
           onClick={() => setShowForm(!showForm)}
           style={{ padding: '10px 20px', backgroundColor: showForm ? '#6c757d' : '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
         >
-          {showForm ? 'Отмена' : <><FaPlus /> Добавить клиента</>}
+          {showForm ? 'Отмена' : <><FaPlus /> Добавить {labels.delclient}</>}  {/*клиента*/}
         </button>
       </div>
 
@@ -368,7 +374,7 @@ export default function ClientsPage() {
         <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #dee2e6' }}>
                     {/* Заголовок и кнопка импорта */}
           <div style={{ marginBottom: '15px' }}>
-            <h3 style={{ margin: '0 0 10px 0', textAlign: 'center' }}>Новый клиент</h3>
+            <h3 style={{ margin: '0 0 10px 0', textAlign: 'center' }}>{labels.newclient}</h3>  {/*Новый клиент*/}
             
             
               <ButtonWithTooltip 
@@ -465,7 +471,8 @@ export default function ClientsPage() {
             </div>
 
             <div style={{ gridColumn: '1 / -1', textAlign: 'right', marginTop: '10px' }}>
-              <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Сохранить клиента</button>
+              <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', 
+                borderRadius: '4px', cursor: 'pointer' }}>Сохранить {labels.delclient}</button>  {/* клиента */}
             </div>
           </form>
         </div>
@@ -488,7 +495,7 @@ export default function ClientsPage() {
         <div>Загрузка...</div>
       ) : !error && clients.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#666' }}>
-          У вас пока нет клиентов.
+          У вас пока нет {labels.noclient}.  {/* клиентов */}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '10px' }}>
@@ -530,7 +537,7 @@ export default function ClientsPage() {
             boxSizing: 'border-box'
           }}>
             <h3 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
-              Карточка клиента
+              Карточка {labels.ofclient}  {/* клиента */}
             </h3>
             
             <form onSubmit={handleSaveClient} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
@@ -609,7 +616,8 @@ export default function ClientsPage() {
 
                   <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <input type="checkbox" id="isActive" checked={editClientData.is_active} onChange={e => setEditClientData({...editClientData, is_active: e.target.checked})} style={{ width: '18px', height: '18px' }} />
-                    <label htmlFor="isActive" style={{ fontSize: '14px', fontWeight: 'bold', color: '#0056b3', cursor: 'pointer' }}>Активный клиент</label>
+                    <label htmlFor="isActive" style={{ fontSize: '14px', fontWeight: 'bold', color: '#0056b3', 
+                      cursor: 'pointer' }}>{labels.activelient}</label>  {/* Активный клиент */}
                   </div>
 
                 </div>
@@ -622,8 +630,8 @@ export default function ClientsPage() {
                 <div>
                   <ButtonWithTooltip 
                     type="button" 
-                    onClick={() => { if(window.confirm('Удалить клиента?')) handleDelete(selectedClient.id); }}
-                    tooltip="Удалить клиента"
+                    onClick={() => { if(window.confirm(`Удалить ${labels.delclient} ?`)) handleDelete(selectedClient.id); }}
+                    tooltip={`Удалить ${labels.delclient}`}
                     style={{ padding: '8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                   >
                     <FaTrash />
@@ -653,13 +661,13 @@ export default function ClientsPage() {
                             if (clientAppts.length > 0) {
                               navigate(`/appointments/${clientAppts[0].id}`);
                             } else {
-                              alert('У этого клиента ещё нет приёмов');
+                              alert(`${labels.noevent}`);  {/* 'У этого клиента ещё нет приёмов'*/}
                             }
                             setIsClientMenuOpen(false);
                           }}
                           style={{ padding: '10px 15px', border: 'none', background: 'transparent', width: '100%', textAlign: 'left', cursor: 'pointer', borderBottom: '1px solid #eee', fontSize: '14px' }}
                         >
-                          ⏮️ Открыть первый приём
+                          ⏮️ Открыть {labels.first}   {/* первый приём*/}
                         </button>
 
                         <button 
@@ -667,13 +675,13 @@ export default function ClientsPage() {
                             if (clientAppts.length > 0) {
                               navigate(`/appointments/${clientAppts[clientAppts.length - 1].id}`);
                             } else {
-                              alert('У этого клиента ещё нет приёмов');
+                              alert(`${labels.noevent}`);  {/* 'У этого клиента ещё нет приёмов'*/}
                             }
                             setIsClientMenuOpen(false);
                           }}
                           style={{ padding: '10px 15px', border: 'none', background: 'transparent', width: '100%', textAlign: 'left', cursor: 'pointer', fontSize: '14px' }}
                         >
-                          ⏭️ Открыть последний приём
+                          ⏭️ Открыть  {labels.last}   {/* последний приём */}
                         </button>
                       </div>
                     </>

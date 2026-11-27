@@ -26,7 +26,10 @@ function EnvironmentInfoPage() {
   const [serverIp, setServerIp] = useState('Загрузка...');
   const [serverGeo, setServerGeo] = useState(null);
 
-  useEffect(() => {
+    useEffect(() => {
+    // 👈 Принудительно скроллим в начало при открытии страницы
+    window.scrollTo(0, 0);
+    
     // Получаем IP клиента и его гео
     const fetchIpData = async () => {
       const ip = await getClientIp();
@@ -38,6 +41,8 @@ function EnvironmentInfoPage() {
       }
     };
     fetchIpData();
+    
+  
 
         // Получаем IP сервера и его гео
     const fetchServerIp = async () => {
@@ -212,7 +217,7 @@ function EnvironmentInfoPage() {
       </div>
 
       <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: isMobile ? '20px' : '32px' }}>
-        <FaTerminal />
+        <FaServer />
         Информация об окружении
       </h1>
 

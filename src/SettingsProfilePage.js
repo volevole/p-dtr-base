@@ -5,10 +5,10 @@ import { FaUserShield, FaBriefcaseMedical, FaCamera, FaEdit, FaTrash, FaPlus, Fa
 
 import { formatPhone } from './utils/formatPhone';
 import API_URL from './config/api';
-import { LEAD_MINUTES_OPTIONS, getLeadLabel } from './utils/appLogic';
+import { LEAD_MINUTES_OPTIONS, getLeadLabel, MODAL_LABELS, MODAL_LABELS_VISITOR } from './utils/appLogic';
 
-export default function SettingsProfilePage() {
-  const { user } = useAuth();
+export default function SettingsProfilePage() {  
+  const { user, checkAuth } = useAuth();
   
   // 👈 Проверяем доступ к приёмам (admin_content сюда НЕ входит)
   const hasAppointmentsAccess = user?.roles?.some(r => 
@@ -105,7 +105,9 @@ export default function SettingsProfilePage() {
     fetchProfileData();
   }, [activeTab]); // 👈 Следим за сменой вкладки
 
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = window.innerWidth <= 768;  
+  const isVisitorMode = user?.isVisitorMode || false;
+  const labels = isVisitorMode ? MODAL_LABELS_VISITOR : MODAL_LABELS;
 
    const fetchAppointmentData = async () => {
     try {
@@ -246,7 +248,7 @@ export default function SettingsProfilePage() {
     setSelectedSpecs(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
   };
 
-  const handleSaveSpecs = async () => {
+   const handleSaveSpecs = async () => {
     setSpecsSaving(true);
     try {
       await fetch(`${API_URL}/api/appt/my-specializations`, {
@@ -255,7 +257,14 @@ export default function SettingsProfilePage() {
         credentials: 'include',
         body: JSON.stringify({ codes: selectedSpecs })
       });
+      
       setMessage({ type: 'success', text: '✅ Специализации сохранены' });
+      
+      // 👈 Обновляем контекст (пользователя), чтобы пересчитался isVisitorMode
+      if (checkAuth) {
+        await checkAuth();
+      }
+      
     } catch (err) {
       setMessage({ type: 'error', text: 'Ошибка: ' + err.message });
     } finally {
@@ -732,7 +741,7 @@ const getOS = (ua) => {
         {hasAppointmentsAccess && (
           <>
           <button style={{ ...tabStyle(activeTab === 'appointments'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('appointments')}>
-            <FaBriefcaseMedical /> Настройки приёмов
+            <FaBriefcaseMedical /> Настройки {labels.setCard} {/* приёмов */}
           </button>
           <button style={{ ...tabStyle(activeTab === 'notifications'), flex: isMobile ? '1 1 100%' : '0 0 auto', justifyContent: 'center' }} onClick={() => setActiveTab('notifications')}>
             <FaBell /> Уведомления
@@ -967,7 +976,7 @@ const getOS = (ua) => {
 
         {/* 3. Места приёма */}
           <div ref={locationFormRef} style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', scrollMarginTop: '80px' }}>
-            <h3 style={{ marginTop: 0 }}>{editingLocationId ? 'Редактирование места' : 'Места приёма'}</h3>
+            <h3 style={{ marginTop: 0 }}>{editingLocationId ? 'Редактирование места' : `Места ${labels.goToCard}`}</h3>  {/* 'Места приёма' */}
             
             <form onSubmit={handleLocationSubmit} style={{ 
               display: 'flex', 
@@ -1005,18 +1014,20 @@ const getOS = (ua) => {
                 />
               </div>
 
-              <div style={{ width: '130px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Время "до" (мин)</label>
-                <input type="number" placeholder="0" value={newLocation.buffer_before_minutes} onChange={e => setNewLocation({...newLocation, buffer_before_minutes: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
+              {/* 👈 Блок с двумя инпутами */}
+              <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '280px', marginBottom: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Время "до" (мин)</label>
+                  <input type="number" placeholder="0" value={newLocation.buffer_before_minutes} onChange={e => setNewLocation({...newLocation, buffer_before_minutes: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Время "после" (мин)</label>
+                  <input type="number" placeholder="0" value={newLocation.buffer_after_minutes} onChange={e => setNewLocation({...newLocation, buffer_after_minutes: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', boxSizing: 'border-box' }} />
+                </div>
               </div>
 
-              <div style={{ width: '130px' }}>
-                <label style={{ display: 'block', fontSize: '13px', color: '#495057', marginBottom: '5px' }}>Время "после" (мин)</label>
-                <input type="number" placeholder="0" value={newLocation.buffer_after_minutes} onChange={e => setNewLocation({...newLocation, buffer_after_minutes: e.target.value})} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} />
-              </div>
-
-              {/* 👈 БЛОК С КНОПКАМИ */}
-              <div style={{ display: 'flex', gap: '10px' }}>
+              {/* 👈 Блок с кнопками */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
                 <button type="submit" style={{ padding: '9px 16px', backgroundColor: editingLocationId ? '#28a745' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '38px' }}>
                   {editingLocationId ? <><FaSave /> Сохранить</> : <><FaPlus /> Добавить</>}
                 </button>
@@ -1057,7 +1068,7 @@ const getOS = (ua) => {
               color: '#0c5460',
               lineHeight: '1.5'
             }}>
-              💡 <strong>Время «до» и «после»</strong> — это требуемое дополнительное время перед приёмом и после него. 
+              💡 <strong>Время «до» и «после»</strong> — это требуемое дополнительное время, например, на дорогу или на подготовку перед {labels.before} и после него. 
               Вместе с длительностью услуги оно занимает место в сетке календаря. Это важно для точности планирования ваших записей и предотвращения накладок.
             </div>
           </div>
@@ -1070,9 +1081,9 @@ const getOS = (ua) => {
           
           {/* 👈 Блок настроек напоминаний */}
           <div style={{ padding: '20px', border: '1px solid #dee2e6', borderRadius: '8px', marginBottom: '20px', marginTop: '20px' }}>
-            <h3 style={{ marginTop: 0 }}>Напоминания о приёмах</h3>
+            <h3 style={{ marginTop: 0 }}>Напоминания о {labels.aboutevents}</h3>  {/* о приёмах */}
             <p style={{ fontSize: '14px', color: '#666' }}>
-              По умолчанию эти напоминания будут применяться ко всем вашим приёмам. В конкретном приёме вы сможете изменить их.
+              По умолчанию эти напоминания будут применяться ко всем вашим {labels.toevents}. В конкретном {labels.ofevents} вы сможете изменить их.
             </p>
             
             {settingsMessage && (
@@ -1172,7 +1183,7 @@ const getOS = (ua) => {
               {profileInfo.max_linked_at && (
                 ` (${new Date(profileInfo.max_linked_at).toLocaleDateString('ru-RU')} в ${new Date(profileInfo.max_linked_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })})`
               )}
-              {' '}— напоминания о приёмах приходят в ваш MAX{' '}
+              {' '}— напоминания о {labels.aboutevents} приходят в ваш MAX{' '}
               ({profileInfo.max_display_name || `id: ${profileInfo.max_user_id}`})
               <div style={{ marginTop: '10px' }}>
                 <button onClick={handleUnlinkMax} style={{ padding: '6px 12px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
@@ -1207,7 +1218,7 @@ const getOS = (ua) => {
           ) : (
             <div>
               <div style={{ fontSize: '13px', color: '#666', marginBottom: '10px' }}>
-                Привяжите бота — и напоминания о приёмах будут приходить в MAX за час до подготовки.
+                Привяжите бота — и напоминания о {labels.aboutevents} будут приходить в MAX за указанное время до подготовки.
               </div>
               <button onClick={handleGenerateMaxCode} disabled={maxCodeLoading} style={{ padding: '10px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
                 {maxCodeLoading ? 'Генерируем…' : 'Привязать MAX'}
